@@ -1,0 +1,29 @@
+name: amadan_world
+description: Amadan World - a landscape battlefield shooter built with Flutter and Flame.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.18.0
+  flame_audio: ^2.10.0
+  audioplayers: ^6.0.0
+  shared_preferences: ^2.2.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/sprites/
+    - assets/backgrounds/
+    - assets/weapons/
+    - assets/characters/
+    - assets/enemies/
+    - assets/effects/
+    - assets/audio/
+    - assets/maps/
+    - assets/ui/

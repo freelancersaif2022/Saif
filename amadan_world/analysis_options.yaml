@@ -1,0 +1,5 @@
+analyzer:
+  exclude:
+    - build/**
+  language:
+    strict-casts: false
