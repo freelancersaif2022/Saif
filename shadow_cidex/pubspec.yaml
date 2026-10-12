@@ -1,0 +1,40 @@
+name: shadowcidex
+description: "Shadow Cidex - a cinematic 2.5D shadow action combat game built with Flutter and Flame."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.18.0
+  flame_audio: ^2.10.0
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/audio/
+
+  fonts:
+    - family: Orbitron
+      fonts:
+        - asset: assets/fonts/Orbitron_700Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Orbitron_900Black.ttf
+          weight: 900
+    - family: Rajdhani
+      fonts:
+        - asset: assets/fonts/Rajdhani_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Rajdhani_700Bold.ttf
+          weight: 700
