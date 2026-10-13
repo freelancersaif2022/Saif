@@ -107,6 +107,10 @@ class SystemChannel(
                     .setData(Uri.fromParts("package", context.packageName, null))
                 result.success(start(intent))
             }
+            "appSupportDir" -> {
+                val dir = File(context.filesDir, "browser").apply { mkdirs() }
+                result.success(dir.absolutePath)
+            }
             "appDownloadsDir" -> {
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
                     ?: File(context.filesDir, "downloads")

@@ -129,7 +129,11 @@ class BrowserEngine(
                 val tab = tabs[id] ?: BrowserTab(id, call.argument<Boolean>("incognito") == true, this)
                     .also { tabs[id] = it }
                 call.argument<Boolean>("desktopMode")?.let { tab.setDesktopMode(it, reload = false) }
-                call.argument<String>("url")?.let { tab.loadUrl(it) }
+                call.argument<String>("url")?.let {
+                    tab.loadUrl(it)
+                    // Background tabs start loading right away, like a desktop browser.
+                    tab.obtainWebView()
+                }
                 result.success(null)
             }
             "disposeTab" -> {
@@ -329,7 +333,7 @@ class BrowserEngine(
             if (view != null) {
                 view.clearCache(true)
             } else {
-                val temp = WebView(context)
+                val temp = WebView(host.context)
                 temp.clearCache(true)
                 temp.destroy()
             }

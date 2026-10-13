@@ -51,6 +51,8 @@ abstract class SystemBridge {
   Future<bool> shareText(String text, {String? subject});
   Future<bool> openAppSettings();
 
+  /// Private app directory for the tab session file.
+  Future<String> appSupportDir();
   Future<String> appDownloadsDir();
   Future<int> enqueueDownload({
     required String url,
@@ -116,6 +118,9 @@ class MethodChannelSystemBridge implements SystemBridge {
 
   @override
   Future<bool> openAppSettings() async => await _channel.invokeMethod<bool>('openAppSettings') ?? false;
+
+  @override
+  Future<String> appSupportDir() async => (await _channel.invokeMethod<String>('appSupportDir'))!;
 
   @override
   Future<String> appDownloadsDir() async => (await _channel.invokeMethod<String>('appDownloadsDir'))!;

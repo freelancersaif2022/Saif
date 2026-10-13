@@ -270,6 +270,13 @@ void main() {
     h.engine.emit(id, 'sslError', {'url': 'https://bad-cert.example/', 'primaryError': 3});
     expect(h.container.read(tabsProvider).active!.error!.kind, PageErrorKind.ssl);
 
+    // "Back to safety" shows the page the WebView still has; it must not go back in history.
+    h.engine.committed[id] = 'https://previous.example/';
+    await tabs.dismissError(id);
+    expect(h.container.read(tabsProvider).active!.error, isNull);
+    expect(h.container.read(tabsProvider).active!.url, 'https://previous.example/');
+    expect(h.engine.calls.where((c) => c.startsWith('goBack')), isEmpty);
+
     h.engine.emit(id, 'insecureNavigation', {'url': 'http://plain.example/'});
     expect(h.container.read(tabsProvider).active!.error!.kind, PageErrorKind.insecure);
     await tabs.proceedInsecure(id);

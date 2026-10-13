@@ -73,6 +73,12 @@ class FakeBrowserEngine implements BrowserEngine {
     loaded[tabId] = url;
   }
 
+  /// What the fake WebView currently shows, per tab.
+  final Map<String, String> committed = {};
+
+  @override
+  Future<String?> currentUrl(String tabId) async => committed[tabId];
+
   @override
   Future<void> goBack(String tabId) async => calls.add('goBack:$tabId');
 
@@ -218,6 +224,9 @@ class FakeSystemBridge implements SystemBridge {
 
   @override
   Future<bool> openAppSettings() async => true;
+
+  @override
+  Future<String> appSupportDir() async => downloadsDir;
 
   @override
   Future<String> appDownloadsDir() async => downloadsDir;

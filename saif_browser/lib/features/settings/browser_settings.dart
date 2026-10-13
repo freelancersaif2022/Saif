@@ -33,7 +33,6 @@ class BrowserSettings {
     this.askBeforeDownload = true,
     this.downloadLocation = DownloadLocation.downloads,
     this.openWhenComplete = false,
-    this.offerToSavePasswords = true,
     this.requireAuthForPasswords = true,
   });
 
@@ -60,7 +59,6 @@ class BrowserSettings {
   final bool askBeforeDownload;
   final DownloadLocation downloadLocation;
   final bool openWhenComplete;
-  final bool offerToSavePasswords;
   final bool requireAuthForPasswords;
 
   SearchEngine get engine => SearchEngine.resolve(searchEngine, customTemplate: customSearchTemplate);
@@ -87,7 +85,6 @@ class BrowserSettings {
     bool? askBeforeDownload,
     DownloadLocation? downloadLocation,
     bool? openWhenComplete,
-    bool? offerToSavePasswords,
     bool? requireAuthForPasswords,
   }) {
     return BrowserSettings(
@@ -112,7 +109,6 @@ class BrowserSettings {
       askBeforeDownload: askBeforeDownload ?? this.askBeforeDownload,
       downloadLocation: downloadLocation ?? this.downloadLocation,
       openWhenComplete: openWhenComplete ?? this.openWhenComplete,
-      offerToSavePasswords: offerToSavePasswords ?? this.offerToSavePasswords,
       requireAuthForPasswords: requireAuthForPasswords ?? this.requireAuthForPasswords,
     );
   }
@@ -139,7 +135,6 @@ class BrowserSettings {
     'askBeforeDownload': askBeforeDownload,
     'downloadLocation': downloadLocation.name,
     'openWhenComplete': openWhenComplete,
-    'offerToSavePasswords': offerToSavePasswords,
     'requireAuthForPasswords': requireAuthForPasswords,
   };
 
@@ -181,7 +176,6 @@ class BrowserSettings {
       askBeforeDownload: pick('askBeforeDownload', d.askBeforeDownload),
       downloadLocation: pickEnum(DownloadLocation.values, 'downloadLocation', d.downloadLocation),
       openWhenComplete: pick('openWhenComplete', d.openWhenComplete),
-      offerToSavePasswords: pick('offerToSavePasswords', d.offerToSavePasswords),
       requireAuthForPasswords: pick('requireAuthForPasswords', d.requireAuthForPasswords),
     );
   }

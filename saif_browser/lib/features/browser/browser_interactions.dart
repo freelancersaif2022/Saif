@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
@@ -61,6 +62,8 @@ class _BrowserInteractionHostState extends ConsumerState<BrowserInteractionHost>
         _onExternalApp(e);
       case 'popupBlocked':
         showMessage(context, 'Pop-up blocked');
+      case 'contextMenu':
+        _onContextMenu(e);
     }
   }
 
@@ -125,6 +128,122 @@ class _BrowserInteractionHostState extends ConsumerState<BrowserInteractionHost>
       );
     } on DownloadStartException catch (error) {
       if (mounted) showMessage(context, error.message);
+    }
+  }
+
+  // ------------------------------------------------------------ long press
+
+  Future<void> _onContextMenu(EngineEvent e) async {
+    final link = e.str('linkUrl');
+    final image = e.str('imageUrl');
+    final tab = ref.read(tabsProvider).byId(e.tabId);
+    if (tab == null || (link == null && image == null)) return;
+    final tabs = ref.read(tabsProvider.notifier);
+    final webLink = link != null && UrlResolver.isWebUrl(link) ? link : null;
+    final webImage = image != null && (UrlResolver.isWebUrl(image) || image.startsWith('data:image/')) ? image : null;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        void run(VoidCallback action) {
+          Navigator.pop(sheetContext);
+          action();
+        }
+
+        final heading = link ?? image!;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  heading.startsWith('data:') ? 'Image' : heading,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: sheetContext.palette.textSecondary),
+                ),
+              ),
+              if (webLink != null) ...[
+                ListTile(
+                  leading: const Icon(Icons.open_in_new_rounded),
+                  title: Text(tab.incognito ? 'Open in new private tab' : 'Open in new tab'),
+                  onTap: () =>
+                      run(() => tabs.newTab(url: webLink, incognito: tab.incognito, activate: false, afterId: tab.id)),
+                ),
+                if (!tab.incognito)
+                  ListTile(
+                    leading: const Icon(Icons.visibility_off_outlined),
+                    title: const Text('Open in private tab'),
+                    onTap: () => run(() => tabs.newTab(url: webLink, incognito: true)),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.link_rounded),
+                  title: const Text('Copy link address'),
+                  onTap: () => run(() {
+                    Clipboard.setData(ClipboardData(text: webLink));
+                    showMessage(context, 'Link copied');
+                  }),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Share link'),
+                  onTap: () => run(() => ref.read(systemBridgeProvider).shareText(webLink)),
+                ),
+              ],
+              if (webImage != null) ...[
+                if (UrlResolver.isWebUrl(webImage))
+                  ListTile(
+                    leading: const Icon(Icons.image_outlined),
+                    title: const Text('Open image in new tab'),
+                    onTap: () => run(() => tabs.newTab(url: webImage, incognito: tab.incognito, afterId: tab.id)),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.download_rounded),
+                  title: const Text('Download image'),
+                  onTap: () => run(() => _downloadImage(e.tabId, webImage, tab.incognito, tab.url)),
+                ),
+                if (UrlResolver.isWebUrl(webImage))
+                  ListTile(
+                    leading: const Icon(Icons.copy_rounded),
+                    title: const Text('Copy image address'),
+                    onTap: () => run(() {
+                      Clipboard.setData(ClipboardData(text: webImage));
+                      showMessage(context, 'Image address copied');
+                    }),
+                  ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _downloadImage(String tabId, String url, bool incognito, String pageUrl) async {
+    final mime = url.startsWith('data:') ? UriData.parse(url).mimeType : null;
+    try {
+      await ref
+          .read(downloadsProvider.notifier)
+          .start(
+            DownloadRequest(
+              url: url,
+              fileName: FileNames.guess(url, null, mime ?? 'image/jpeg'),
+              mimeType: mime,
+              referer: pageUrl,
+              userAgent: ref.read(engineSettingsProvider).mobileUserAgent,
+              incognito: incognito,
+              tabId: tabId,
+            ),
+          );
+      if (mounted) showMessage(context, 'Downloading image');
+    } on DownloadStartException catch (error) {
+      if (mounted) showMessage(context, error.message);
+    } on FormatException {
+      if (mounted) showMessage(context, 'This image can’t be saved');
     }
   }
 

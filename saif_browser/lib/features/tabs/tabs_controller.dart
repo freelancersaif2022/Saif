@@ -640,15 +640,7 @@ class TabsController extends Notifier<TabsState> {
         );
       case 'insecureNavigation':
         final url = e.str('url') ?? tab.url;
-        _update(
-          tab.id,
-          (t) => t.copyWith(
-            url: url,
-            showNtp: false,
-            isLoading: false,
-            error: PageError(kind: PageErrorKind.insecure, url: url),
-          ),
-        );
+        _setError(tab.id, PageError(kind: PageErrorKind.insecure, url: url));
       case 'rendererGone':
         final crashed = e.flag('crashed');
         _live.remove(tab.id);
@@ -678,7 +670,25 @@ class TabsController extends Notifier<TabsState> {
   }
 
   void _setError(String id, PageError error) {
-    _update(id, (t) => t.copyWith(error: error, isLoading: false, progress: 1, showNtp: false));
+    _update(id, (t) => t.copyWith(error: error, url: error.url, isLoading: false, progress: 1, showNtp: false));
+  }
+
+  /// Leaves a blocked navigation (certificate error or insecure-site
+  /// warning) and shows whatever the WebView still displays. The WebView
+  /// never committed the blocked page, so this must not go back in history.
+  Future<void> dismissError(String id) async {
+    final tab = state.byId(id);
+    if (tab == null) return;
+    final current = tab.nativeCreated ? await _engine.currentUrl(id) : null;
+    if (UrlResolver.isWebUrl(current)) {
+      _update(id, (t) => t.copyWith(url: current, clearError: true, isLoading: false), persist: true);
+      return;
+    }
+    if (tab.parentId != null) {
+      await close(id);
+    } else {
+      showNewTabPage(id);
+    }
   }
 
   void _recordVisit(BrowserTab tab, String url, String title) {

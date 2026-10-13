@@ -18,6 +18,9 @@ abstract class BrowserEngine {
   Future<void> setTabVisible(String tabId, bool visible);
 
   Future<void> loadUrl(String tabId, String url);
+
+  /// URL the WebView currently shows (null when nothing is committed).
+  Future<String?> currentUrl(String tabId);
   Future<void> goBack(String tabId);
   Future<void> goForward(String tabId);
   Future<void> reload(String tabId);
@@ -108,6 +111,12 @@ class MethodChannelBrowserEngine implements BrowserEngine {
 
   @override
   Future<void> loadUrl(String tabId, String url) => _invoke('loadUrl', {'tabId': tabId, 'url': url});
+
+  @override
+  Future<String?> currentUrl(String tabId) async {
+    final state = await _invoke<Map<Object?, Object?>>('navigationState', {'tabId': tabId});
+    return state?['url'] as String?;
+  }
 
   @override
   Future<void> goBack(String tabId) => _invoke('goBack', {'tabId': tabId});

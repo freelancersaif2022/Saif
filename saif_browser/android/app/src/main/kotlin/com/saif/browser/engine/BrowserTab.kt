@@ -89,8 +89,9 @@ class BrowserTab(
     }
 
     private fun createWebView(): WebView {
-        val context = engine.context
-        val view = WebView(context)
+        // An Activity context is required for <select> popups, JS dialogs,
+        // autofill and full-screen video.
+        val view = WebView(engine.host.context)
         if (incognito) engine.profiles.attachIncognitoProfile(view)
         view.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -139,6 +140,7 @@ class BrowserTab(
                 ),
             )
         }
+        view.setOnLongClickListener { emitContextMenu(view) }
         view.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
             engine.emit(
                 id,
@@ -169,8 +171,9 @@ class BrowserTab(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ws.safeBrowsingEnabled = settings.safeBrowsing
         }
-        engine.profiles.cookieManagerFor(view, incognito)
-            .setAcceptThirdPartyCookies(view, settings.acceptCookies && settings.thirdPartyCookies)
+        val cookies = engine.profiles.cookieManagerFor(view, incognito)
+        cookies.setAcceptCookie(settings.acceptCookies)
+        cookies.setAcceptThirdPartyCookies(view, settings.acceptCookies && settings.thirdPartyCookies)
     }
 
     fun setDesktopMode(enabled: Boolean, reload: Boolean) {
@@ -217,11 +220,48 @@ class BrowserTab(
         view.stopLoading()
         view.setDownloadListener(null)
         view.setFindListener(null)
+        view.setOnLongClickListener(null)
         view.webChromeClient = null
         view.loadUrl("about:blank")
         view.onPause()
         view.removeAllViews()
         view.destroy()
+    }
+
+    /**
+     * Long-press on a link or image opens the browser's context menu. Other
+     * long-presses fall through to WebView (text selection, copy/paste).
+     */
+    private fun emitContextMenu(view: WebView): Boolean {
+        val hit = view.hitTestResult
+        val extra = hit.extra ?: return false
+        if (extra.startsWith("data:") && extra.length > 4096) return false
+        return when (hit.type) {
+            WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                engine.emit(id, "contextMenu", mapOf("linkUrl" to extra))
+                true
+            }
+            WebView.HitTestResult.IMAGE_TYPE -> {
+                engine.emit(id, "contextMenu", mapOf("imageUrl" to extra))
+                true
+            }
+            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                // The link target of an image link comes back asynchronously.
+                val message = linkHandler.obtainMessage()
+                message.obj = extra
+                view.requestFocusNodeHref(message)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private val linkHandler = object : android.os.Handler(android.os.Looper.getMainLooper()) {
+        override fun handleMessage(msg: Message) {
+            val imageUrl = msg.obj as? String
+            val linkUrl = msg.data?.getString("url")?.takeIf { it.isNotEmpty() }
+            engine.emit(id, "contextMenu", mapOf("linkUrl" to linkUrl, "imageUrl" to imageUrl))
+        }
     }
 
     fun navigationState(): Map<String, Any?> {

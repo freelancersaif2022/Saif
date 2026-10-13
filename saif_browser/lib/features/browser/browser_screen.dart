@@ -12,6 +12,7 @@ import '../proxy/proxy_screen.dart';
 import '../settings/browser_settings.dart';
 import '../settings/settings_controller.dart';
 import '../tabs/browser_tab.dart';
+import '../tabs/page_error.dart';
 import '../tabs/tab_overview_screen.dart';
 import '../tabs/tabs_controller.dart';
 import 'browser_interactions.dart';
@@ -27,7 +28,7 @@ import 'widgets/page_error_view.dart';
 import 'widgets/page_progress_bar.dart';
 
 /// Whether [url] is bookmarked; refreshed when bookmarks change.
-final isBookmarkedProvider = FutureProvider.family<bool, String>((ref, url) async {
+final isBookmarkedProvider = FutureProvider.autoDispose.family<bool, String>((ref, url) async {
   ref.watch(dataRevisionProvider);
   if (!UrlResolver.isWebUrl(url)) return false;
   return await ref.read(bookmarkRepositoryProvider).findByUrl(url) != null;
@@ -237,6 +238,11 @@ class _PageArea extends ConsumerWidget {
             canGoBack: tab.canGoBack,
             onRetry: () => tabs.retry(tab.id),
             onBack: () async {
+              final kind = error.kind;
+              if (kind == PageErrorKind.ssl || kind == PageErrorKind.insecure) {
+                await tabs.dismissError(tab.id);
+                return;
+              }
               final handled = await tabs.handleBack();
               if (!handled) await tabs.close(tab.id);
             },
