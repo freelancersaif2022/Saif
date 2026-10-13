@@ -1,0 +1,64 @@
+name: Saif Browser APK
+
+on:
+  push:
+    paths:
+      - 'saif_browser/**'
+      - '.github/workflows/saif-browser-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: saif_browser
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Kotlin unit tests
+        working-directory: saif_browser/android
+        run: ./gradlew :app:testReleaseUnitTest --no-daemon
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/saif-browser-${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saif-browser-apk
+          path: saif_browser/build/saif-browser-${{ github.run_number }}.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: saif-browser-build-${{ github.run_number }}
+          name: Saif Browser build ${{ github.run_number }}
+          prerelease: true
+          body: Release APK built from ${{ github.sha }} (signed with the debug key; add android/key.properties for your own key).
+          files: saif_browser/build/saif-browser-${{ github.run_number }}.apk
