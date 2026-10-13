@@ -31,12 +31,16 @@ jobs:
       - run: flutter test
       - name: Build release APK (signed with debug key, installable)
         run: flutter build apk --release
+      - name: Build per-ABI release APKs (smaller downloads)
+        run: flutter build apk --release --split-per-abi
       - name: Build debug APK
         run: flutter build apk --debug
       - name: Collect APKs
         run: |
           mkdir -p ../out
           cp build/app/outputs/flutter-apk/app-release.apk ../out/DragonLand-release.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../out/DragonLand-arm64-release.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../out/DragonLand-armv7-release.apk
           cp build/app/outputs/flutter-apk/app-debug.apk ../out/DragonLand-debug.apk
           ls -la ../out
       - uses: actions/upload-artifact@v4
@@ -48,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="dragon-land-build-${{ github.run_number }}"
-          gh release create "$TAG" ../out/DragonLand-release.apk ../out/DragonLand-debug.apk \
+          gh release create "$TAG" ../out/*.apk \
             --target "${{ github.sha }}" --prerelease \
             --title "Dragon Land APK (build ${{ github.run_number }})" \
-            --notes "Install DragonLand-release.apk on an Android phone (allow installs from unknown sources). The debug APK is larger and slower; it is for development."
+            --notes "Install DragonLand-release.apk (works on every phone) or the smaller DragonLand-arm64-release.apk (most phones from 2017 onward) on an Android phone (allow installs from unknown sources). The debug APK is larger and slower; it is for development."
