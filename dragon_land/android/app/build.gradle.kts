@@ -34,6 +34,12 @@ android {
     buildTypes {
         release {
             manifestPlaceholders["admobAppId"] = admobReleaseAppId
+            // Code shrinking is disabled: R8 removed classes that Google Mobile
+            // Ads / WorkManager create by reflection, crashing the app at launch.
+            // The keep rules below are a second safety net if shrinking is re-enabled.
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Signed with the debug key so `flutter run --release` works out of the box.
             // Replace with your upload keystore before publishing to Google Play.
             signingConfig = signingConfigs.getByName("debug")

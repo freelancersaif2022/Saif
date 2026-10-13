@@ -23,7 +23,8 @@ adb logcat -d > ci-out/logcat.txt
 PID=$(adb shell pidof $PKG | tr -d '\r')
 echo "pid=$PID"
 grep -n -A40 "FATAL EXCEPTION\|Fatal signal\|E/flutter" ci-out/logcat.txt | head -200 || true
-if [ -z "$PID" ] || grep -q "FATAL EXCEPTION" ci-out/logcat.txt || grep -q "Fatal signal" ci-out/logcat.txt; then
+if [ -z "$PID" ] || grep -q "FATAL EXCEPTION" ci-out/logcat.txt || grep -q "Fatal signal" ci-out/logcat.txt \
+   || grep -q "E/flutter\|E flutter " ci-out/logcat.txt; then
   echo "SMOKE TEST FAILED: app crashed or is not running"
   grep -n "AndroidRuntime\|DEBUG   :\|libc    :" ci-out/logcat.txt | head -120 || true
   exit 1
