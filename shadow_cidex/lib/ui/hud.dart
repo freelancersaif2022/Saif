@@ -36,9 +36,21 @@ class GameHud extends StatelessWidget {
                       builder: (context, v, _) => HeartsRow(hearts: v, size: 24 * u),
                     ),
                     SizedBox(height: 6 * u),
-                    ValueListenableBuilder<double>(
-                      valueListenable: hud.health,
-                      builder: (context, v, _) => _HealthBar(value: v, width: 220 * u, height: 12 * u),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: hud.regen,
+                      builder: (context, regen, _) => ValueListenableBuilder<double>(
+                        valueListenable: hud.health,
+                        builder: (context, v, _) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _HealthBar(value: v, width: 220 * u, height: 12 * u, regen: regen),
+                            if (regen) ...[
+                              SizedBox(width: 6 * u),
+                              Icon(Icons.add_circle_rounded, size: 15 * u, color: const Color(0xFF7FFFD0)),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                     SizedBox(height: 6 * u),
                     ValueListenableBuilder<int>(
@@ -127,6 +139,20 @@ class GameHud extends StatelessWidget {
                         builder: (context, v, _) => PowerButton(size: 84 * ctrl, charge: v, onDown: () => input.power = true),
                       ),
                     ),
+                    Positioned(
+                      right: 128 * ctrl,
+                      bottom: 108 * ctrl,
+                      child: ActionButton(
+                        size: 76 * ctrl,
+                        color: const Color(0xFF7FFFD0),
+                        onDown: () {
+                          input.dash = true;
+                          input.sprint = true;
+                        },
+                        onUp: () => input.sprint = false,
+                        child: CustomPaint(size: Size.square(40 * ctrl), painter: SprintIconPainter(const Color(0xFFDFFFF4))),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -139,10 +165,11 @@ class GameHud extends StatelessWidget {
 }
 
 class _HealthBar extends StatelessWidget {
-  const _HealthBar({required this.value, required this.width, required this.height});
+  const _HealthBar({required this.value, required this.width, required this.height, this.regen = false});
   final double value;
   final double width;
   final double height;
+  final bool regen;
 
   @override
   Widget build(BuildContext context) {
@@ -153,23 +180,24 @@ class _HealthBar extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: const Color(0xCC05060A),
-        border: Border.all(color: const Color(0x88A0B4D0), width: 1),
+        border: Border.all(color: regen ? const Color(0xFF7FFFD0) : const Color(0x88A0B4D0), width: 1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: TweenAnimationBuilder<double>(
           tween: Tween(end: value.clamp(0.0, 1.0)),
-          duration: const Duration(milliseconds: 260),
+          duration: const Duration(milliseconds: 160),
           builder: (context, v, _) => FractionallySizedBox(
             widthFactor: v,
             heightFactor: 1,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: low ? const [Color(0xFF7A0A10), Color(0xFFFF2A2A)] : const [Color(0xFF8A0E1E), Color(0xFFFF3A4A), Color(0xFFFF8A8A)],
+                  colors: regen
+                      ? const [Color(0xFF8A0E1E), Color(0xFFFF3A4A), Color(0xFF9AFFD8)]
+                      : (low ? const [Color(0xFF7A0A10), Color(0xFFFF2A2A)] : const [Color(0xFF8A0E1E), Color(0xFFFF3A4A), Color(0xFFFF8A8A)]),
                 ),
-                boxShadow: [BoxShadow(color: const Color(0xFFFF2A3A).withAlpha(90), blurRadius: 8)],
               ),
             ),
           ),
@@ -417,10 +445,11 @@ class _JoystickPainter extends CustomPainter {
 
 /// Round touch button that fires on pointer down (multi-touch friendly).
 class ActionButton extends StatefulWidget {
-  const ActionButton({super.key, required this.size, required this.color, required this.onDown, required this.child});
+  const ActionButton({super.key, required this.size, required this.color, required this.onDown, required this.child, this.onUp});
   final double size;
   final Color color;
   final VoidCallback onDown;
+  final VoidCallback? onUp;
   final Widget child;
 
   @override
@@ -440,8 +469,14 @@ class _ActionButtonState extends State<ActionButton> {
         widget.onDown();
         setState(() => _down = true);
       },
-      onPointerUp: (_) => setState(() => _down = false),
-      onPointerCancel: (_) => setState(() => _down = false),
+      onPointerUp: (_) {
+        widget.onUp?.call();
+        setState(() => _down = false);
+      },
+      onPointerCancel: (_) {
+        widget.onUp?.call();
+        setState(() => _down = false);
+      },
       child: AnimatedScale(
         scale: _down ? 0.9 : 1,
         duration: const Duration(milliseconds: 80),

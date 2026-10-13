@@ -46,17 +46,15 @@ class Environment {
       _fill.shader = null;
     }
     _layer(c, GameImages.get(GameImages.mountainsFar), camX, 0.06, viewW, 575, 430);
-    _fog(c, camX, viewW, time, 0.1, 420, 220, 0.22, 8);
     _layer(c, GameImages.get(GameImages.mountainsNear), camX, 0.14, viewW, 595, 360);
     _layer(c, GameImages.get(GameImages.treesFar), camX, 0.3, viewW, 628, 380);
     _fog(c, camX, viewW, time, 0.35, 470, 200, 0.28, 14);
     _layer(c, GameImages.get(GameImages.ruinsMid), camX, 0.55, viewW, 642, 360);
-    _fog(c, camX, viewW, time, 0.6, 520, 160, 0.22, 22);
-    // Level tint grade.
+    // Level tint grade (limited to the sky band to save fill rate).
     _fill
       ..shader = null
       ..color = fade(cfg.tint, 0.16);
-    c.drawRect(Rect.fromLTWH(0, 0, viewW, virtualH), _fill);
+    c.drawRect(Rect.fromLTWH(0, 0, viewW, 640), _fill);
   }
 
   void _layer(Canvas c, ui.Image? img, double camX, double factor, double viewW, double bottom, double height, {double drift = 0, double opacity = 1}) {
@@ -116,16 +114,16 @@ class Environment {
       c.drawPicture(_chunks[i]);
     }
     // Atmospheric haze pushes the props behind the fighters.
-    _fill.shader = ui.Gradient.linear(const Offset(0, -620), const Offset(0, 0), [
+    _fill.shader = ui.Gradient.linear(const Offset(0, -380), const Offset(0, 0), [
       const Color(0x00283244),
       fade(const Color(0xFF283244), 0.28),
     ]);
-    c.drawRect(Rect.fromLTWH(camX - 10, -620, viewW + 20, 620), _fill);
+    c.drawRect(Rect.fromLTWH(camX - 10, -380, viewW + 20, 380), _fill);
     _fill.shader = null;
   }
 
   void renderForeground(Canvas c, double camX, double viewW, double time) {
-    _fog(c, camX, viewW, time, 1.1, 560, 170, 0.16, 30);
+    _fog(c, camX, viewW, time, 1.1, 610, 120, 0.16, 30);
     _layer(c, GameImages.get(GameImages.foreground), camX, 1.35, viewW, 742, 150, opacity: 0.96);
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame_audio/flame_audio.dart';
 
 import 'core/save_data.dart';
@@ -30,13 +32,18 @@ class Sfx {
   static const footstep = 'footstep.wav';
   static const swordSwing = 'sword_swing.wav';
   static const swordHit = 'sword_hit.wav';
+  static const swordDraw = 'sword_draw.wav';
+  static const swordSheathe = 'sword_sheathe.wav';
   static const enemyHit = 'enemy_hit.wav';
   static const enemyDeath = 'enemy_death.wav';
   static const playerHurt = 'player_hurt.wav';
   static const playerDeath = 'player_death.wav';
   static const jump = 'jump.wav';
   static const land = 'land.wav';
+  static const dash = 'dash.wav';
+  static const powerCharge = 'power_charge.wav';
   static const powerUp = 'powerup.wav';
+  static const shadowWave = 'shadow_wave.wav';
   static const pickupHealth = 'pickup_health.wav';
   static const stoneRoll = 'stone_roll.wav';
   static const stoneImpact = 'stone_impact.wav';
@@ -67,41 +74,74 @@ class Sfx {
   static const monsterCross = 'monster_cross.wav';
   static const ratScreech = 'rat_screech.wav';
 
-  static const List<String> effects = [
-    splashIntro, splashShadowForm, splashReveal, splashTitle, splashLoading,
-    uiClick, uiLevelSelect, uiLocked, uiSettings, uiExit, pause,
-    footstep, swordSwing, swordHit, enemyHit, enemyDeath, playerHurt,
-    playerDeath, jump, land, powerUp, pickupHealth, stoneRoll, stoneImpact,
-    spikeTrap, envWind, levelComplete, victory, gameOver,
-    bossEntrance, bossRoar, bossAttack, bossHit, bossTransform, bossSpecial,
-    bossDeath, eagleFly, eagleScreech, eagleDive, eagleBomb, bombExplode,
-    elephantStomp, elephantCharge, elephantTrumpet, shockwave, monsterAttack,
-    monsterCross, ratScreech,
-  ];
-
-  /// Short sounds that fire very often get a small pool of players.
-  static const Map<String, int> pooled = {
-    footstep: 3,
-    swordSwing: 3,
-    swordHit: 3,
-    enemyHit: 3,
-    enemyDeath: 2,
-    playerHurt: 2,
+  /// Effects in preload order (splash sounds first) with their voice count.
+  static const Map<String, int> voices = {
+    splashIntro: 1,
+    splashShadowForm: 1,
+    splashReveal: 1,
+    splashTitle: 1,
+    splashLoading: 1,
     uiClick: 2,
+    uiLevelSelect: 1,
+    uiLocked: 1,
+    uiSettings: 1,
+    uiExit: 1,
+    pause: 1,
+    footstep: 3,
+    swordSwing: 4,
+    swordHit: 4,
+    swordDraw: 1,
+    swordSheathe: 1,
+    enemyHit: 4,
+    enemyDeath: 3,
+    playerHurt: 2,
+    playerDeath: 1,
     jump: 2,
     land: 2,
-    bossHit: 2,
-    bossAttack: 2,
-    stoneImpact: 2,
-    bombExplode: 2,
-    shockwave: 2,
-    elephantStomp: 2,
-    eagleFly: 1,
-    eagleBomb: 2,
-    monsterCross: 2,
-    spikeTrap: 1,
-    pickupHealth: 1,
+    dash: 2,
+    powerCharge: 1,
+    powerUp: 2,
+    shadowWave: 2,
+    pickupHealth: 2,
+    stoneRoll: 2,
+    stoneImpact: 3,
+    spikeTrap: 2,
+    envWind: 1,
+    levelComplete: 1,
+    victory: 1,
+    gameOver: 1,
+    bossEntrance: 1,
+    bossRoar: 2,
+    bossAttack: 3,
+    bossHit: 3,
+    bossTransform: 1,
+    bossSpecial: 2,
+    bossDeath: 1,
+    eagleFly: 2,
+    eagleScreech: 2,
+    eagleDive: 2,
+    eagleBomb: 3,
+    bombExplode: 3,
+    elephantStomp: 3,
+    elephantCharge: 1,
+    elephantTrumpet: 1,
+    shockwave: 3,
+    monsterAttack: 2,
+    monsterCross: 3,
+    ratScreech: 2,
   };
+
+  static Iterable<String> get effects => voices.keys;
+}
+
+/// A sound with a few pre-loaded players used round-robin. Players are created
+/// once and replayed, so nothing is allocated during gameplay.
+class _Voice {
+  _Voice(this.file);
+  final String file;
+  final List<AudioPlayer> players = [];
+  int next = 0;
+  bool ready = false;
 }
 
 /// Central audio manager. All music and sound effects go through here.
@@ -109,12 +149,14 @@ class GameAudio {
   GameAudio._();
   static final GameAudio instance = GameAudio._();
 
-  final Map<String, AudioPool> _pools = {};
+  final Map<String, _Voice> _voices = {};
   final Map<String, int> _lastPlayed = {};
   final Stopwatch _clock = Stopwatch()..start();
+  final AudioContext _context = AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build();
 
-  bool _ready = false;
+  bool _initStarted = false;
   bool _bgmInitialized = false;
+  Future<void>? _preloadFuture;
   String? _music;
   double _musicVolume = 0.6;
   int _musicRequest = 0;
@@ -122,42 +164,62 @@ class GameAudio {
   bool get enabled => SaveData.instance.soundOn;
 
   Future<void> init() async {
-    if (_ready) return;
-    _ready = true;
+    if (_initStarted) return;
+    _initStarted = true;
     try {
       FlameAudio.updatePrefix('assets/audio/');
     } catch (_) {}
     try {
-      await FlameAudio.bgm.initialize();
+      await FlameAudio.bgm.initialize(audioContext: _context);
       _bgmInitialized = true;
     } catch (_) {}
   }
 
-  /// Preloads every effect, reporting progress 0..1.
-  Future<void> preload({void Function(double progress)? onProgress}) async {
+  /// Preloads every effect and music file, reporting progress 0..1.
+  Future<void> preload({void Function(double progress)? onProgress}) {
+    return _preloadFuture ??= _preload(onProgress);
+  }
+
+  Future<void> _preload(void Function(double progress)? onProgress) async {
     await init();
-    final total = Sfx.effects.length + 3;
+    final files = Sfx.effects.toList();
+    final total = files.length + 3;
     var done = 0;
-    for (final s in Sfx.effects) {
-      try {
-        await FlameAudio.audioCache.load(s);
-      } catch (_) {}
-      done++;
-      onProgress?.call(done / total);
-    }
     for (final m in [Sfx.musicLobby, Sfx.musicGame, Sfx.musicBoss]) {
       try {
         await FlameAudio.audioCache.load(m);
       } catch (_) {}
-      done++;
-      onProgress?.call(done / total);
+      onProgress?.call(++done / total);
     }
-    for (final e in Sfx.pooled.entries) {
-      if (_pools.containsKey(e.key)) continue;
+    for (final f in files) {
+      await _prepare(f, Sfx.voices[f] ?? 1);
+      onProgress?.call(++done / total);
+    }
+  }
+
+  Future<void> _prepare(String file, int count) async {
+    final v = _voices.putIfAbsent(file, () => _Voice(file));
+    if (v.ready) return;
+    try {
+      await FlameAudio.audioCache.load(file);
+    } catch (_) {}
+    while (v.players.length < count) {
+      final p = AudioPlayer();
       try {
-        _pools[e.key] = await FlameAudio.createPool(e.key, maxPlayers: e.value);
-      } catch (_) {}
+        p.audioCache = FlameAudio.audioCache;
+        await p.setAudioContext(_context);
+        await p.setPlayerMode(PlayerMode.lowLatency);
+        await p.setReleaseMode(ReleaseMode.stop);
+        await p.setSource(AssetSource(file));
+        v.players.add(p);
+      } catch (_) {
+        try {
+          await p.dispose();
+        } catch (_) {}
+        break;
+      }
     }
+    v.ready = v.players.isNotEmpty;
   }
 
   /// Plays a one-shot sound effect. [minGapMs] throttles rapid repeats.
@@ -167,18 +229,26 @@ class GameAudio {
     final last = _lastPlayed[file];
     if (last != null && now - last < minGapMs) return;
     _lastPlayed[file] = now;
-    final v = volume.clamp(0.0, 1.0).toDouble();
-    final pool = _pools[file];
-    if (pool != null) {
-      _safe(() => pool.start(volume: v));
-    } else {
+    final vol = volume.clamp(0.0, 1.0).toDouble();
+    final v = _voices[file];
+    if (v == null || !v.ready) {
+      // Not preloaded yet: prepare in the background and play once ready.
       _safe(() async {
-        final player = await FlameAudio.play(file, volume: v);
-        // Release the one-shot player once it finishes (or after a timeout).
-        await player.onPlayerComplete.first.timeout(const Duration(seconds: 12), onTimeout: () {});
-        await _safe(() => player.dispose());
+        await _prepare(file, Sfx.voices[file] ?? 1);
+        final pv = _voices[file];
+        if (pv != null && pv.ready) await _start(pv, vol);
       });
+      return;
     }
+    _safe(() => _start(v, vol));
+  }
+
+  Future<void> _start(_Voice v, double volume) async {
+    final p = v.players[v.next % v.players.length];
+    v.next++;
+    await p.stop();
+    await p.setVolume(volume);
+    await p.resume();
   }
 
   /// Starts a looping music track (no-op if it is already playing).
@@ -237,6 +307,11 @@ class GameAudio {
     } else {
       _musicRequest++;
       _safe(() => FlameAudio.bgm.stop());
+      for (final v in _voices.values) {
+        for (final p in v.players) {
+          _safe(() => p.stop());
+        }
+      }
     }
   }
 

@@ -17,6 +17,7 @@ import 'fx.dart';
 import 'hazards.dart';
 import 'level_data.dart';
 import 'player.dart';
+import 'player_fx.dart';
 
 /// Anything the player's sword can strike.
 abstract class Hittable {
@@ -31,12 +32,16 @@ class GameInput {
   bool attack = false;
   bool jump = false;
   bool power = false;
+  bool dash = false;
+  bool sprint = false;
 
   void reset() {
     moveX = 0;
     attack = false;
     jump = false;
     power = false;
+    dash = false;
+    sprint = false;
   }
 }
 
@@ -65,6 +70,7 @@ class HudState {
   final ValueNotifier<BossHud?> boss = ValueNotifier<BossHud?>(null);
   final ValueNotifier<BannerInfo?> banner = ValueNotifier<BannerInfo?>(null);
   final ValueNotifier<String> objective = ValueNotifier<String>('');
+  final ValueNotifier<bool> regen = ValueNotifier<bool>(false);
 
   void dispose() {
     health.dispose();
@@ -74,6 +80,7 @@ class HudState {
     boss.dispose();
     banner.dispose();
     objective.dispose();
+    regen.dispose();
   }
 }
 
@@ -146,6 +153,7 @@ class Battle {
   final List<Hazard> hazards = [];
   final List<SpikeTrap> spikes = [];
   final List<HealthPickup> pickups = [];
+  final List<PlayerEffect> playerFx = [];
   final List<SpawnDef> _spawnQueue = [];
   final List<_Pending> _pending = [];
 
@@ -344,6 +352,10 @@ class Battle {
       p.update(dt);
     }
     projectiles.removeWhere((p) => p.dead);
+    for (final f in playerFx) {
+      f.update(dt);
+    }
+    playerFx.removeWhere((f) => f.dead);
     _updateHazards(dt);
     for (final s in spikes) {
       s.update(dt);
@@ -527,6 +539,7 @@ class Battle {
       _lastPower = p;
       hud.power.value = p;
     }
+    if (hud.regen.value != player.regenerating) hud.regen.value = player.regenerating;
     if (score != _lastScore) {
       _lastScore = score;
       hud.score.value = score;
@@ -570,6 +583,9 @@ class Battle {
     for (final h in hazards) {
       if (h.behind) h.render(c);
     }
+    for (final f in playerFx) {
+      if (f is GroundCrack) f.render(c);
+    }
     for (final p in pickups) {
       p.render(c);
     }
@@ -583,6 +599,9 @@ class Battle {
     }
     for (final p in projectiles) {
       p.render(c);
+    }
+    for (final f in playerFx) {
+      if (f is! GroundCrack) f.render(c);
     }
     particles.render(c, camX - 100, camX + viewW + 100);
     for (final r in rings) {

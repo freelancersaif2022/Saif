@@ -25,6 +25,15 @@ class HumanoidStyle {
     this.shoulderPads = false,
     this.bladeColor = const Color(0xFF9DB3CC),
     this.bladeGlow = const Color(0x00000000),
+    this.hakama = false,
+    this.armor = false,
+    this.helmet = false,
+    this.topknot = false,
+    this.mask = false,
+    this.scarf = false,
+    this.saya = false,
+    this.veins = const Color(0x00000000),
+    this.detail = const Color(0x40A8C0E0),
   });
 
   final double height;
@@ -44,6 +53,31 @@ class HumanoidStyle {
   final bool shoulderPads;
   final Color bladeColor;
   final Color bladeGlow;
+
+  /// Wide samurai trousers.
+  final bool hakama;
+
+  /// Layered samurai armour plates (sode, kusazuri, chest plate).
+  final bool armor;
+
+  /// Kabuto helmet with crest.
+  final bool helmet;
+  final bool topknot;
+
+  /// Cloth face mask (ninja).
+  final bool mask;
+
+  /// Long flowing neck scarf (needs cloth from a [HumanoidRig]).
+  final bool scarf;
+
+  /// Scabbard worn on the hip.
+  final bool saya;
+
+  /// Glowing energy veins (transparent = none).
+  final Color veins;
+
+  /// Inner highlight line colour (lapels, plate edges).
+  final Color detail;
 
   double get unit => height / 100;
 
@@ -356,6 +390,89 @@ class Pose {
     );
   }
 
+  /// Relaxed stance with the sword in its scabbard, left hand on the saya.
+  void sheathedIdle(double t) {
+    final b = math.sin(t * 2.0) * 0.025;
+    set(
+      torso: 0.05 + b,
+      head: -0.02 - b,
+      bUpper: -0.05 + b,
+      bFore: 1.25,
+      fUpper: 0.14 + b * 0.5,
+      fFore: 0.32,
+      bThigh: -0.2,
+      bShin: -0.3 - b,
+      fThigh: 0.24,
+      fShin: 0.02,
+      weapon: 2.3,
+    );
+  }
+
+  /// Low ninja sprint with both arms swept back.
+  void ninjaRun(double phase, double amount) {
+    walk(phase, amount, run: true);
+    torso = 0.5;
+    head = -0.36;
+    bUpper = -1.15 + math.sin(phase) * 0.08;
+    bFore = -0.95;
+    fUpper = -1.25 + math.sin(phase + 1) * 0.08;
+    fFore = -1.05;
+    weapon = -1.0;
+  }
+
+  /// Quick-draw: hand to the hip handle then the blade sweeps forward.
+  void quickDraw(double k) {
+    final e = easeOutCubic(k);
+    set(
+      torso: lerpD(0.2, 0.12, e),
+      head: -0.06,
+      bUpper: lerpD(-0.05, 0.3, e),
+      bFore: lerpD(1.2, 0.9, e),
+      fUpper: lerpD(-0.2, 1.1, e),
+      fFore: lerpD(1.4, 1.7, e),
+      bThigh: -0.32,
+      bShin: -0.5,
+      fThigh: 0.45,
+      fShin: 0.05,
+      weapon: lerpD(-1.3, 2.0, e),
+    );
+  }
+
+  /// Horizontal dash with the body low and forward.
+  void dash() {
+    set(
+      torso: 0.62,
+      head: -0.4,
+      bUpper: -1.2,
+      bFore: -0.9,
+      fUpper: 1.3,
+      fFore: 1.65,
+      fThigh: 1.1,
+      fShin: 0.2,
+      bThigh: -0.9,
+      bShin: -1.5,
+      weapon: 1.85,
+    );
+  }
+
+  /// Spinning rising slash used by the shadow power.
+  void spinSlash(double k) {
+    final a = k * math.pi * 2;
+    set(
+      torso: 0.1 + math.sin(a) * 0.2,
+      head: -0.1,
+      bUpper: -0.8,
+      bFore: -0.2,
+      fUpper: 1.6 + a,
+      fFore: 1.7 + a,
+      fThigh: 1.0,
+      fShin: -0.4,
+      bThigh: 0.4,
+      bShin: -1.0,
+      weapon: 1.8 + a,
+    );
+  }
+
   void collapsed(double k) {
     final e = easeInCubic(k);
     set(
@@ -422,7 +539,107 @@ class Skeleton {
   }
 }
 
-/// Draws shadow humanoids with rim lighting, glowing eyes and weapons.
+/// Wind-driven trailing ribbon (scarf, headband tails, belt). Each point
+/// eases toward a waving target so the cloth whips and lags behind motion.
+class ClothChain {
+  ClothChain(this.count, this.segment);
+  final int count;
+  final double segment;
+  final List<Offset> pts = [];
+  Offset _lastAnchor = Offset.zero;
+  Offset _vel = Offset.zero;
+  bool _init = false;
+
+  void update(Offset anchor, double dt, Offset accel, double time, double flutter) {
+    final h = dt.clamp(1 / 240, 1 / 30);
+    if (!_init || (anchor - _lastAnchor).distance > segment * count * 3) {
+      _init = true;
+      _lastAnchor = anchor;
+      _vel = Offset.zero;
+      pts
+        ..clear()
+        ..addAll(List.generate(count, (i) => anchor + Offset(-segment * i, segment * i * 0.4)));
+    }
+    final v = (anchor - _lastAnchor) / h;
+    _vel = Offset.lerp(_vel, v, 1 - math.exp(-h * 10))!;
+    _lastAnchor = anchor;
+    // Drag direction: wind plus the opposite of the character's motion.
+    var drag = Offset(accel.dx - _vel.dx * 1.4, accel.dy - _vel.dy * 0.9);
+    final dl = drag.distance;
+    drag = dl < 0.001 ? const Offset(0, 1) : drag / dl;
+    final perp = Offset(-drag.dy, drag.dx);
+    final amp = segment * (0.35 + flutter * 0.0012);
+    pts[0] = anchor;
+    for (var i = 1; i < count; i++) {
+      final t = i / (count - 1);
+      final wave = math.sin(time * 8.5 - i * 0.75) * amp * t + math.sin(time * 4.1 - i * 0.4) * amp * 0.5 * t;
+      final target = anchor + drag * (segment * i) + perp * wave;
+      final k = 1 - math.exp(-h * (26 - 16 * t));
+      pts[i] = Offset.lerp(pts[i], target, k)!;
+      // Keep segment lengths sane.
+      final d = pts[i] - pts[i - 1];
+      final len = d.distance;
+      if (len > segment * 1.25) pts[i] = pts[i - 1] + d * (segment * 1.25 / len);
+    }
+  }
+}
+
+/// Cloth points expressed in the character's local (facing +x) space.
+class ClothSet {
+  final List<Offset> scarf = [];
+  final List<Offset> band1 = [];
+  final List<Offset> band2 = [];
+  final List<Offset> obi = [];
+}
+
+/// Pose, skeleton and simulated cloth for one animated character.
+class HumanoidRig {
+  HumanoidRig(this.style)
+      : scarf = ClothChain(12, 5.0 * style.unit),
+        band1 = ClothChain(7, 2.6 * style.unit),
+        band2 = ClothChain(6, 2.3 * style.unit),
+        obi = ClothChain(5, 3.0 * style.unit);
+
+  final HumanoidStyle style;
+  final Pose pose = Pose();
+  final Pose target = Pose();
+  final Skeleton skel = Skeleton();
+  final ClothChain scarf;
+  final ClothChain band1;
+  final ClothChain band2;
+  final ClothChain obi;
+  final ClothSet cloth = ClothSet();
+
+  void compute() => skel.compute(pose, style);
+
+  /// Simulates cloth in world space; [x],[y] is the feet position.
+  void updateCloth(double dt, double x, double y, double facing, double time, {double wind = 0.5}) {
+    final u = style.unit;
+    final k = skel;
+    Offset w(Offset l) => Offset(x + l.dx * facing, y + l.dy);
+    final accel = Offset(-facing * (300 + wind * 560) * u / 1.5, 520 * u / 1.5);
+    final flutter = (220 + wind * 260) * u / 1.5;
+    if (style.scarf) scarf.update(w(k.neck + Offset(-2.4 * u, 1.6 * u)), dt, accel, time, flutter);
+    if (style.headband) {
+      band1.update(w(k.head + Offset(-6.2 * u, -2.6 * u)), dt, accel, time + 0.7, flutter * 1.2);
+      band2.update(w(k.head + Offset(-6.0 * u, -1.2 * u)), dt, accel, time + 1.9, flutter * 1.2);
+    }
+    obi.update(w(k.hip + Offset(-5.5 * u, -1.5 * u)), dt, accel * 0.8, time + 3.1, flutter * 0.8);
+    void toLocal(ClothChain ch, List<Offset> out) {
+      out.clear();
+      for (final p in ch.pts) {
+        out.add(Offset((p.dx - x) * facing, p.dy - y));
+      }
+    }
+
+    toLocal(scarf, cloth.scarf);
+    toLocal(band1, cloth.band1);
+    toLocal(band2, cloth.band2);
+    toLocal(obi, cloth.obi);
+  }
+}
+
+/// Draws shadow humanoids with rim lighting, glowing eyes, armour and weapons.
 class HumanoidPainter {
   HumanoidPainter._();
 
@@ -436,6 +653,7 @@ class HumanoidPainter {
 
   /// Draws a humanoid with feet at the origin facing +x.
   /// [rimDx] is the local x offset of the rim light (multiply by facing).
+  /// [sheathed] 1 = katana resting in its scabbard, 0 = held in hand.
   static void draw(
     Canvas c,
     Skeleton k,
@@ -447,23 +665,30 @@ class HumanoidPainter {
     double rimDx = 1,
     double wind = 0,
     double eyeBoost = 0,
+    double sheathed = 0,
+    ClothSet? cloth,
   }) {
     if (alpha <= 0.01) return;
     final u = s.unit;
-    final rimA = s.rimStrength * alpha;
+    final inHand = sheathed < 0.5;
+    // Fade the rim light much faster than the body so translucent
+    // characters never look pale.
+    final a2 = alpha * alpha;
+    final rimA = s.rimStrength * a2 * a2;
     if (rimA > 0.02) {
       c.save();
       c.translate(rimDx * 1.3 * u, -1.1 * u);
-      _figure(c, k, p, s, fade(s.rim, rimA), fade(s.rim, rimA * 0.7), time, wind, false);
+      _figure(c, k, p, s, fade(s.rim, rimA), fade(s.rim, rimA * 0.7), time, wind, false, inHand, cloth);
       c.restore();
     }
-    final body = Color.lerp(s.body, const Color(0xFF5A6884), flash.clamp(0.0, 1.0) * 0.6)!;
-    final back = Color.lerp(Color.lerp(s.body, s.backTint, 0.55)!, const Color(0xFF5A6884), flash.clamp(0.0, 1.0) * 0.5)!;
-    _figure(c, k, p, s, fade(body, alpha), fade(back, alpha), time, wind, true);
-    _details(c, k, p, s, time, alpha, eyeBoost);
+    final f = flash.clamp(0.0, 1.0);
+    final body = Color.lerp(s.body, const Color(0xFF5A6884), f * 0.6)!;
+    final back = Color.lerp(Color.lerp(s.body, s.backTint, 0.55)!, const Color(0xFF5A6884), f * 0.5)!;
+    _figure(c, k, p, s, fade(body, alpha), fade(back, alpha), time, wind, true, inHand, cloth);
+    _details(c, k, p, s, time, alpha, eyeBoost, inHand);
   }
 
-  static void _limb(Canvas c, Offset a, Offset b, double wa, double wb, Paint paint) {
+  static void _limb(Canvas c, Offset a, Offset b, double wa, double wb, Paint paint, {double bulge = 0}) {
     final d = b - a;
     final len = d.distance;
     if (len < 0.001) {
@@ -471,46 +696,138 @@ class HumanoidPainter {
       return;
     }
     final n = Offset(-d.dy / len, d.dx / len);
+    final mid = a + d * 0.38;
+    final wm = (wa + wb) / 2 + bulge;
     _path
       ..reset()
       ..moveTo(a.dx + n.dx * wa / 2, a.dy + n.dy * wa / 2)
-      ..lineTo(b.dx + n.dx * wb / 2, b.dy + n.dy * wb / 2)
+      ..quadraticBezierTo(mid.dx + n.dx * wm / 2, mid.dy + n.dy * wm / 2, b.dx + n.dx * wb / 2, b.dy + n.dy * wb / 2)
       ..lineTo(b.dx - n.dx * wb / 2, b.dy - n.dy * wb / 2)
-      ..lineTo(a.dx - n.dx * wa / 2, a.dy - n.dy * wa / 2)
+      ..quadraticBezierTo(mid.dx - n.dx * wm / 2, mid.dy - n.dy * wm / 2, a.dx - n.dx * wa / 2, a.dy - n.dy * wa / 2)
       ..close();
     c.drawPath(_path, paint);
     c.drawCircle(a, wa / 2, paint);
     c.drawCircle(b, wb / 2, paint);
   }
 
+  static void _ribbon(Canvas c, List<Offset> pts, double w0, double w1, Paint paint) {
+    final n = pts.length;
+    if (n < 2) return;
+    for (var i = 0; i < n - 1; i++) {
+      final a = pts[i];
+      final b = pts[i + 1];
+      final wa = lerpD(w0, w1, i / (n - 1));
+      final wb = lerpD(w0, w1, (i + 1) / (n - 1));
+      final d = b - a;
+      final len = d.distance;
+      if (len < 0.0001) continue;
+      final nn = Offset(-d.dy / len, d.dx / len);
+      _path
+        ..reset()
+        ..moveTo(a.dx + nn.dx * wa / 2, a.dy + nn.dy * wa / 2)
+        ..lineTo(b.dx + nn.dx * wb / 2, b.dy + nn.dy * wb / 2)
+        ..lineTo(b.dx - nn.dx * wb / 2, b.dy - nn.dy * wb / 2)
+        ..lineTo(a.dx - nn.dx * wa / 2, a.dy - nn.dy * wa / 2)
+        ..close();
+      c.drawPath(_path, paint);
+    }
+    // Pointed tip.
+    final a = pts[n - 2];
+    final b = pts[n - 1];
+    final d = b - a;
+    final len = d.distance;
+    if (len > 0.0001) {
+      final nn = Offset(-d.dy / len, d.dx / len);
+      _path
+        ..reset()
+        ..moveTo(b.dx + nn.dx * w1 / 2, b.dy + nn.dy * w1 / 2)
+        ..lineTo(b.dx + d.dx / len * w1 * 1.6, b.dy + d.dy / len * w1 * 1.6)
+        ..lineTo(b.dx - nn.dx * w1 / 2, b.dy - nn.dy * w1 / 2)
+        ..close();
+      c.drawPath(_path, paint);
+    }
+  }
+
+  static void _procTails(Canvas c, Offset h, double u, double time, double wind, Paint paint, double scale) {
+    for (var j = 0; j < 2; j++) {
+      _path.reset();
+      final pts = <Offset>[];
+      for (var i = 0; i < 6; i++) {
+        final t = i / 5;
+        pts.add(h + Offset(-t * 15 * u * scale - wind * 5 * u * t, t * (2 + j * 4) * u + math.sin(time * 7 + i * 0.9 + j) * 2.4 * u * t));
+      }
+      _ribbon(c, pts, 2.0 * u, 0.9 * u, paint);
+    }
+  }
+
+  static Offset _sayaMouth(Skeleton k, Pose p, double u) =>
+      k.hip + Offset(math.cos(p.torso) * 5 * u + math.sin(p.torso) * 1 * u, -2.5 * u);
+
   static void _figure(Canvas c, Skeleton k, Pose p, HumanoidStyle s, Color main, Color back,
-      double time, double wind, bool detailPass) {
+      double time, double wind, bool detailPass, bool inHand, ClothSet? cloth) {
     final u = s.unit;
     final bk = s.bulk;
-    _p.color = back;
-    _p.style = PaintingStyle.fill;
+    _p
+      ..color = back
+      ..style = PaintingStyle.fill
+      ..blendMode = BlendMode.srcOver;
 
-    // Cape behind everything.
+    // Scarf flowing behind everything.
+    if (s.scarf && cloth != null && cloth.scarf.length > 2) {
+      _p.color = detailPass ? Color.lerp(main, fade(s.bandColor, main.a), 0.45)! : back;
+      _ribbon(c, cloth.scarf, 5.2 * u, 2.0 * u, _p);
+      _p.color = back;
+    }
+
+    // Cape.
     if (s.cape) {
       final sway = math.sin(time * 2.4) * 4 * u + wind * 6 * u;
       final sh = k.shoulder;
       _path
         ..reset()
         ..moveTo(sh.dx + 2 * u, sh.dy - 1 * u)
-        ..quadraticBezierTo(sh.dx - 10 * u, sh.dy + 18 * u, sh.dx - 16 * u - sway, k.hip.dy + 36 * u)
-        ..lineTo(sh.dx - 8 * u - sway * 0.6, k.hip.dy + 40 * u + math.sin(time * 3.1) * 2 * u)
-        ..lineTo(sh.dx - 1 * u - sway * 0.3, k.hip.dy + 34 * u)
+        ..quadraticBezierTo(sh.dx - 12 * u, sh.dy + 18 * u, sh.dx - 18 * u - sway, k.hip.dy + 38 * u)
+        ..lineTo(sh.dx - 13 * u - sway * 0.8, k.hip.dy + 42 * u + math.sin(time * 3.1) * 2 * u)
+        ..lineTo(sh.dx - 8 * u - sway * 0.6, k.hip.dy + 39 * u + math.sin(time * 3.7) * 2 * u)
+        ..lineTo(sh.dx - 2 * u - sway * 0.3, k.hip.dy + 41 * u)
         ..quadraticBezierTo(sh.dx + 4 * u, sh.dy + 18 * u, sh.dx + 5 * u, sh.dy + 2 * u)
         ..close();
       c.drawPath(_path, _p);
     }
 
     // Back leg and arm.
-    _limb(c, k.hip, k.bKnee, 10.5 * u * bk, 8 * u * bk, _p);
-    _limb(c, k.bKnee, k.bFoot, 8 * u * bk, 5 * u * bk, _p);
-    _foot(c, k.bFoot, u * bk, _p);
-    _limb(c, k.shoulder, k.bElbow, 7 * u * bk, 5.6 * u * bk, _p);
-    _limb(c, k.bElbow, k.bHand, 5.6 * u * bk, 4.2 * u * bk, _p);
+    _leg(c, k.hip, k.bKnee, k.bFoot, u, bk, s.hakama, _p);
+    _limb(c, k.shoulder, k.bElbow, 7.2 * u * bk, 5.8 * u * bk, _p, bulge: 1.2 * u * bk);
+    _limb(c, k.bElbow, k.bHand, 5.8 * u * bk, 4.2 * u * bk, _p, bulge: 1.0 * u * bk);
+    c.drawCircle(k.bHand, 3.0 * u * bk, _p);
+
+    // Scabbard on the hip.
+    if (s.saya && s.weapon == WeaponType.katana) {
+      final m = _sayaMouth(k, p, u);
+      final dir = Offset(-math.cos(0.42 - p.torso * 0.5), math.sin(0.42 - p.torso * 0.5));
+      final len = s.weaponLength * 0.95;
+      _s
+        ..color = back
+        ..strokeWidth = 3.6 * u;
+      c.drawLine(m, m + dir * len, _s);
+      _s.strokeWidth = 2.6 * u;
+      c.drawLine(m + dir * len, m + dir * (len + 2 * u), _s);
+      if (!inHand) {
+        // Handle sticking out forward with its guard.
+        _s
+          ..color = main
+          ..strokeWidth = 2.8 * u;
+        c.drawLine(m, m - dir * (12 * u), _s);
+        c.drawOval(Rect.fromCenter(center: m - dir * (0.8 * u), width: 2.2 * u, height: 6.4 * u), _p..color = main);
+      }
+      _p.color = back;
+    }
+
+    // Belt tails.
+    if (cloth != null && cloth.obi.length > 2) {
+      _p.color = main;
+      _ribbon(c, cloth.obi, 2.6 * u, 1.2 * u, _p);
+    }
 
     _p.color = main;
     // Torso.
@@ -518,103 +835,252 @@ class HumanoidPainter {
     c.translate(k.hip.dx, k.hip.dy);
     c.rotate(p.torso);
     final tl = 30 * u;
+    final b = u * bk;
     _path
       ..reset()
-      ..moveTo(-6 * u * bk, 3 * u)
-      ..lineTo(6 * u * bk, 3 * u)
-      ..quadraticBezierTo(10.5 * u * bk, -tl * 0.5, 8 * u * bk, -tl * 0.92)
-      ..quadraticBezierTo(4 * u, -tl * 1.05, 0, -tl * 1.04)
-      ..quadraticBezierTo(-5 * u * bk, -tl * 1.02, -7.5 * u * bk, -tl * 0.85)
-      ..quadraticBezierTo(-8.5 * u * bk, -tl * 0.45, -6 * u * bk, 3 * u)
+      ..moveTo(-6.6 * b, 3 * u)
+      ..lineTo(6.6 * b, 3 * u)
+      ..quadraticBezierTo(7.2 * b, -tl * 0.3, 9.4 * b, -tl * 0.62)
+      ..quadraticBezierTo(10.6 * b, -tl * 0.86, 7.2 * b, -tl * 0.99)
+      ..lineTo(2.8 * u, -tl * 1.06)
+      ..lineTo(-3.2 * u, -tl * 1.06)
+      ..quadraticBezierTo(-9.4 * b, -tl * 1.02, -9.6 * b, -tl * 0.8)
+      ..quadraticBezierTo(-7.4 * b, -tl * 0.4, -6.6 * b, 3 * u)
       ..close();
     c.drawPath(_path, _p);
-    if (s.shoulderPads) {
+    if (s.armor) {
+      // Kusazuri skirt plates.
+      for (var i = -1; i <= 1; i++) {
+        c.save();
+        c.translate(i * 5.2 * b, 1.5 * u);
+        c.rotate(i * 0.12);
+        c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-3.6 * b, 0, 7.2 * b, 12 * u), Radius.circular(1.5 * u)), _p);
+        c.restore();
+      }
+    }
+    if (s.shoulderPads && !s.armor) {
       c.drawOval(Rect.fromCenter(center: Offset(1 * u, -tl * 0.9), width: 20 * u * bk, height: 9 * u), _p);
+    }
+    if (detailPass) {
+      _s
+        ..color = fade(s.detail, main.a)
+        ..strokeWidth = 0.7 * u;
+      // Gi lapels and belt.
+      _path
+        ..reset()
+        ..moveTo(-1.5 * u, -tl * 1.03)
+        ..quadraticBezierTo(2.5 * u, -tl * 0.72, 5.5 * b, -tl * 0.45)
+        ..moveTo(2.5 * u, -tl * 1.03)
+        ..quadraticBezierTo(4.5 * u, -tl * 0.8, 6.8 * b, -tl * 0.62);
+      c.drawPath(_path, _s);
+      _s.strokeWidth = 1.1 * u;
+      c.drawLine(Offset(-6.6 * b, -0.5 * u), Offset(6.8 * b, -0.5 * u), _s);
+      c.drawLine(Offset(-6.6 * b, -3.2 * u), Offset(7.0 * b, -3.2 * u), _s);
+      if (s.armor) {
+        _s.strokeWidth = 0.8 * u;
+        for (var i = 0; i < 4; i++) {
+          final yy = -tl * (0.3 + i * 0.13);
+          c.drawLine(Offset(-6.5 * b, yy), Offset(7.8 * b, yy - 0.6 * u), _s);
+        }
+        for (var i = -1; i <= 1; i++) {
+          c.drawLine(Offset(i * 5.2 * b - 3 * b, 7 * u), Offset(i * 5.2 * b + 3 * b, 7 * u), _s);
+        }
+      }
     }
     c.restore();
 
     // Neck and head.
-    _limb(c, k.neck - (k.head - k.neck) * 0.2, k.head, 5 * u * bk, 4 * u * bk, _p);
-    c.drawCircle(k.head, 7 * u, _p);
-    // Jaw towards the front.
-    c.drawOval(Rect.fromCenter(center: k.head + Offset(2.4 * u, 2.6 * u), width: 9 * u, height: 7 * u), _p);
-    if (s.hood) {
-      final h = k.head;
+    _limb(c, k.neck - (k.head - k.neck) * 0.2, k.head, 5.2 * u * bk, 4.2 * u * bk, _p);
+    _head(c, k, p, s, main, detailPass, time);
+
+    // Front leg.
+    _leg(c, k.hip, k.fKnee, k.fFoot, u, bk, s.hakama, _p);
+    if (detailPass && s.hakama) {
+      _s
+        ..color = fade(s.detail, main.a * 0.8)
+        ..strokeWidth = 0.6 * u;
+      final d = k.fFoot - k.fKnee;
+      c.drawLine(k.fKnee + Offset(1.5 * u, 0), k.fKnee + d * 0.9 + Offset(2.5 * u, 0), _s);
+      c.drawLine(k.hip + Offset(2 * u, 2 * u), k.fKnee + Offset(-1 * u, 0), _s);
+    }
+
+    // Weapon held in hand.
+    if (inHand) _weaponShape(c, k, s, main);
+
+    // Front arm.
+    _p.color = main;
+    _limb(c, k.shoulder, k.fElbow, 7.6 * u * bk, 6.0 * u * bk, _p, bulge: 1.4 * u * bk);
+    _limb(c, k.fElbow, k.fHand, 6.0 * u * bk, 4.6 * u * bk, _p, bulge: 1.2 * u * bk);
+    c.drawCircle(k.fHand, 3.4 * u * bk, _p);
+    c.drawCircle(k.shoulder, 5.0 * u * bk, _p);
+    if (s.armor) {
+      // Sode shoulder plates following the upper arm.
+      final d = k.fElbow - k.shoulder;
+      final ang = math.atan2(d.dy, d.dx) - math.pi / 2;
+      c.save();
+      c.translate(k.shoulder.dx, k.shoulder.dy);
+      c.rotate(ang);
+      for (var i = 0; i < 3; i++) {
+        c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-0.5 * u, (i * 3.6 + 1) * u * bk), width: 12.5 * u * bk, height: 4.2 * u * bk), Radius.circular(1.6 * u)), _p);
+      }
+      if (detailPass) {
+        _s
+          ..color = fade(s.detail, main.a)
+          ..strokeWidth = 0.6 * u;
+        for (var i = 0; i < 3; i++) {
+          final yy = (i * 3.6 + 2.8) * u * bk;
+          c.drawLine(Offset(-6 * u * bk, yy), Offset(5 * u * bk, yy), _s);
+        }
+      }
+      c.restore();
+    } else if (detailPass) {
+      // Forearm wraps.
+      _s
+        ..color = fade(s.detail, main.a * 0.8)
+        ..strokeWidth = 0.6 * u;
+      final d = k.fHand - k.fElbow;
+      final n = Offset(-d.dy, d.dx) / math.max(d.distance, 0.001) * (2.6 * u * bk);
+      for (var i = 0; i < 3; i++) {
+        final q = k.fElbow + d * (0.45 + i * 0.15);
+        c.drawLine(q - n, q + n + d * 0.05, _s);
+      }
+    }
+
+    // Headband tails.
+    if (s.headband) {
+      _p.color = detailPass ? fade(s.bandColor, main.a) : main;
+      if (cloth != null && cloth.band1.length > 2) {
+        _ribbon(c, cloth.band1, 2.2 * u, 0.9 * u, _p);
+        _ribbon(c, cloth.band2, 1.9 * u, 0.8 * u, _p);
+      } else {
+        _procTails(c, k.head + Offset(-5.5 * u, -2.5 * u), u, time, wind, _p, 1);
+      }
+      if (detailPass) {
+        _s
+          ..color = fade(s.bandColor, main.a)
+          ..strokeWidth = 2.2 * u;
+        c.drawArc(Rect.fromCircle(center: k.head, radius: 7 * u), math.pi * 1.05, math.pi * 0.9, false, _s);
+      }
+      _p.color = main;
+    }
+  }
+
+  static void _leg(Canvas c, Offset hip, Offset knee, Offset foot, double u, double bk, bool hakama, Paint paint) {
+    if (hakama) {
+      _limb(c, hip, knee, 12.5 * u * bk, 11.5 * u * bk, paint, bulge: 1.5 * u);
+      _limb(c, knee, foot + Offset(0, -2.5 * u), 11.5 * u * bk, 14.5 * u * bk, paint);
+      _foot(c, foot, u * bk, paint);
+    } else {
+      _limb(c, hip, knee, 11 * u * bk, 8.5 * u * bk, paint, bulge: 1.6 * u * bk);
+      _limb(c, knee, foot, 8.5 * u * bk, 5.0 * u * bk, paint, bulge: 1.8 * u * bk);
+      _foot(c, foot, u * bk, paint);
+    }
+  }
+
+  static void _foot(Canvas c, Offset f, double u, Paint paint) {
+    _path
+      ..reset()
+      ..moveTo(f.dx - 3.2 * u, f.dy)
+      ..lineTo(f.dx - 3.2 * u, f.dy - 3.4 * u)
+      ..quadraticBezierTo(f.dx + 2 * u, f.dy - 4.2 * u, f.dx + 6.8 * u, f.dy - 1.2 * u)
+      ..lineTo(f.dx + 7.2 * u, f.dy)
+      ..close();
+    c.drawPath(_path, paint);
+  }
+
+  static void _head(Canvas c, Skeleton k, Pose p, HumanoidStyle s, Color main, bool detailPass, double time) {
+    final u = s.unit;
+    final h = k.head;
+    final ha = p.torso + p.head;
+    c.save();
+    c.translate(h.dx, h.dy);
+    c.rotate(ha);
+    _p.color = main;
+    // Skull and jaw.
+    _path
+      ..reset()
+      ..moveTo(-6.8 * u, -1 * u)
+      ..quadraticBezierTo(-7 * u, -7.5 * u, 0, -7.6 * u)
+      ..quadraticBezierTo(6.8 * u, -7.4 * u, 7.2 * u, -0.8 * u)
+      ..lineTo(7.6 * u, 1.6 * u)
+      ..quadraticBezierTo(6.2 * u, 6.6 * u, 1.5 * u, 7.0 * u)
+      ..quadraticBezierTo(-5.2 * u, 6.2 * u, -6.8 * u, -1 * u)
+      ..close();
+    c.drawPath(_path, _p);
+    if (s.topknot && !s.helmet && !s.hood) {
+      c.drawOval(Rect.fromCenter(center: Offset(-3.6 * u, -8.2 * u), width: 4.8 * u, height: 3.2 * u), _p);
+      _s
+        ..color = main
+        ..strokeWidth = 1.6 * u;
+      c.drawLine(Offset(-4.6 * u, -8.4 * u), Offset(-9.5 * u, -6.6 * u + math.sin(time * 6) * 0.6 * u), _s);
+      // Spiky hair fringe.
       _path
         ..reset()
-        ..moveTo(h.dx + 7.5 * u, h.dy + 4 * u)
-        ..quadraticBezierTo(h.dx + 9 * u, h.dy - 9 * u, h.dx - 1 * u, h.dy - 10 * u)
-        ..quadraticBezierTo(h.dx - 9 * u, h.dy - 9 * u, h.dx - 13 * u, h.dy + 2 * u)
-        ..quadraticBezierTo(h.dx - 9 * u, h.dy + 10 * u, h.dx - 3 * u, h.dy + 11 * u)
+        ..moveTo(-6.5 * u, -4 * u)
+        ..lineTo(-9.2 * u, -2.5 * u)
+        ..lineTo(-6.8 * u, -1.2 * u)
+        ..lineTo(-8.8 * u, 0.6 * u)
+        ..lineTo(-6.5 * u, 0.8 * u)
         ..close();
       c.drawPath(_path, _p);
     }
+    if (s.hood) {
+      _path
+        ..reset()
+        ..moveTo(7.8 * u, 4 * u)
+        ..quadraticBezierTo(9.4 * u, -9 * u, -1 * u, -10.4 * u)
+        ..quadraticBezierTo(-9.4 * u, -9.4 * u, -13.5 * u, 2.4 * u)
+        ..quadraticBezierTo(-9 * u, 10.5 * u, -3 * u, 11 * u)
+        ..close();
+      c.drawPath(_path, _p);
+    }
+    if (s.helmet) {
+      // Kabuto dome and flaring neck guard.
+      c.drawOval(Rect.fromCenter(center: Offset(-0.4 * u, -4.4 * u), width: 16.5 * u, height: 10 * u), _p);
+      _path
+        ..reset()
+        ..moveTo(-7.5 * u, -3 * u)
+        ..lineTo(-13 * u, 4.5 * u)
+        ..lineTo(-9 * u, 5.5 * u)
+        ..lineTo(-5 * u, 1 * u)
+        ..close()
+        ..moveTo(6.5 * u, -3 * u)
+        ..lineTo(9.8 * u, -1.2 * u)
+        ..lineTo(7.4 * u, 0.2 * u)
+        ..close();
+      c.drawPath(_path, _p);
+      // Crest.
+      _s
+        ..color = detailPass ? fade(const Color(0xFF8A6A3A), main.a) : main
+        ..strokeWidth = 1.6 * u;
+      _path
+        ..reset()
+        ..moveTo(1 * u, -8.6 * u)
+        ..quadraticBezierTo(5 * u, -13 * u, 4 * u, -19 * u)
+        ..moveTo(0, -8.6 * u)
+        ..quadraticBezierTo(-4 * u, -13 * u, -2.5 * u, -19.5 * u);
+      c.drawPath(_path, _s);
+    }
     if (s.horns) {
-      final h = k.head;
       _s
         ..color = main
         ..strokeWidth = 3 * u;
       _path
         ..reset()
-        ..moveTo(h.dx + 2 * u, h.dy - 5 * u)
-        ..quadraticBezierTo(h.dx + 9 * u, h.dy - 12 * u, h.dx + 6 * u, h.dy - 20 * u)
-        ..moveTo(h.dx - 3 * u, h.dy - 5 * u)
-        ..quadraticBezierTo(h.dx - 11 * u, h.dy - 11 * u, h.dx - 12 * u, h.dy - 19 * u);
+        ..moveTo(2 * u, -6 * u)
+        ..quadraticBezierTo(9 * u, -12 * u, 6 * u, -21 * u)
+        ..moveTo(-3 * u, -6 * u)
+        ..quadraticBezierTo(-11 * u, -11 * u, -12 * u, -20 * u);
       c.drawPath(_path, _s);
     }
-
-    // Belt sash.
-    if (s.headband) {
+    if (detailPass && s.mask) {
       _s
-        ..color = main
-        ..strokeWidth = 2.2 * u;
-      final hp = k.hip + Offset(-4 * u, -2 * u);
-      final w = math.sin(time * 5) * 2 * u;
-      _path
-        ..reset()
-        ..moveTo(hp.dx, hp.dy)
-        ..quadraticBezierTo(hp.dx - 6 * u, hp.dy + 6 * u, hp.dx - 9 * u - wind * 4 * u, hp.dy + 13 * u + w);
-      c.drawPath(_path, _s);
+        ..color = fade(s.detail, main.a)
+        ..strokeWidth = 0.6 * u;
+      c.drawLine(Offset(-2 * u, 1.4 * u), Offset(7.4 * u, 1.0 * u), _s);
+      c.drawLine(Offset(0.5 * u, 3.4 * u), Offset(6.4 * u, 3.6 * u), _s);
     }
-
-    // Front leg.
-    _limb(c, k.hip, k.fKnee, 11 * u * bk, 8.5 * u * bk, _p);
-    _limb(c, k.fKnee, k.fFoot, 8.5 * u * bk, 5.2 * u * bk, _p);
-    _foot(c, k.fFoot, u * bk, _p);
-
-    // Weapon (behind the front arm).
-    _weaponShape(c, k, s, main);
-
-    // Front arm.
-    _p.color = main;
-    _limb(c, k.shoulder, k.fElbow, 7.5 * u * bk, 6 * u * bk, _p);
-    _limb(c, k.fElbow, k.fHand, 6 * u * bk, 4.6 * u * bk, _p);
-    c.drawCircle(k.fHand, 3.4 * u * bk, _p);
-
-    // Headband tails.
-    if (s.headband) {
-      final h = k.head + Offset(-5.5 * u, -2.5 * u);
-      final w1 = math.sin(time * 7.0) * 2.4 * u;
-      final w2 = math.sin(time * 7.0 + 1.3) * 3.2 * u;
-      _s
-        ..color = detailPass ? fade(s.bandColor, main.a) : main
-        ..strokeWidth = 2.0 * u;
-      _path
-        ..reset()
-        ..moveTo(h.dx, h.dy)
-        ..quadraticBezierTo(h.dx - 8 * u, h.dy + w1, h.dx - 15 * u - wind * 6 * u, h.dy + 2 * u + w2)
-        ..moveTo(h.dx, h.dy + 1 * u)
-        ..quadraticBezierTo(h.dx - 7 * u, h.dy + 4 * u + w2, h.dx - 13 * u - wind * 5 * u, h.dy + 7 * u + w1);
-      c.drawPath(_path, _s);
-      if (detailPass) {
-        _s.strokeWidth = 2.2 * u;
-        c.drawArc(Rect.fromCircle(center: k.head, radius: 7 * u), math.pi * 1.05, math.pi * 0.9, false, _s);
-      }
-    }
-  }
-
-  static void _foot(Canvas c, Offset f, double u, Paint paint) {
-    c.drawOval(Rect.fromLTWH(f.dx - 3 * u, f.dy - 3.2 * u, 10 * u, 4.2 * u), paint);
+    c.restore();
   }
 
   static void _weaponShape(Canvas c, Skeleton k, HumanoidStyle s, Color col) {
@@ -627,8 +1093,8 @@ class HumanoidPainter {
     final len = s.weaponLength;
     switch (s.weapon) {
       case WeaponType.katana:
-        c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-1.4 * u, -8 * u, 2.8 * u, 11 * u), Radius.circular(u)), _p);
-        c.drawOval(Rect.fromCenter(center: Offset(0, 3 * u), width: 6 * u, height: 1.8 * u), _p);
+        c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-1.4 * u, -9 * u, 2.8 * u, 12 * u), Radius.circular(u)), _p);
+        c.drawOval(Rect.fromCenter(center: Offset(0, 3 * u), width: 6.4 * u, height: 2.0 * u), _p);
         _path
           ..reset()
           ..moveTo(-1.2 * u, 3.5 * u)
@@ -666,14 +1132,25 @@ class HumanoidPainter {
         break;
       case WeaponType.greatsword:
         c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-1.7 * u, -12 * u, 3.4 * u, 15 * u), Radius.circular(u)), _p);
-        c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-7 * u, 2 * u, 14 * u, 2.6 * u), Radius.circular(u)), _p);
+        _path
+          ..reset()
+          ..moveTo(-8 * u, 1.5 * u)
+          ..quadraticBezierTo(0, 5 * u, 8 * u, 1.5 * u)
+          ..lineTo(7 * u, 4.5 * u)
+          ..quadraticBezierTo(0, 6.5 * u, -7 * u, 4.5 * u)
+          ..close();
+        c.drawPath(_path, _p);
         _path
           ..reset()
           ..moveTo(-3 * u, 4.5 * u)
           ..lineTo(3 * u, 4.5 * u)
-          ..lineTo(3.4 * u, len * 0.85)
+          ..lineTo(3.6 * u, len * 0.55)
+          ..lineTo(2.6 * u, len * 0.6)
+          ..lineTo(3.4 * u, len * 0.86)
           ..lineTo(0, len)
-          ..lineTo(-3.4 * u, len * 0.85)
+          ..lineTo(-3.4 * u, len * 0.86)
+          ..lineTo(-2.6 * u, len * 0.6)
+          ..lineTo(-3.6 * u, len * 0.55)
           ..close();
         c.drawPath(_path, _p);
         break;
@@ -695,41 +1172,94 @@ class HumanoidPainter {
     c.restore();
   }
 
-  static void _details(Canvas c, Skeleton k, Pose p, HumanoidStyle s, double time, double alpha, double eyeBoost) {
+  static void _details(Canvas c, Skeleton k, Pose p, HumanoidStyle s, double time, double alpha, double eyeBoost, bool inHand) {
     final u = s.unit;
     // Blade edge highlight.
-    if (s.weapon == WeaponType.katana || s.weapon == WeaponType.greatsword || s.weapon == WeaponType.dagger || s.weapon == WeaponType.axe) {
+    if (inHand && (s.weapon == WeaponType.katana || s.weapon == WeaponType.greatsword || s.weapon == WeaponType.dagger || s.weapon == WeaponType.axe)) {
       final edgeStart = k.fHand + k.wDir * (s.weapon == WeaponType.axe ? s.weaponLength - 20 * u : 4 * u);
       final edgeEnd = k.wTip;
       if (s.bladeGlow.a > 0) {
         _s
-          ..color = fade(s.bladeGlow, alpha * 0.35)
-          ..strokeWidth = 5 * u;
+          ..blendMode = BlendMode.plus
+          ..color = fade(s.bladeGlow, alpha * 0.28)
+          ..strokeWidth = 6 * u;
         c.drawLine(edgeStart, edgeEnd, _s);
+        _s
+          ..color = fade(s.bladeGlow, alpha * 0.45)
+          ..strokeWidth = 2.4 * u;
+        c.drawLine(edgeStart, edgeEnd, _s);
+        _s.blendMode = BlendMode.srcOver;
       }
       _s
-        ..color = fade(s.bladeColor, alpha * 0.85)
+        ..color = fade(s.bladeColor, alpha * 0.9)
         ..strokeWidth = 0.7 * u;
       final nrm = Offset(-k.wDir.dy, k.wDir.dx) * (0.9 * u);
       c.drawLine(edgeStart + nrm, edgeEnd, _s);
+      // Hamon glint travelling along the blade.
+      final g = (time * 0.6) % 1.0;
+      final gp = Offset.lerp(edgeStart, edgeEnd, g)!;
+      _p
+        ..blendMode = BlendMode.plus
+        ..color = fade(s.bladeColor, alpha * 0.5 * math.sin(g * math.pi));
+      c.drawCircle(gp + nrm, 1.3 * u, _p);
+      _p.blendMode = BlendMode.srcOver;
+    }
+    // Energy veins.
+    if (s.veins.a > 0) {
+      final pulse = 0.55 + 0.45 * math.sin(time * 3.2);
+      _s
+        ..blendMode = BlendMode.plus
+        ..color = fade(s.veins, alpha * 0.55 * pulse)
+        ..strokeWidth = 0.9 * u;
+      final mid = Offset.lerp(k.hip, k.neck, 0.55)!;
+      _path
+        ..reset()
+        ..moveTo(k.hip.dx + 1 * u, k.hip.dy - 2 * u)
+        ..lineTo(mid.dx + 2 * u, mid.dy)
+        ..lineTo(k.neck.dx + 1 * u, k.neck.dy + 3 * u)
+        ..moveTo(mid.dx + 2 * u, mid.dy)
+        ..lineTo(mid.dx + 6 * u, mid.dy - 5 * u)
+        ..moveTo(k.shoulder.dx, k.shoulder.dy)
+        ..lineTo(k.fElbow.dx, k.fElbow.dy)
+        ..lineTo(k.fHand.dx, k.fHand.dy)
+        ..moveTo(k.hip.dx, k.hip.dy)
+        ..lineTo(k.fKnee.dx, k.fKnee.dy)
+        ..lineTo(k.fFoot.dx, k.fFoot.dy - 3 * u);
+      c.drawPath(_path, _s);
+      _p
+        ..blendMode = BlendMode.plus
+        ..color = fade(s.veins, alpha * 0.6 * pulse);
+      c.drawCircle(mid + Offset(2 * u, 0), 2.6 * u, _p);
+      _p.color = fade(s.veins, alpha * 0.18 * pulse);
+      c.drawCircle(mid + Offset(2 * u, 0), 8 * u, _p);
+      _p.blendMode = BlendMode.srcOver;
+      _s.blendMode = BlendMode.srcOver;
     }
     // Glowing eyes.
     final g = (s.eyeGlow + eyeBoost) * alpha * (0.85 + 0.15 * math.sin(time * 6));
     if (g > 0.02) {
       final fwd = Offset(math.sin(p.torso + p.head + math.pi / 2), -math.cos(p.torso + p.head + math.pi / 2));
       final up = Offset(math.sin(p.torso + p.head), -math.cos(p.torso + p.head));
-      final e = k.head + fwd * (4.2 * u) + up * (0.6 * u);
+      final e = k.head + fwd * (4.4 * u) + up * (0.8 * u);
       _p
         ..style = PaintingStyle.fill
-        ..color = fade(s.eye, 0.12 * g);
+        ..blendMode = BlendMode.plus
+        ..color = fade(s.eye, 0.14 * g);
       c.drawCircle(e, 7 * u, _p);
-      _p.color = fade(s.eye, 0.3 * g);
-      c.drawCircle(e, 3.4 * u, _p);
-      _p.color = fade(Color.lerp(s.eye, const Color(0xFFFFFFFF), 0.55)!, g.clamp(0.0, 1.0));
-      c.drawOval(Rect.fromCenter(center: e, width: 3.2 * u, height: 1.3 * u), _p);
-      final e2 = e - fwd * (2.6 * u);
-      _p.color = fade(s.eye, 0.6 * g.clamp(0.0, 1.0));
-      c.drawOval(Rect.fromCenter(center: e2, width: 1.8 * u, height: 1.0 * u), _p);
+      _p.color = fade(s.eye, 0.32 * g);
+      c.drawCircle(e, 3.2 * u, _p);
+      _p.blendMode = BlendMode.srcOver;
+      _p.color = fade(Color.lerp(s.eye, const Color(0xFFFFFFFF), 0.6)!, g.clamp(0.0, 1.0));
+      _path
+        ..reset()
+        ..moveTo(e.dx - fwd.dx * 1.8 * u, e.dy - fwd.dy * 1.8 * u + 0.3 * u)
+        ..lineTo(e.dx + fwd.dx * 1.9 * u - up.dx * 0.6 * u, e.dy + fwd.dy * 1.9 * u - up.dy * 0.6 * u)
+        ..lineTo(e.dx + fwd.dx * 1.2 * u + up.dx * 0.4 * u, e.dy + fwd.dy * 1.2 * u + up.dy * 0.4 * u)
+        ..close();
+      c.drawPath(_path, _p);
+      final e2 = e - fwd * (3.0 * u);
+      _p.color = fade(s.eye, 0.55 * g.clamp(0.0, 1.0));
+      c.drawOval(Rect.fromCenter(center: e2, width: 1.8 * u, height: 0.9 * u), _p);
     }
   }
 
@@ -748,8 +1278,16 @@ class HumanoidPainter {
         ..close();
       _p
         ..style = PaintingStyle.fill
-        ..color = fade(color, a * a * 0.55);
+        ..blendMode = BlendMode.srcOver
+        ..color = fade(color, a * a * 0.5);
       c.drawPath(_path, _p);
+      // Bright edge along the tip arc.
+      _s
+        ..blendMode = BlendMode.plus
+        ..color = fade(color, a * a * 0.8)
+        ..strokeWidth = 2.2;
+      c.drawLine(tips[i], tips[i + 1], _s);
+      _s.blendMode = BlendMode.srcOver;
     }
   }
 }

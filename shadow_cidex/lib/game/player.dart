@@ -5,8 +5,23 @@ import '../audio.dart';
 import '../core/utils.dart';
 import '../render/humanoid.dart';
 import 'battle.dart';
+import 'fx.dart';
+import 'player_fx.dart';
 
-enum PState { idle, run, air, attack, smash, hurt, dead }
+enum PState { idle, run, air, attack, smash, dash, hurt, dead }
+
+enum _Blade { sheathed, drawing, drawn, sheathing }
+
+class _Ghost {
+  _Ghost(this.x, this.y, this.facing, Pose p) {
+    pose.copyFrom(p);
+  }
+  final double x;
+  final double y;
+  final double facing;
+  final Pose pose = Pose();
+  double life = 0.28;
+}
 
 /// The Shadow Warrior.
 class Player {
@@ -25,21 +40,39 @@ class Player {
 
   PState state = PState.idle;
   double st = 0;
-  final Pose pose = Pose();
-  final Pose _target = Pose();
-  final Skeleton skel = Skeleton();
 
   static const HumanoidStyle style = HumanoidStyle(
     height: 150,
     headband: true,
     bandColor: Color(0xFF9A1424),
     eye: Color(0xFF8FE6FF),
-    eyeGlow: 0.9,
+    eyeGlow: 1.0,
     rim: Color(0xFF9AB8E0),
-    rimStrength: 0.7,
+    rimStrength: 0.72,
     bladeColor: Color(0xFFD8E8FF),
     bladeGlow: Color(0xFF5FB8FF),
+    hakama: true,
+    topknot: true,
+    mask: true,
+    scarf: true,
+    saya: true,
   );
+
+  static const HumanoidStyle _ghostStyle = HumanoidStyle(
+    height: 150,
+    body: Color(0xFF16305A),
+    backTint: Color(0xFF16305A),
+    rimStrength: 0,
+    eyeGlow: 0,
+    hakama: true,
+    topknot: true,
+    weapon: WeaponType.none,
+  );
+
+  final HumanoidRig rig = HumanoidRig(style);
+  Pose get pose => rig.pose;
+  Skeleton get skel => rig.skel;
+  final Skeleton _ghostSkel = Skeleton();
 
   double walkPhase = 0;
   double invuln = 0;
@@ -52,14 +85,31 @@ class Player {
   bool _queued = false;
   final Set<Object> _hitSet = <Object>{};
   int _smashPhase = 0;
+  double _spinTick = 0;
   double _footT = 0;
-  double _fallSpeed = 0;
   double alpha = 1;
   bool _deathReported = false;
   final List<Offset> _trailBase = [];
   final List<Offset> _trailTip = [];
 
+  // Sword carried in the scabbard when no enemy is near.
+  _Blade _blade = _Blade.sheathed;
+  double _bladeT = 0;
+  double _calmT = 0;
+
+  // Sprint / dash.
+  bool sprinting = false;
+  double _dashCd = 0;
+  bool _airDash = true;
+  double _ghostT = 0;
+  final List<_Ghost> _ghosts = [];
+
+  // Boss level regeneration.
+  double sinceHurt = 10;
+  bool regenerating = false;
+
   bool get alive => state != PState.dead;
+  bool get armed => _blade == _Blade.drawn || (_blade == _Blade.drawing && _bladeT > 0.5) || (_blade == _Blade.sheathing && _bladeT < 0.5);
   Rect get box => Rect.fromLTRB(x - 20, y - 146, x + 20, y);
 
   static const List<double> _comboDur = [0.34, 0.34, 0.44];
@@ -74,6 +124,8 @@ class Player {
     st += dt;
     invuln = math.max(0, invuln - dt);
     flash = math.max(0, flash - dt * 5);
+    _dashCd = math.max(0, _dashCd - dt);
+    sinceHurt += dt;
     if (powerCharge < 1) {
       powerCharge = math.min(1, powerCharge + dt / powerReload);
     }
@@ -83,9 +135,12 @@ class Player {
     final wantJump = !locked && input.jump;
     final wantAttack = !locked && input.attack;
     final wantPower = !locked && input.power;
+    final wantDash = !locked && input.dash;
+    sprinting = !locked && input.sprint && onGround && moveX.abs() > 0.2 && (state == PState.run || state == PState.idle);
     input.jump = false;
     input.attack = false;
     input.power = false;
+    input.dash = false;
 
     if (wantJump) _jumpBuffer = 0.14;
     _jumpBuffer = math.max(0, _jumpBuffer - dt);
@@ -102,20 +157,29 @@ class Player {
       case PState.smash:
         _updateSmash(dt);
         break;
+      case PState.dash:
+        if (st > 0.2) {
+          vx *= 0.45;
+          _toMove();
+        }
+        break;
       case PState.attack:
         _updateAttack(dt, moveX, wantAttack);
         if (_jumpBuffer > 0 && st > _activeEnd[combo]) _tryJump();
+        if (wantDash && st > _activeEnd[combo]) _startDash(moveX);
         break;
       case PState.idle:
       case PState.run:
       case PState.air:
-        final targetV = moveX * 390;
-        vx += (targetV - vx) * smoothK(onGround ? 16 : 8, dt);
+        final speed = sprinting ? 650.0 : 390.0;
+        final targetV = moveX * speed;
+        vx += (targetV - vx) * smoothK(onGround ? 14 : 8, dt);
         if (moveX.abs() > 0.15) facing = moveX > 0 ? 1 : -1;
         if (_jumpBuffer > 0) _tryJump();
-        if (wantAttack) _startAttack(0);
-        if (wantPower && powerCharge >= 1) _startSmash();
-        if (state != PState.attack && state != PState.smash) {
+        if (wantDash) _startDash(moveX);
+        if (wantAttack && state != PState.dash) _startAttack(0);
+        if (wantPower && powerCharge >= 1 && state != PState.dash) _startSmash();
+        if (state == PState.idle || state == PState.run || state == PState.air) {
           state = !onGround ? PState.air : (vx.abs() > 30 ? PState.run : PState.idle);
         }
         break;
@@ -124,16 +188,84 @@ class Player {
       _startSmash();
     }
 
+    _updateBlade(dt);
+    _regen(dt);
     _physics(dt);
     _animate(dt);
     _footsteps(dt);
     _attackHits();
+    _updateGhosts(dt);
   }
 
   void _toMove() {
     state = onGround ? PState.idle : PState.air;
     st = 0;
   }
+
+  // ------------------------------------------------------------------ sword
+
+  bool _threatNear() {
+    final boss = b.boss;
+    if (boss != null && !boss.finished) return true;
+    for (final e in b.enemies) {
+      if (!e.isDead && (e.x - x).abs() < 760) return true;
+    }
+    return false;
+  }
+
+  void _updateBlade(double dt) {
+    final threat = _threatNear() && alive;
+    _calmT = threat ? 0 : _calmT + dt;
+    switch (_blade) {
+      case _Blade.sheathed:
+        if (threat && (state == PState.idle || state == PState.run || state == PState.air)) _beginDraw();
+        break;
+      case _Blade.drawing:
+        _bladeT += dt / 0.3;
+        if (_bladeT >= 1) {
+          _blade = _Blade.drawn;
+          _bladeT = 0;
+        }
+        break;
+      case _Blade.drawn:
+        if (_calmT > 2.6 && (state == PState.idle || state == PState.run)) {
+          _blade = _Blade.sheathing;
+          _bladeT = 0;
+          b.sfx(Sfx.swordSheathe, volume: 0.7);
+        }
+        break;
+      case _Blade.sheathing:
+        _bladeT += dt / 0.4;
+        if (threat) {
+          _beginDraw();
+        } else if (_bladeT >= 1) {
+          _blade = _Blade.sheathed;
+          _bladeT = 0;
+        }
+        break;
+    }
+  }
+
+  void _beginDraw() {
+    _blade = _Blade.drawing;
+    _bladeT = 0;
+    b.sfx(Sfx.swordDraw, volume: 0.85, gap: 300);
+    final hip = _world(skel.hip + const Offset(8, -4));
+    b.fx.hitSparks(hip.dx + facing * 20, hip.dy, facing, n: 6, color: const Color(0xFFBFE0FF));
+  }
+
+  void _forceDrawn() {
+    if (_blade != _Blade.drawn) {
+      if (_blade == _Blade.sheathed || _blade == _Blade.sheathing) {
+        b.sfx(Sfx.swordDraw, volume: 0.85, gap: 300);
+      }
+      _blade = _Blade.drawn;
+      _bladeT = 0;
+    }
+    _calmT = 0;
+  }
+
+  // ------------------------------------------------------------------ moves
 
   void _tryJump() {
     if (onGround || _coyote > 0) {
@@ -155,7 +287,32 @@ class Player {
     }
   }
 
+  void _startDash(double moveX) {
+    if (_dashCd > 0) return;
+    if (!onGround) {
+      if (!_airDash) return;
+      _airDash = false;
+    }
+    if (moveX.abs() > 0.15) facing = moveX > 0 ? 1 : -1;
+    state = PState.dash;
+    st = 0;
+    vx = facing * 1150;
+    vy = 0;
+    invuln = math.max(invuln, 0.24);
+    _dashCd = 0.55;
+    b.sfx(Sfx.dash, volume: 0.8);
+    b.fx.shadowBurst(x, y - 70, n: 10, spread: 0.9);
+    b.fx.dust(x, y, n: 6, power: 1.0);
+    _ghostT = 0;
+  }
+
   void _startAttack(int step) {
+    if (!armed) {
+      // Iaido: draw and cut in a single motion.
+      _forceDrawn();
+      b.fx.hitSparks(x + facing * 30, y - 80, facing, n: 6, color: const Color(0xFFBFE0FF));
+    }
+    _calmT = 0;
     state = PState.attack;
     st = 0;
     combo = step;
@@ -182,64 +339,138 @@ class Player {
     }
   }
 
+  // ------------------------------------------------------------------ shadow storm power
+
   void _startSmash() {
+    _forceDrawn();
     powerCharge = 0;
     state = PState.smash;
     st = 0;
     _smashPhase = 0;
+    _spinTick = 0;
     _hitSet.clear();
-    vy = onGround ? -560 : math.min(vy, -260);
-    onGround = false;
-    vx = facing * 120;
-    b.sfx(Sfx.powerUp, volume: 1.0);
-    b.fx.energy(x, y - 80, n: 26, color: const Color(0xFF6FB6FF), speed: 260);
+    vx = 0;
+    if (onGround) vy = 0;
+    b.sfx(Sfx.powerCharge, volume: 1.0);
+    b.slowMotion(0.18, 0.6);
   }
 
   void _updateSmash(double dt) {
-    if (_smashPhase == 0 && st > 0.3) {
-      _smashPhase = 1;
-      vy = 1700;
+    switch (_smashPhase) {
+      case 0:
+        // Gather shadow energy.
+        vx *= 0.8;
+        if (!onGround) vy = math.min(vy, 120);
+        for (var i = 0; i < 3; i++) {
+          final a = rng.nextDouble() * math.pi * 2;
+          final r = randRange(90, 170);
+          b.particles.spawn(px: x + math.cos(a) * r, py: y - 80 + math.sin(a) * r, pvx: -math.cos(a) * r * 4, pvy: -math.sin(a) * r * 4, plife: 0.22, psize: randRange(2, 4), pcolor: const Color(0xFF7FC0FF), pkind: PKind.glow);
+        }
+        if (st > 0.22) {
+          _smashPhase = 1;
+          st = 0;
+          vy = -780;
+          vx = facing * 160;
+          onGround = false;
+          b.sfx(Sfx.swordSwing, volume: 0.9);
+          b.ring(x, y - 4, 120, 0.3, const Color(0xFF7FC0FF), 4);
+        }
+        break;
+      case 1:
+        // Rising spinning cut: hits everything close several times.
+        _spinTick -= dt;
+        if (_spinTick <= 0) {
+          _spinTick = 0.09;
+          _spinHits();
+        }
+        if (st > 0.3) {
+          _smashPhase = 2;
+          st = 0;
+          vy = 1900;
+          vx = 0;
+        }
+        break;
+      case 2:
+        if (onGround || st > 0.9) {
+          _smashPhase = 3;
+          st = 0;
+          _smashImpact();
+        }
+        break;
+      default:
+        if (st > 0.36) _toMove();
     }
-    if (_smashPhase == 1 && (onGround || st > 0.9)) {
-      _smashPhase = 2;
-      st = 0;
-      _smashImpact();
-    }
-    if (_smashPhase == 2 && st > 0.32) {
-      _toMove();
+  }
+
+  void _spinHits() {
+    b.sfx(Sfx.swordSwing, volume: 0.6, gap: 60);
+    final cx = x;
+    final cy = y - 80;
+    for (final h in b.hittables().toList()) {
+      final r = h.hurtBox;
+      final nx = clampD(cx, r.left, r.right);
+      final ny = clampD(cy, r.top, r.bottom);
+      if ((Offset(nx, ny) - Offset(cx, cy)).distance < 175) {
+        final dir = r.center.dx >= x ? 1.0 : -1.0;
+        h.receiveHit(11, dir, 160);
+        b.fx.hitSparks(nx, ny, dir, n: 6, color: const Color(0xFF9FD0FF));
+      }
     }
   }
 
   void _smashImpact() {
     vx = 0;
-    b.addShake(0.85);
-    b.hitStop(0.07);
-    b.flashWhite = math.max(b.flashWhite, 0.35);
-    b.ring(x, y - 4, 320, 0.55, const Color(0xFF7FC0FF), 10);
-    b.ring(x, y - 4, 200, 0.4, const Color(0xFFB09CFF), 6);
-    b.ring(x, y - 70, 160, 0.4, const Color(0xFF7FC0FF), 4, flat: 1);
-    b.fx.energy(x, y - 30, n: 50, color: const Color(0xFF7FC0FF), speed: 620);
-    b.fx.dust(x, y, n: 18, power: 1.6);
-    b.fx.debris(x, y, n: 12);
-    b.fx.shadowBurst(x, y - 40, n: 18, spread: 1.4);
+    b.addShake(1.0);
+    b.hitStop(0.09);
+    b.slowMotion(0.35, 0.45);
+    b.flashWhite = math.max(b.flashWhite, 0.5);
+    b.sfx(Sfx.powerUp, volume: 1.0);
+    b.sfx(Sfx.shadowWave, volume: 0.9);
+    b.ring(x, y - 4, 380, 0.6, const Color(0xFF7FC0FF), 12);
+    b.ring(x, y - 4, 240, 0.45, const Color(0xFFB09CFF), 7);
+    b.ring(x, y - 90, 200, 0.45, const Color(0xFF7FC0FF), 5, flat: 1);
+    b.fx.energy(x, y - 30, n: 70, color: const Color(0xFF7FC0FF), speed: 720);
+    b.fx.energy(x, y - 30, n: 30, color: const Color(0xFFB09CFF), speed: 420);
+    b.fx.dust(x, y, n: 22, power: 1.9);
+    b.fx.debris(x, y, n: 16);
+    b.fx.shadowBurst(x, y - 40, n: 22, spread: 1.6);
+    b.playerFx.add(GroundCrack(b, x, y));
+    for (var i = -2; i <= 2; i++) {
+      b.playerFx.add(ShadowSpike(b, x + i * 70 + randRange(-15, 15), y, delay: i.abs() * 0.05, height: 150 - i.abs() * 25.0));
+    }
+    b.playerFx.add(ShadowWave(b, x + 40, y, 1));
+    b.playerFx.add(ShadowWave(b, x - 40, y, -1));
     for (final h in b.hittables().toList()) {
       final r = h.hurtBox;
       final dx = (r.center.dx - x).abs() - r.width / 2;
-      if (dx <= 300 && r.bottom > y - 460 && r.top < y + 40) {
+      if (dx <= 340 && r.bottom > y - 480 && r.top < y + 40) {
         final dir = r.center.dx >= x ? 1.0 : -1.0;
-        h.receiveHit(58, dir, 620, heavy: true);
-        b.fx.hitSparks(r.center.dx, r.center.dy, dir, n: 14, color: const Color(0xFF9FD0FF));
+        h.receiveHit(62, dir, 680, heavy: true);
+        b.fx.hitSparks(r.center.dx, r.center.dy, dir, n: 16, color: const Color(0xFF9FD0FF));
       }
     }
     for (final p in b.projectiles) {
-      if (p.destructible && (p.x - x).abs() < 300 && p.y > y - 380) {
-        p.destroy();
-      }
+      if (p.destructible && (p.x - x).abs() < 340 && p.y > y - 400) p.destroy();
     }
     for (final h in b.hazards) {
-      if (h.smashable && (h.x - x).abs() < 300) h.shatter();
+      if (h.smashable && (h.x - x).abs() < 340) h.shatter();
     }
   }
+
+  // ------------------------------------------------------------------ regen
+
+  void _regen(double dt) {
+    regenerating = false;
+    if (!b.cfg.isBoss || !alive || health >= maxHealth) return;
+    if (sinceHurt < 2.5) return;
+    regenerating = true;
+    health = math.min(maxHealth, health + 32 * dt);
+    if (rng.nextDouble() < 0.35) {
+      b.particles.spawn(px: x + randRange(-24, 24), py: y - randRange(10, 130), pvy: -randRange(50, 120), plife: 0.7, psize: randRange(1.5, 3), pcolor: const Color(0xFF7FFFD0), pkind: PKind.glow);
+    }
+  }
+
+  // ------------------------------------------------------------------ physics
 
   void _physics(double dt) {
     if (state == PState.dead && onGround) {
@@ -248,6 +479,8 @@ class Player {
     final prevY = y;
     var g = 2500.0;
     if (state == PState.attack && !onGround) g = 1500;
+    if (state == PState.dash) g = 0;
+    if (state == PState.smash && _smashPhase == 0) g = 300;
     vy = math.min(vy + g * dt, 1900);
     x += vx * dt;
     y += vy * dt;
@@ -256,22 +489,18 @@ class Player {
     final land = vy >= 0 ? b.landingY(x, 40, prevY, y) : null;
     if (land != null) {
       y = land;
-      if (!wasGround) {
-        _fallSpeed = vy;
-        if (_fallSpeed > 500) {
-          b.sfx(Sfx.land, volume: clampD(_fallSpeed / 1500, 0.3, 0.8));
-          b.fx.dust(x, y, n: 6, power: 0.7);
-        }
+      if (!wasGround && vy > 500) {
+        b.sfx(Sfx.land, volume: clampD(vy / 1500, 0.3, 0.8));
+        b.fx.dust(x, y, n: 6, power: 0.7);
       }
       vy = 0;
       onGround = true;
       airJumps = 1;
+      _airDash = true;
     } else if (onGround && !b.supportedAt(x, 40, y)) {
       onGround = false;
-    } else if (!onGround) {
-      onGround = false;
     }
-    if (y < -1 && vy == 0 && !b.supportedAt(x, 40, y)) onGround = false;
+    if (y < -1 && vy == 0 && state != PState.dash && !b.supportedAt(x, 40, y)) onGround = false;
   }
 
   void _footsteps(double dt) {
@@ -281,9 +510,9 @@ class Player {
     }
     _footT -= dt;
     if (_footT <= 0) {
-      _footT = 0.29;
-      b.sfx(Sfx.footstep, volume: 0.45, gap: 120);
-      if (rng.nextDouble() < 0.5) b.fx.dust(x - facing * 10, y, n: 2, power: 0.4);
+      _footT = sprinting ? 0.2 : 0.29;
+      b.sfx(Sfx.footstep, volume: 0.45, gap: 100);
+      if (rng.nextDouble() < (sprinting ? 0.9 : 0.5)) b.fx.dust(x - facing * 10, y, n: sprinting ? 3 : 2, power: sprinting ? 0.7 : 0.4);
     }
   }
 
@@ -322,6 +551,7 @@ class Player {
   void damage(double dmg, double fromX, {double knock = 320, double lift = 0}) {
     if (!alive || invuln > 0 || b.state == BattleState.complete || b.state == BattleState.finished) return;
     health -= dmg;
+    sinceHurt = 0;
     flash = 1;
     invuln = 0.75;
     b.flashRed = 1;
@@ -378,25 +608,68 @@ class Player {
 
   // ------------------------------------------------------------------ animation
 
+  bool get _sheathedLook => !armed;
+
   void _animate(double dt) {
     var rate = 16.0;
+    final target = rig.target;
     switch (state) {
       case PState.idle:
-        _target.idle(b.time);
+        if (_blade == _Blade.drawing) {
+          target.quickDraw(_bladeT);
+          rate = 30;
+        } else if (_blade == _Blade.sheathing) {
+          target.quickDraw(1 - _bladeT);
+          rate = 24;
+        } else if (_sheathedLook) {
+          target.sheathedIdle(b.time);
+        } else {
+          target.idle(b.time);
+        }
         break;
       case PState.run:
         final speed = vx.abs();
         walkPhase += dt * (5 + speed / 38);
-        _target.walk(walkPhase, clampD(speed / 300, 0.3, 1), run: speed > 220);
+        if (_sheathedLook || sprinting) {
+          if (speed > 220) {
+            target.ninjaRun(walkPhase, clampD(speed / 300, 0.3, 1.1));
+          } else {
+            target.walk(walkPhase, clampD(speed / 300, 0.3, 1));
+            target.bUpper = -0.05;
+            target.bFore = 1.2;
+            target.fUpper = 0.2 + math.sin(walkPhase) * 0.3;
+            target.fFore = 0.5;
+          }
+          if (!_sheathedLook) {
+            target.fUpper = 1.0;
+            target.fFore = 1.7;
+            target.weapon = 1.5;
+          }
+        } else {
+          target.walk(walkPhase, clampD(speed / 300, 0.3, 1), run: speed > 220);
+        }
+        if (_blade == _Blade.drawing) target.quickDraw(_bladeT);
         rate = 20;
         break;
       case PState.air:
         if (vy < 0) {
-          _target.jump();
+          target.jump();
         } else {
-          _target.fall();
+          target.fall();
+        }
+        if (_sheathedLook) {
+          target.fUpper = -0.6;
+          target.fFore = -0.2;
         }
         rate = 12;
+        break;
+      case PState.dash:
+        target.dash();
+        if (_sheathedLook) {
+          target.fUpper = -1.2;
+          target.fFore = -1.0;
+        }
+        rate = 30;
         break;
       case PState.attack:
         final t = st;
@@ -406,47 +679,65 @@ class Player {
         switch (combo) {
           case 0:
             if (t < s) {
-              _target.windUp(clampD(t / s, 0, 1));
+              target.windUp(clampD(t / s, 0, 1));
             } else {
-              _target.slashDown(k);
+              target.slashDown(k);
             }
             break;
           case 1:
-            _target.slashUp(t < s ? 0 : k);
+            target.slashUp(t < s ? 0 : k);
             break;
           default:
-            _target.thrust(t < s ? 0 : k);
+            target.thrust(t < s ? 0 : k);
         }
         rate = 38;
         break;
       case PState.smash:
-        if (_smashPhase < 2) {
-          _target.windUp(1);
-          _target.fThigh = 1.0;
-          _target.bThigh = 0.3;
-          _target.bShin = -0.6;
-        } else {
-          _target.smashImpact();
+        switch (_smashPhase) {
+          case 0:
+            target.windUp(1);
+            target.fThigh = 1.1;
+            target.fShin = -0.2;
+            target.bThigh = -0.6;
+            target.bShin = -1.4;
+            rate = 26;
+            break;
+          case 1:
+            target.spinSlash(clampD(st / 0.3, 0, 1) * 2 % 1.0);
+            rate = 60;
+            break;
+          case 2:
+            target.windUp(1);
+            target.weapon = 0.2;
+            target.fUpper = 1.0;
+            target.fFore = 0.6;
+            rate = 30;
+            break;
+          default:
+            target.smashImpact();
+            rate = 34;
         }
-        rate = 30;
         break;
       case PState.hurt:
-        _target.hurt();
+        target.hurt();
         rate = 26;
         break;
       case PState.dead:
-        _target.collapsed(clampD(st / 0.7, 0, 1));
-        _target.rot = -1.45 * easeOutCubic(clampD(st / 0.8, 0, 1));
+        target.collapsed(clampD(st / 0.7, 0, 1));
+        target.rot = -1.45 * easeOutCubic(clampD(st / 0.8, 0, 1));
         rate = 12;
         break;
     }
-    pose.blend(_target, smoothK(rate, dt));
-    skel.compute(pose, style);
+    pose.blend(target, smoothK(rate, dt));
+    rig.compute();
+    final wind = 0.35 + clampD(vx.abs() / 900, 0, 0.6);
+    rig.updateCloth(dt, x, y, facing, b.time, wind: wind);
     // Blade trail while swinging.
-    if (state == PState.attack || (state == PState.smash && _smashPhase == 1)) {
+    final swinging = state == PState.attack || (state == PState.smash && (_smashPhase == 1 || _smashPhase == 2));
+    if (swinging && armed) {
       _trailBase.add(_world(skel.fHand + skel.wDir * 10));
       _trailTip.add(_world(skel.wTip));
-      if (_trailBase.length > 7) {
+      if (_trailBase.length > (_smashPhase == 1 ? 10 : 7)) {
         _trailBase.removeAt(0);
         _trailTip.removeAt(0);
       }
@@ -456,11 +747,27 @@ class Player {
     }
   }
 
+  void _updateGhosts(double dt) {
+    final fast = state == PState.dash || sprinting || (state == PState.smash && _smashPhase == 2);
+    if (fast) {
+      _ghostT -= dt;
+      if (_ghostT <= 0) {
+        _ghostT = state == PState.dash ? 0.025 : 0.06;
+        if (_ghosts.length < 8) _ghosts.add(_Ghost(x, y, facing, pose));
+      }
+    }
+    for (final g in _ghosts) {
+      g.life -= dt;
+    }
+    _ghosts.removeWhere((g) => g.life <= 0);
+  }
+
   Offset _world(Offset local) => Offset(x + local.dx * facing, y + local.dy);
 
   // ------------------------------------------------------------------ render
 
   static final Paint _shadow = Paint()..color = const Color(0x88000000);
+  static final Paint _glow = Paint()..blendMode = BlendMode.plus;
 
   void render(Canvas c) {
     if (alpha <= 0.01) return;
@@ -471,23 +778,41 @@ class Player {
     _shadow.color = fade(const Color(0x99000000), alpha * clampD(1 - hgt / 600, 0.2, 1));
     c.drawOval(Rect.fromCenter(center: Offset(x, groundY), width: sw, height: 10), _shadow);
 
+    // Speed afterimages.
+    for (final g in _ghosts) {
+      _ghostSkel.compute(g.pose, _ghostStyle);
+      c.save();
+      c.translate(g.x, g.y);
+      c.scale(g.facing, 1);
+      HumanoidPainter.draw(c, _ghostSkel, g.pose, _ghostStyle, alpha: (g.life / 0.28) * 0.35);
+      c.restore();
+    }
+
     if (_trailBase.length >= 2) {
       HumanoidPainter.drawTrail(c, _trailBase, _trailTip, state == PState.smash ? const Color(0xFF8FC8FF) : const Color(0xFFBFD8FF));
     }
-    var a = alpha;
-    if (invuln > 0 && alive && ((invuln * 18).floor() % 2 == 0)) a *= 0.45;
+    final a = alpha;
+    final blink = invuln > 0 && alive && state != PState.dash && ((invuln * 16).floor() % 2 == 0);
     c.save();
     c.translate(x, y);
     c.scale(facing, 1);
     if (pose.rot != 0) c.rotate(pose.rot);
     HumanoidPainter.draw(c, skel, pose, style,
-        time: b.time, alpha: a, flash: flash, rimDx: facing, wind: clampD(-vx * facing / 400, -1, 1) + 0.3, eyeBoost: state == PState.smash ? 1.2 : 0);
-    if (state == PState.smash && _smashPhase < 2) {
-      final g = Paint()
-        ..blendMode = BlendMode.plus
-        ..color = fade(const Color(0xFF4F9CFF), 0.25 + 0.1 * math.sin(b.time * 30));
-      c.drawCircle(skel.wTip, 22, g);
-      c.drawCircle(skel.fHand, 16, g);
+        time: b.time,
+        alpha: a,
+        flash: blink ? math.max(flash, 0.55) : flash,
+        rimDx: facing,
+        wind: clampD(-vx * facing / 400, -1, 1) + 0.3,
+        eyeBoost: state == PState.smash ? 1.4 : (state == PState.dash ? 0.8 : 0),
+        sheathed: armed ? 0 : 1,
+        cloth: rig.cloth);
+    if (state == PState.smash && _smashPhase < 3) {
+      final pulse = 0.25 + 0.12 * math.sin(b.time * 30);
+      _glow.color = fade(const Color(0xFF4F9CFF), pulse);
+      c.drawCircle(skel.wTip, 24, _glow);
+      c.drawCircle(skel.fHand, 16, _glow);
+      _glow.color = fade(const Color(0xFF4F9CFF), pulse * 0.4);
+      c.drawCircle(skel.hip + const Offset(0, -40), 70, _glow);
     }
     c.restore();
   }

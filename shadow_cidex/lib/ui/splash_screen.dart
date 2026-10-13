@@ -123,10 +123,23 @@ class _SplashPainter extends CustomPainter {
   final ValueNotifier<double> progress;
 
   static final List<_Smoke> _smoke = List.generate(260, (i) => _Smoke(math.Random(i * 7 + 3)));
-  final Pose _pose = Pose();
-  final Skeleton _skel = Skeleton();
+  final HumanoidRig _rig = HumanoidRig(_style);
+  double _lastT = -1;
   final Paint _p = Paint()..isAntiAlias = true;
   TextPainter? _title;
+  ui.Image? _titleImage;
+  double _titlePad = 0;
+  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+
+  void _paintTitle(Canvas c, Offset pos) {
+    final img = _titleImage;
+    if (img == null) {
+      _title?.paint(c, pos);
+      return;
+    }
+    c.drawImage(img, pos - Offset(_titlePad, _titlePad), _imgPaint);
+  }
+
   TextPainter? _loading;
   double _titleFor = 0;
 
@@ -134,10 +147,15 @@ class _SplashPainter extends CustomPainter {
     height: 150,
     hood: true,
     cape: true,
+    scarf: true,
+    hakama: true,
+    mask: true,
+    saya: true,
+    bandColor: Color(0xFF8A1020),
     eye: Color(0xFFFF2A2A),
     eyeGlow: 1.0,
     rim: Color(0xFFB0C4E8),
-    rimStrength: 0.75,
+    rimStrength: 0.8,
     bladeColor: Color(0xFFE0E8F8),
     bladeGlow: Color(0x66FF2020),
   );
@@ -205,8 +223,11 @@ class _SplashPainter extends CustomPainter {
     // Shadow warrior forming.
     final form = clampD((t - 1.5) / 1.5, 0, 1);
     if (form > 0) {
-      _pose.planted(t);
-      _skel.compute(_pose, _style);
+      final dt = _lastT < 0 ? 1 / 60 : (t - _lastT).clamp(0.0, 1 / 20).toDouble();
+      _lastT = t;
+      _rig.pose.planted(t);
+      _rig.compute();
+      _rig.updateCloth(dt, 0, 0, 1, t, wind: 0.9 + 0.3 * math.sin(t * 0.8));
       final scale = charH / 150;
       final eye = t < 2.9 ? 0.0 : (reveal < 0.4 ? 2.5 * (1 - reveal / 0.4) + 1 : 1.0);
       // Ghost copies while materialising.
@@ -215,14 +236,14 @@ class _SplashPainter extends CustomPainter {
           c.save();
           c.translate(center.dx + pan.dx + math.sin(t * 13 + i * 2) * 14 * (1 - form), center.dy + charH * 0.5 + pan.dy);
           c.scale(scale, scale);
-          HumanoidPainter.draw(c, _skel, _pose, _style, time: t, alpha: form * 0.25, wind: 1.0);
+          HumanoidPainter.draw(c, _rig.skel, _rig.pose, _style, time: t, alpha: form * 0.25, wind: 1.0, cloth: _rig.cloth);
           c.restore();
         }
       }
       c.save();
       c.translate(center.dx + pan.dx, center.dy + charH * 0.5 + pan.dy);
       c.scale(scale, scale);
-      HumanoidPainter.draw(c, _skel, _pose, _style, time: t, alpha: easeInOut(form), wind: 0.8 + 0.4 * math.sin(t), eyeBoost: eye - 1);
+      HumanoidPainter.draw(c, _rig.skel, _rig.pose, _style, time: t, alpha: easeInOut(form), wind: 0.8 + 0.4 * math.sin(t), eyeBoost: eye - 1, cloth: _rig.cloth);
       c.restore();
     }
 
@@ -280,6 +301,14 @@ class _SplashPainter extends CustomPainter {
         text: TextSpan(text: 'SHADOW CIDEX', style: UiText.title(fs, glow: 0)),
         textDirection: TextDirection.ltr,
       )..layout();
+      // Rasterise once so the blurred text shadows are not redrawn every frame.
+      final tpi = _title!;
+      final pad = fs * 0.6;
+      final rec = ui.PictureRecorder();
+      tpi.paint(Canvas(rec), Offset(pad, pad));
+      _titleImage?.dispose();
+      _titleImage = rec.endRecording().toImageSync((tpi.width + pad * 2).ceil(), (tpi.height + pad * 2).ceil());
+      _titlePad = pad;
     }
     final tp = _title!;
     final pos = Offset((w - tp.width) / 2, h * 0.13);
@@ -299,7 +328,7 @@ class _SplashPainter extends CustomPainter {
       // Chromatic split.
       c.save();
       c.translate(-6 * glitch, 0);
-      tp.paint(c, pos);
+      _paintTitle(c, pos);
       c.restore();
       c.drawRect(Rect.fromLTWH(0, pos.dy - fs, w, tp.height + fs * 2), Paint()
         ..color = fade(const Color(0xFFFF2030), 0.6 * glitch)
@@ -312,16 +341,16 @@ class _SplashPainter extends CustomPainter {
         c.save();
         c.clipRect(Rect.fromLTWH(0, sy, w, tp.height / slices + 1));
         c.translate(off, 0);
-        tp.paint(c, pos);
+        _paintTitle(c, pos);
         c.restore();
       }
       c.save();
       c.translate(5 * glitch, 0);
       c.clipRect(Rect.fromLTWH(0, pos.dy + tp.height * r.nextDouble(), w, tp.height * 0.2));
-      tp.paint(c, pos);
+      _paintTitle(c, pos);
       c.restore();
     } else {
-      tp.paint(c, pos);
+      _paintTitle(c, pos);
     }
     c.restore();
     // Underline accent.

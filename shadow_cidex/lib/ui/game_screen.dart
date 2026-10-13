@@ -194,6 +194,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       if (k == LogicalKeyboardKey.keyJ || k == LogicalKeyboardKey.enter) _input.attack = true;
       if (k == LogicalKeyboardKey.keyK || k == LogicalKeyboardKey.space || k == LogicalKeyboardKey.keyW || k == LogicalKeyboardKey.arrowUp) _input.jump = true;
       if (k == LogicalKeyboardKey.keyL || k == LogicalKeyboardKey.keyE) _input.power = true;
+      if (k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight) {
+        _input.dash = true;
+        _input.sprint = true;
+      }
       if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.keyP) {
         if (_overlay == _Overlay.none) {
           _pause();
@@ -203,6 +207,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       }
     } else if (e is KeyUpEvent) {
       _keys.remove(k);
+      if (k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight) _input.sprint = false;
     }
     final left = _keys.contains(LogicalKeyboardKey.keyA) || _keys.contains(LogicalKeyboardKey.arrowLeft);
     final right = _keys.contains(LogicalKeyboardKey.keyD) || _keys.contains(LogicalKeyboardKey.arrowRight);
@@ -240,10 +245,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           child: Stack(
             children: [
               Positioned.fill(
-                child: GameWidget<ShadowGame>(
-                  key: ValueKey(_gameId),
-                  game: game,
-                  loadingBuilder: (context) => const ColoredBox(color: Colors.black),
+                child: RepaintBoundary(
+                  child: GameWidget<ShadowGame>(
+                    key: ValueKey(_gameId),
+                    game: game,
+                    loadingBuilder: (context) => const ColoredBox(color: Colors.black),
+                  ),
                 ),
               ),
               Positioned.fill(
@@ -252,7 +259,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: _overlay != _Overlay.none,
-                    child: GameHud(hud: _hud, input: _input, onPause: _pause),
+                    child: RepaintBoundary(child: GameHud(hud: _hud, input: _input, onPause: _pause)),
                   ),
                 ),
               ),

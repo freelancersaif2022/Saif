@@ -155,35 +155,56 @@ class _LobbyScreenState extends State<LobbyScreen> with SingleTickerProviderStat
   }
 }
 
-class _Title extends StatelessWidget {
+/// Static title (rasterised once) with a cheap pulsing glow layer on top.
+class _Title extends StatefulWidget {
   const _Title({required this.clock, required this.size});
   final ValueNotifier<double> clock;
   final double size;
 
   @override
+  State<_Title> createState() => _TitleState();
+}
+
+class _TitleState extends State<_Title> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
-      valueListenable: clock,
-      builder: (context, t, _) {
-        final glow = 0.75 + 0.25 * math.sin(t * 1.6);
-        return Column(
-          children: [
-            Text('SHADOW CIDEX', textAlign: TextAlign.center, style: UiText.title(size, glow: glow)),
-            SizedBox(height: size * 0.18),
-            Container(
+    final size = widget.size;
+    return RepaintBoundary(
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              FadeTransition(
+                opacity: Tween<double>(begin: 0.35, end: 1).animate(_pulse),
+                child: RepaintBoundary(
+                  child: Text('SHADOW CIDEX', textAlign: TextAlign.center, style: UiText.title(size, glow: 1.2).copyWith(color: Colors.transparent)),
+                ),
+              ),
+              Text('SHADOW CIDEX', textAlign: TextAlign.center, style: UiText.title(size, glow: 0.4)),
+            ],
+          ),
+          SizedBox(height: size * 0.18),
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.5, end: 1).animate(_pulse),
+            child: Container(
               width: size * 7,
               height: 2,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  Colors.transparent,
-                  UiColors.red.withAlpha((200 * glow).round()),
-                  Colors.transparent,
-                ]),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.transparent, UiColors.red, Colors.transparent]),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }

@@ -89,7 +89,8 @@ class _CinematicButtonState extends State<CinematicButton> with SingleTickerProv
       child: AnimatedScale(
         scale: _down ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 110),
-        child: AnimatedBuilder(
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
           animation: _glow,
           builder: (context, child) => CustomPaint(
             painter: _ButtonPainter(widget.accent, _glow.value, widget.primary, _down),
@@ -130,6 +131,7 @@ class _CinematicButtonState extends State<CinematicButton> with SingleTickerProv
             ),
           ),
         ),
+        ),
       ),
     );
   }
@@ -169,12 +171,11 @@ class _ButtonPainter extends CustomPainter {
       ..strokeWidth = 1.6
       ..color = accent.withAlpha((90 + 120 * pulse * (primary ? 1 : 0.6)).round().clamp(0, 255));
     canvas.drawPath(path, border);
-    // Glow under the border.
+    // Soft glow under the border (wide translucent stroke, no blur filter).
     final glow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-      ..color = accent.withAlpha(((primary ? 70 : 35) + (down ? 60 : 0) + 30 * pulse).round().clamp(0, 255));
+      ..strokeWidth = 5
+      ..color = accent.withAlpha(((primary ? 40 : 18) + (down ? 50 : 0) + 18 * pulse).round().clamp(0, 255));
     canvas.drawPath(path, glow);
     // Moving sheen.
     final sx = -w * 0.3 + (w * 1.6) * t;
@@ -286,6 +287,48 @@ class SwordIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SwordIconPainter old) => old.color != color;
+}
+
+/// Running figure icon for the sprint button.
+class SprintIconPainter extends CustomPainter {
+  SprintIconPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width;
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.09
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawCircle(Offset(s * 0.62, s * 0.16), s * 0.09, Paint()..color = color);
+    final body = Path()
+      ..moveTo(s * 0.56, s * 0.3)
+      ..lineTo(s * 0.44, s * 0.56)
+      ..lineTo(s * 0.62, s * 0.7)
+      ..lineTo(s * 0.56, s * 0.92)
+      ..moveTo(s * 0.44, s * 0.56)
+      ..lineTo(s * 0.3, s * 0.74)
+      ..lineTo(s * 0.12, s * 0.74)
+      ..moveTo(s * 0.52, s * 0.36)
+      ..lineTo(s * 0.72, s * 0.48)
+      ..lineTo(s * 0.86, s * 0.4)
+      ..moveTo(s * 0.52, s * 0.36)
+      ..lineTo(s * 0.34, s * 0.4)
+      ..lineTo(s * 0.24, s * 0.52);
+    canvas.drawPath(body, p);
+    final lines = Paint()
+      ..color = color.withAlpha(140)
+      ..strokeWidth = s * 0.05
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(s * 0.0, s * 0.42), Offset(s * 0.14, s * 0.42), lines);
+    canvas.drawLine(Offset(s * 0.02, s * 0.56), Offset(s * 0.16, s * 0.56), lines);
+  }
+
+  @override
+  bool shouldRepaint(SprintIconPainter old) => old.color != color;
 }
 
 /// Heart icon row drawn with Material icons.

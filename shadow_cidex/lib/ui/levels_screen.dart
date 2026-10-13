@@ -166,7 +166,8 @@ class _LevelCardState extends State<_LevelCard> with TickerProviderStateMixin {
 
     return GestureDetector(
       onTap: widget.onTap,
-      child: AnimatedBuilder(
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
         animation: Listenable.merge([_enter, _pulse, _shake]),
         builder: (context, child) {
           final k = Curves.easeOutBack.transform(((_enter.value - widget.delay) / 0.55).clamp(0.0, 1.0));
@@ -200,8 +201,7 @@ class _LevelCardState extends State<_LevelCard> with TickerProviderStateMixin {
                     ),
                     borderRadius: BorderRadius.circular(6),
                     boxShadow: [
-                      if (unlocked) BoxShadow(color: accent.withAlpha((30 + 50 * glow).round()), blurRadius: 18),
-                      const BoxShadow(color: Colors.black87, blurRadius: 12),
+                      if (unlocked && selected) BoxShadow(color: accent.withAlpha(60), blurRadius: 16),
                     ],
                   ),
                   child: child,
@@ -276,6 +276,7 @@ class _LevelCardState extends State<_LevelCard> with TickerProviderStateMixin {
               ),
           ],
         ),
+      ),
       ),
     );
   }

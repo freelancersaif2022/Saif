@@ -44,31 +44,31 @@ class EnemyStats {
     switch (k) {
       case EnemyKind.grunt:
         return const EnemyStats(
-          style: HumanoidStyle(height: 122, bulk: 0.92, weapon: WeaponType.dagger, hood: true, eyeGlow: 0.9),
+          style: HumanoidStyle(height: 122, bulk: 0.92, weapon: WeaponType.dagger, hood: true, mask: true, eyeGlow: 0.9),
           hp: 45, speed: 215, damage: 8, range: 95, cooldown: 1.25, windup: 0.34, strike: 0.16, recover: 0.32,
           poise: 0, detect: 560, score: 100, knock: 220,
         );
       case EnemyKind.swordsman:
         return const EnemyStats(
-          style: HumanoidStyle(height: 150, weapon: WeaponType.katana, eyeGlow: 1.0, bladeColor: Color(0xFF8A9AB0)),
+          style: HumanoidStyle(height: 150, weapon: WeaponType.katana, eyeGlow: 1.0, bladeColor: Color(0xFF8A9AB0), hakama: true, topknot: true, mask: true, saya: true),
           hp: 75, speed: 175, damage: 12, range: 122, cooldown: 1.5, windup: 0.44, strike: 0.18, recover: 0.38,
           poise: 0.1, detect: 600, score: 150, knock: 280,
         );
       case EnemyKind.heavy:
         return const EnemyStats(
-          style: HumanoidStyle(height: 205, bulk: 1.42, weapon: WeaponType.axe, horns: true, shoulderPads: true, eyeGlow: 1.1, bladeColor: Color(0xFF7A8496)),
+          style: HumanoidStyle(height: 205, bulk: 1.42, weapon: WeaponType.axe, horns: true, armor: true, hakama: true, eyeGlow: 1.1, bladeColor: Color(0xFF7A8496)),
           hp: 190, speed: 108, damage: 21, range: 160, cooldown: 2.1, windup: 0.7, strike: 0.22, recover: 0.55,
           poise: 0.65, detect: 620, score: 300, knock: 420,
         );
       case EnemyKind.brute:
         return const EnemyStats(
-          style: HumanoidStyle(height: 255, bulk: 1.68, weapon: WeaponType.greatsword, horns: true, shoulderPads: true, cape: true, eyeGlow: 1.25, bladeColor: Color(0xFF8A7070), bladeGlow: Color(0xFF801010)),
+          style: HumanoidStyle(height: 255, bulk: 1.68, weapon: WeaponType.greatsword, helmet: true, armor: true, hakama: true, cape: true, eyeGlow: 1.25, bladeColor: Color(0xFF8A7070), bladeGlow: Color(0xFF801010), veins: Color(0xFFB01808)),
           hp: 320, speed: 88, damage: 30, range: 195, cooldown: 2.5, windup: 0.85, strike: 0.26, recover: 0.7,
           poise: 0.85, detect: 650, score: 450, knock: 560,
         );
       case EnemyKind.elite:
         return const EnemyStats(
-          style: HumanoidStyle(height: 152, weapon: WeaponType.katana, headband: true, bandColor: Color(0xFFB01020), eyeGlow: 1.4, bladeColor: Color(0xFFFFB0B0), bladeGlow: Color(0xFFFF2020)),
+          style: HumanoidStyle(height: 152, weapon: WeaponType.katana, headband: true, bandColor: Color(0xFFB01020), eyeGlow: 1.4, bladeColor: Color(0xFFFFB0B0), bladeGlow: Color(0xFFFF2020), hakama: true, topknot: true, mask: true, saya: true),
           hp: 115, speed: 270, damage: 15, range: 128, cooldown: 0.95, windup: 0.28, strike: 0.16, recover: 0.28,
           poise: 0.2, detect: 760, score: 250, knock: 300,
         );

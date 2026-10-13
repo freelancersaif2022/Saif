@@ -49,9 +49,11 @@ class ElephantBoss extends Boss {
     bulk: 1.55,
     weapon: WeaponType.axe,
     horns: true,
-    shoulderPads: true,
+    armor: true,
+    hakama: true,
     cape: true,
     eyeGlow: 1.4,
+    veins: Color(0xFFFF4010),
     bladeColor: Color(0xFFB08080),
     bladeGlow: Color(0xFFB01010),
   );

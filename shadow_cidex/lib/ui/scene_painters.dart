@@ -106,8 +106,8 @@ class LobbyScenePainter extends CustomPainter {
   LobbyScenePainter(this.clock) : super(repaint: clock);
   final ValueNotifier<double> clock;
 
-  final Pose _pose = Pose();
-  final Skeleton _skel = Skeleton();
+  final HumanoidRig _rig = HumanoidRig(hero);
+  double _lastT = -1;
   final Pose _ePose = Pose();
   final Skeleton _eSkel = Skeleton();
 
@@ -116,15 +116,20 @@ class LobbyScenePainter extends CustomPainter {
     headband: true,
     bandColor: Color(0xFF9A1424),
     eye: Color(0xFF8FE6FF),
-    eyeGlow: 1.0,
+    eyeGlow: 1.1,
     rim: Color(0xFF9AB8E0),
     rimStrength: 0.85,
     bladeColor: Color(0xFFD8E8FF),
     bladeGlow: Color(0xFF5FB8FF),
+    hakama: true,
+    topknot: true,
+    mask: true,
+    scarf: true,
+    saya: true,
   );
-  static const HumanoidStyle brute = HumanoidStyle(height: 150, bulk: 1.6, weapon: WeaponType.greatsword, horns: true, shoulderPads: true, cape: true, rimStrength: 0.35, bladeGlow: Color(0xFF801010));
-  static const HumanoidStyle heavy = HumanoidStyle(height: 150, bulk: 1.4, weapon: WeaponType.axe, horns: true, shoulderPads: true, rimStrength: 0.35);
-  static const HumanoidStyle swords = HumanoidStyle(height: 150, weapon: WeaponType.katana, hood: true, rimStrength: 0.35);
+  static const HumanoidStyle brute = HumanoidStyle(height: 150, bulk: 1.6, weapon: WeaponType.greatsword, helmet: true, armor: true, hakama: true, cape: true, rimStrength: 0.4, bladeGlow: Color(0xFF801010), veins: Color(0xFFB01808), eyeGlow: 1.3);
+  static const HumanoidStyle heavy = HumanoidStyle(height: 150, bulk: 1.4, weapon: WeaponType.axe, horns: true, armor: true, hakama: true, rimStrength: 0.4);
+  static const HumanoidStyle swords = HumanoidStyle(height: 150, weapon: WeaponType.katana, hood: true, mask: true, rimStrength: 0.4);
 
   @override
   void paint(Canvas c, Size size) {
@@ -202,15 +207,18 @@ class LobbyScenePainter extends CustomPainter {
     c.drawCircle(Offset(hx, ground - 120 * hs), 260 * hs, spot);
 
     // Hero.
-    _pose.idle(t);
-    _pose.weapon = 2.2 + math.sin(t * 2.2) * 0.04;
-    _skel.compute(_pose, hero);
+    final dt = _lastT < 0 ? 1 / 60 : (t - _lastT).clamp(0.0, 1 / 20).toDouble();
+    _lastT = t;
+    _rig.pose.idle(t);
+    _rig.pose.weapon = 2.2 + math.sin(t * 2.2) * 0.04;
+    _rig.compute();
+    _rig.updateCloth(dt, 0, 0, 1, t, wind: 0.7 + 0.3 * math.sin(t * 0.6));
     final shadow = Paint()..color = const Color(0xAA000000);
     c.drawOval(Rect.fromCenter(center: Offset(hx, ground), width: 130 * hs, height: 16 * hs), shadow);
     c.save();
     c.translate(hx, ground);
     c.scale(1.75 * hs, 1.75 * hs);
-    HumanoidPainter.draw(c, _skel, _pose, hero, time: t, wind: 0.6 + 0.3 * math.sin(t * 0.7));
+    HumanoidPainter.draw(c, _rig.skel, _rig.pose, hero, time: t, wind: 0.6 + 0.3 * math.sin(t * 0.7), cloth: _rig.cloth);
     c.restore();
 
     SceneKit.tiled(c, GameImages.get(GameImages.foreground), size, bottom: h + 30 * hs, height: 130 * hs, offset: camX * 2.5 + t * 4, opacity: 0.95);
