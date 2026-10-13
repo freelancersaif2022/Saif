@@ -22,7 +22,7 @@
     <uses-feature android:name="android.hardware.location" android:required="false" />
 
     <application
-        android:label="Saif Browser"
+        android:label="Trex Browser"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

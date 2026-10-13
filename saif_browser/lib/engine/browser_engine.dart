@@ -17,6 +17,9 @@ abstract class BrowserEngine {
   Future<void> suspendTab(String tabId);
   Future<void> setTabVisible(String tabId, bool visible);
 
+  /// Shows [tabId]'s WebView in the browser surface (null hides all).
+  Future<void> showTab(String? tabId);
+
   Future<void> loadUrl(String tabId, String url);
 
   /// URL the WebView currently shows (null when nothing is committed).
@@ -108,6 +111,9 @@ class MethodChannelBrowserEngine implements BrowserEngine {
   @override
   Future<void> setTabVisible(String tabId, bool visible) =>
       _invoke('setTabVisible', {'tabId': tabId, 'visible': visible});
+
+  @override
+  Future<void> showTab(String? tabId) => _invoke('showTab', {'tabId': tabId});
 
   @override
   Future<void> loadUrl(String tabId, String url) => _invoke('loadUrl', {'tabId': tabId, 'url': url});

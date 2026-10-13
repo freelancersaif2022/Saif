@@ -74,7 +74,7 @@ void main() {
         container: h.container,
         child: RepaintBoundary(
           key: _root,
-          child: Theme(data: theme, child: const SaifBrowserApp()),
+          child: Theme(data: theme, child: const TrexBrowserApp()),
         ),
       ),
     );
@@ -120,6 +120,19 @@ void main() {
       nav.pop();
       await tester.pump(const Duration(seconds: 1));
     }
+
+    nav.push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.scrollUntilVisible(find.text('Protect private tabs'), 300, scrollable: find.byType(Scrollable).last);
+    await tester.pump(const Duration(seconds: 1));
+    await snap(tester, '10_settings_scrolled');
+    await tester.tap(find.text('Version 1.0.0 · T-rex Engine').first, warnIfMissed: false);
+    await tester.pump(const Duration(seconds: 1));
+    await snap(tester, '11_about');
+    nav.pop();
+    await tester.pump(const Duration(seconds: 1));
+    nav.pop();
+    await tester.pump(const Duration(seconds: 1));
 
     tabs.newTab(incognito: true);
     await tester.pump(const Duration(seconds: 1));

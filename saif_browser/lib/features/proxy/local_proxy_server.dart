@@ -33,7 +33,7 @@ class LocalProxyEvent {
 /// with authentication), which WebView cannot do on its own for SOCKS5 auth.
 ///
 /// There is never a silent direct fallback: when [blockAll] is set or the
-/// upstream fails, the request fails with a 502 and an `X-Saif-Proxy-Error`
+/// upstream fails, the request fails with a 502 and an `X-Trex-Proxy-Error`
 /// header that the browser turns into an error page.
 class LocalProxyServer {
   LocalProxyServer({required this.onEvent, this.securityContext});
@@ -41,7 +41,7 @@ class LocalProxyServer {
   final void Function(LocalProxyEvent event) onEvent;
   final SecurityContext? securityContext;
 
-  static const errorHeader = 'X-Saif-Proxy-Error';
+  static const errorHeader = 'X-Trex-Proxy-Error';
 
   ServerSocket? _server;
   final Set<Socket> _sockets = {};

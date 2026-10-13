@@ -116,7 +116,9 @@ class ProxyController extends Notifier<ProxyStatus> {
     }
   }
 
-  Future<void> connect(int profileId) async {
+  /// Connects to a saved proxy. [username]/[password] override the saved
+  /// credentials for this attempt (used by the sign-in prompt).
+  Future<void> connect(int profileId, {String? username, String? password}) async {
     final attempt = ++_attempt;
     final repo = ref.read(proxyRepositoryProvider);
     final profile = await repo.byId(profileId);
@@ -131,8 +133,11 @@ class ProxyController extends Notifier<ProxyStatus> {
       if (!ref.read(engineInfoProvider).proxyOverride) {
         throw const ProxyFailure(ProxyFailureKind.unsupported);
       }
-      final upstream = await repo.upstreamFor(profileId);
-      if (upstream == null) return;
+      final saved = await repo.upstreamFor(profileId);
+      if (saved == null) return;
+      final upstream = username == null
+          ? saved
+          : UpstreamProxy(type: saved.type, host: saved.host, port: saved.port, username: username, password: password);
       final probeHost = ref.read(settingsProvider).engine.host;
       await ref.read(proxyProbeProvider)(upstream, probeHost.isEmpty ? 'www.google.com' : probeHost, 443);
       if (attempt != _attempt) return;

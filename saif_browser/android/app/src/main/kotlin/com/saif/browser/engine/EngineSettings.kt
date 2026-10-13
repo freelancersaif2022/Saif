@@ -11,6 +11,7 @@ data class EngineSettings(
     val desktopUserAgent: String? = null,
     val safeBrowsing: Boolean = true,
     val httpsFirst: Boolean = true,
+    val capturePasswords: Boolean = true,
 ) {
     companion object {
         fun fromMap(map: Map<*, *>?): EngineSettings {
@@ -25,6 +26,7 @@ data class EngineSettings(
                 desktopUserAgent = (map["desktopUserAgent"] as? String)?.takeIf { it.isNotBlank() },
                 safeBrowsing = map["safeBrowsing"] as? Boolean ?: true,
                 httpsFirst = map["httpsFirst"] as? Boolean ?: true,
+                capturePasswords = map["capturePasswords"] as? Boolean ?: true,
             )
         }
     }

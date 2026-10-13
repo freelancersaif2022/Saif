@@ -8,7 +8,7 @@ class AppDatabase {
 
   final Database db;
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
   static const String fileName = 'saif_browser.db';
 
   /// Opens (or creates and migrates) the database. If the file is corrupted it
@@ -40,7 +40,7 @@ class AppDatabase {
           await batch.commit(noResult: true);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
-          // Future migrations go here, one step per version.
+          if (oldVersion < 2) await db.execute(_httpAuthTable);
         },
       ),
     );
@@ -134,6 +134,8 @@ class AppDatabase {
         position INTEGER NOT NULL DEFAULT 0
       )''');
 
+    b.execute(_httpAuthTable);
+
     b.execute('''
       CREATE TABLE proxies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,6 +148,18 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )''');
   }
+
+  /// Saved credentials for HTTP authentication prompts (sites and network proxies).
+  static const _httpAuthTable = '''
+      CREATE TABLE http_auth (
+        host TEXT NOT NULL,
+        realm TEXT NOT NULL,
+        is_proxy INTEGER NOT NULL DEFAULT 0,
+        username TEXT NOT NULL,
+        password_blob BLOB NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY(host, realm)
+      )''';
 
   Future<void> close() => db.close();
 }

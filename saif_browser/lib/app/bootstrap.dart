@@ -14,10 +14,15 @@ import '../features/tabs/tabs_controller.dart';
 import 'app.dart';
 import 'intent_router.dart';
 import 'providers.dart';
+import 'splash.dart';
 
 /// Opens local storage, connects the native engine, applies settings and the
 /// proxy (before any page loads), restores tabs, then shows the UI.
 Future<void> bootstrap() async {
+  // Draw the branded splash on the first frame so the window never shows an
+  // empty (dark) surface while storage and the engine start.
+  runApp(const SplashApp());
+  final started = DateTime.now();
   final engine = MethodChannelBrowserEngine();
   final system = MethodChannelSystemBridge();
   final results = await Future.wait<Object>([
@@ -39,7 +44,11 @@ Future<void> bootstrap() async {
   );
 
   await startBrowser(container);
-  runApp(UncontrolledProviderScope(container: container, child: const SaifBrowserApp()));
+  // Keep the splash up briefly so it does not flash for a single frame.
+  final elapsed = DateTime.now().difference(started);
+  const minimum = Duration(milliseconds: 450);
+  if (elapsed < minimum) await Future<void>.delayed(minimum - elapsed);
+  runApp(UncontrolledProviderScope(container: container, child: const TrexBrowserApp()));
 }
 
 /// Shared startup sequence (also used by integration tests).

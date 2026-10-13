@@ -14,6 +14,8 @@ import android.webkit.PermissionRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewDatabase
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -56,6 +58,46 @@ class BrowserEngine(
 
     fun tab(id: String): BrowserTab? = tabs[id]
 
+    private var container: FrameLayout? = null
+    private var shownTabId: String? = null
+
+    fun attachContainer(view: FrameLayout) {
+        container = view
+        val id = shownTabId
+        shownTabId = null
+        showTab(id)
+    }
+
+    fun detachContainer(view: FrameLayout) {
+        if (container !== view) return
+        view.removeAllViews()
+        container = null
+    }
+
+    /** Puts [tabId]'s WebView into the browser surface (null shows nothing). */
+    fun showTab(tabId: String?) {
+        val previous = shownTabId
+        val target = tabId?.let { tabs[it] }
+        val surface = container
+        if (previous != null && previous != tabId) tabs[previous]?.setVisible(false)
+        shownTabId = target?.id
+        if (surface == null || target == null) {
+            surface?.removeAllViews()
+            return
+        }
+        val view = target.obtainWebView()
+        if (view.parent !== surface) {
+            (view.parent as? ViewGroup)?.removeView(view)
+            surface.removeAllViews()
+            surface.addView(
+                view,
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+            )
+        }
+        target.setVisible(true)
+        view.requestFocus()
+    }
+
     fun emit(tabId: String, type: String, data: Map<String, Any?>) {
         val payload = HashMap<String, Any?>(data)
         payload["tabId"] = tabId
@@ -65,6 +107,14 @@ class BrowserEngine(
 
     fun isHttpAllowed(host: String?): Boolean =
         host != null && allowedHttpHosts.contains(host.lowercase())
+
+    /** True when [host] is the proxy configured for the current network (e.g. a Wi-Fi manual proxy). */
+    fun isSystemProxyHost(host: String?): Boolean {
+        if (host.isNullOrEmpty()) return false
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val proxyHost = cm?.defaultProxy?.host ?: System.getProperty("http.proxyHost")
+        return proxyHost != null && proxyHost.equals(host, ignoreCase = true)
+    }
 
     fun isOnline(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -137,11 +187,17 @@ class BrowserEngine(
                 result.success(null)
             }
             "disposeTab" -> {
-                tabs.remove(call.tabId())?.destroy()
+                val id = call.tabId()
+                if (shownTabId == id) showTab(null)
+                tabs.remove(id)?.destroy()
                 result.success(null)
             }
             "suspendTab" -> {
                 tabs[call.tabId()]?.suspend()
+                result.success(null)
+            }
+            "showTab" -> {
+                showTab(call.argument<String>("tabId"))
                 result.success(null)
             }
             "setTabVisible" -> {
@@ -241,6 +297,7 @@ class BrowserEngine(
             "clearBrowsingData" -> clearBrowsingData(call, result)
             "endIncognitoSession" -> {
                 val ids = tabs.values.filter { it.incognito }.map { it.id }
+                if (shownTabId in ids) showTab(null)
                 ids.forEach { tabs.remove(it)?.destroy() }
                 result.success(mapOf("isolated" to profiles.endIncognitoSession()))
             }

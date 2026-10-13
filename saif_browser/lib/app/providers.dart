@@ -9,6 +9,7 @@ import '../features/bookmarks/bookmark_repository.dart';
 import '../features/history/favicon_repository.dart';
 import '../features/history/history_repository.dart';
 import '../features/passwords/credential_repository.dart';
+import '../features/passwords/http_auth_repository.dart';
 import '../features/passwords/vault_cipher.dart';
 import '../features/permissions/site_permission_repository.dart';
 import '../features/proxy/proxy_repository.dart';
@@ -38,6 +39,9 @@ final shortcutRepositoryProvider = Provider((ref) => ShortcutRepository(ref.watc
 final sitePermissionRepositoryProvider = Provider((ref) => SitePermissionRepository(ref.watch(databaseProvider)));
 final credentialRepositoryProvider = Provider(
   (ref) => CredentialRepository(ref.watch(databaseProvider), ref.watch(vaultCipherProvider)),
+);
+final httpAuthRepositoryProvider = Provider(
+  (ref) => HttpAuthRepository(ref.watch(databaseProvider), ref.watch(vaultCipherProvider)),
 );
 final proxyRepositoryProvider = Provider(
   (ref) => ProxyRepository(ref.watch(databaseProvider), ref.watch(vaultCipherProvider)),

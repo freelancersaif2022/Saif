@@ -44,5 +44,6 @@ final engineSettingsProvider = Provider<EngineSettings>((ref) {
     desktopUserAgent: UserAgents.desktop(base),
     safeBrowsing: s.safeBrowsing,
     httpsFirst: s.httpsFirst,
+    capturePasswords: s.offerToSavePasswords,
   );
 });

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../core/utils/url_resolver.dart';
 import '../../engine/webview_surface.dart';
+import '../../shared/dialogs.dart';
 import '../bookmarks/bookmark_editor.dart';
 import '../downloads/downloads_screen.dart';
 import '../proxy/proxy_screen.dart';
@@ -79,16 +80,16 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
     await ref.read(bookmarkRepositoryProvider).add(title: tab.displayTitle, url: tab.url);
     ref.read(dataRevisionProvider.notifier).bump();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Bookmarked'),
-        action: SnackBarAction(
-          label: 'Edit',
-          onPressed: () async {
-            final bookmark = await ref.read(bookmarkRepositoryProvider).findByUrl(tab.url);
-            if (bookmark != null && mounted) await showBookmarkEditor(context, ref, bookmark: bookmark);
-          },
-        ),
+    showMessage(
+      context,
+      'Added to bookmarks',
+      icon: Icons.star_rounded,
+      action: SnackBarAction(
+        label: 'Edit',
+        onPressed: () async {
+          final bookmark = await ref.read(bookmarkRepositoryProvider).findByUrl(tab.url);
+          if (bookmark != null && mounted) await showBookmarkEditor(context, ref, bookmark: bookmark);
+        },
       ),
     );
   }
@@ -218,12 +219,12 @@ class _PageArea extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tabs = ref.read(tabsProvider.notifier);
     final error = tab.error;
-    final showWebView = tab.nativeCreated && !tab.showNtp;
     return Stack(
       fit: StackFit.expand,
       children: [
         ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
-        if (showWebView) WebViewSurface(key: ValueKey('${tab.id}#${tab.surfaceGeneration}'), tabId: tab.id),
+        // One persistent surface; the native side swaps WebViews between tabs.
+        const WebViewSurface(key: ValueKey('browser-surface')),
         if (tab.showNtp)
           NewTabPage(
             key: ValueKey('ntp-${tab.incognito}'),

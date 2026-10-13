@@ -91,10 +91,10 @@ void main() {
   testWidgets('browser shell: new tab page, search and navigation', (tester) async {
     final h = await tester.runAsync(() => TestHarness.create());
     await tester.runAsync(() => h!.container.read(tabsProvider.notifier).restore());
-    await tester.pumpWidget(UncontrolledProviderScope(container: h!.container, child: const SaifBrowserApp()));
+    await tester.pumpWidget(UncontrolledProviderScope(container: h!.container, child: const TrexBrowserApp()));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Saif'), findsOneWidget);
+    expect(find.text('T-rex Engine'), findsOneWidget);
     expect(find.text('Search or type URL'), findsOneWidget);
     expect(find.byTooltip('Tabs (1 open)'), findsOneWidget);
 

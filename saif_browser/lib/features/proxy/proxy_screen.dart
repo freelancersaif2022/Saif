@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/dialogs.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../passwords/sign_in_sheets.dart';
 import 'proxy_controller.dart';
 import 'proxy_models.dart';
 
@@ -226,7 +227,7 @@ class _ProxyTile extends ConsumerWidget {
           if (connected || connecting)
             OutlinedButton(onPressed: controller.disconnect, child: const Text('Disconnect'))
           else
-            FilledButton(onPressed: () => controller.connect(profile.id), child: const Text('Connect')),
+            FilledButton(onPressed: () => connectProxyWithPrompt(context, ref, profile), child: const Text('Connect')),
           PopupMenuButton<String>(
             onSelected: (action) async {
               if (action == 'edit') onEdit();
@@ -413,4 +414,55 @@ class _ProxyEditorState extends ConsumerState<_ProxyEditor> {
       ),
     );
   }
+}
+
+/// Connects, and if the proxy asks for (or rejects) credentials, shows a
+/// sign-in sheet; after a successful sign-in offers to save them.
+Future<void> connectProxyWithPrompt(BuildContext context, WidgetRef ref, ProxyProfile profile) async {
+  final controller = ref.read(proxyControllerProvider.notifier);
+  await controller.connect(profile.id);
+  var status = ref.read(proxyControllerProvider);
+  final kind = status.failure?.kind;
+  if (status.state != ProxyConnectionState.failed ||
+      (kind != ProxyFailureKind.authRequired && kind != ProxyFailureKind.authFailed) ||
+      !context.mounted) {
+    return;
+  }
+  final result = await showSignInSheet(
+    context,
+    host: '${profile.name} (${profile.address})',
+    isProxy: true,
+    initialUsername: profile.username,
+    failed: kind == ProxyFailureKind.authFailed,
+  );
+  if (result == null) return;
+  await controller.connect(profile.id, username: result.$1, password: result.$2);
+  status = ref.read(proxyControllerProvider);
+  if (status.state != ProxyConnectionState.connected || !context.mounted) {
+    if (context.mounted) showMessage(context, 'Proxy sign-in failed');
+    return;
+  }
+  final choice = await showSavePasswordSheet(
+    context,
+    title: 'Save proxy password?',
+    place: 'Proxy · ${profile.address}',
+    username: result.$1,
+    isUpdate: profile.hasPassword,
+    allowNever: false,
+    icon: Icons.vpn_lock_rounded,
+  );
+  if (choice != SaveChoice.save) return;
+  await ref
+      .read(proxyRepositoryProvider)
+      .update(
+        profile.id,
+        name: profile.name,
+        type: profile.type,
+        host: profile.host,
+        port: profile.port,
+        username: result.$1,
+        password: result.$2,
+      );
+  ref.read(proxyRevisionProvider.notifier).bump();
+  if (context.mounted) showMessage(context, 'Proxy password saved', icon: Icons.vpn_lock_rounded);
 }

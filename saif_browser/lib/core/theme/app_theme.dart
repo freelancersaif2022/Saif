@@ -278,10 +278,12 @@ abstract final class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.darkSurfaceStrong : AppColors.text,
-        contentTextStyle: TextStyle(color: isDark ? AppColors.darkText : AppColors.background),
+        backgroundColor: isDark ? AppColors.darkSurfaceStrong : const Color(0xFF17181A),
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14.5),
         actionTextColor: accent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 8,
+        insetPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: surface,

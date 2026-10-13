@@ -24,12 +24,24 @@ abstract final class AppColors {
   /// Accent choices offered in settings. All are light enough for black text.
   static const Map<String, Color> accentChoices = {
     'lime': accent,
-    'sky': Color(0xFF8FD8FF),
-    'mint': Color(0xFF7DF0C2),
-    'peach': Color(0xFFFFC09F),
+    'lemon': Color(0xFFF5F36B),
+    'sun': Color(0xFFFFD84D),
+    'mango': Color(0xFFFFB648),
+    'peach': Color(0xFFFFB59A),
+    'coral': Color(0xFFFF9E9E),
+    'pink': Color(0xFFFFA8D5),
     'lavender': Color(0xFFCDBEFF),
-    'sun': Color(0xFFFFE066),
+    'periwinkle': Color(0xFFAEB9FF),
+    'sky': Color(0xFF8FD8FF),
+    'aqua': Color(0xFF7FEAE6),
+    'mint': Color(0xFF7DF0C2),
+    'sage': Color(0xFFB9D99B),
+    'sand': Color(0xFFE6D3A8),
+    'silver': Color(0xFFD5D9DE),
+    'neon': Color(0xFF9DFF5C),
   };
+
+  static String labelFor(String key) => key[0].toUpperCase() + key.substring(1);
 
   static Color accentFor(String key) => accentChoices[key] ?? accent;
 }

@@ -25,6 +25,8 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 
@@ -141,6 +143,7 @@ class BrowserTab(
             )
         }
         view.setOnLongClickListener { emitContextMenu(view) }
+        if (!incognito) installCredentialListener(view)
         view.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
             engine.emit(
                 id,
@@ -262,6 +265,41 @@ class BrowserTab(
             val linkUrl = msg.data?.getString("url")?.takeIf { it.isNotEmpty() }
             engine.emit(id, "contextMenu", mapOf("linkUrl" to linkUrl, "imageUrl" to imageUrl))
         }
+    }
+
+    /**
+     * Receives sign-in submissions from the page script through an
+     * origin-verified WebMessageListener. The browser supplies the sender's
+     * origin, so a page can only report credentials for its own origin; the
+     * Dart side then asks the user "Save password?" before storing anything.
+     */
+    private fun installCredentialListener(view: WebView) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(view, CREDENTIAL_OBJECT, setOf("*")) { _, message, sourceOrigin, isMainFrame, _ ->
+            if (!isMainFrame || !engine.settings.capturePasswords) return@addWebMessageListener
+            val origin = UrlOrigins.originOf(sourceOrigin.toString()) ?: return@addWebMessageListener
+            val data = message.data ?: return@addWebMessageListener
+            val json = try {
+                JSONObject(data)
+            } catch (e: org.json.JSONException) {
+                return@addWebMessageListener
+            }
+            val password = json.optString("p")
+            if (password.isEmpty() || password.length > 512) return@addWebMessageListener
+            engine.emit(
+                id,
+                "credentialSubmitted",
+                mapOf("origin" to origin, "username" to json.optString("u").take(256), "password" to password),
+            )
+        }
+    }
+
+    private fun injectCredentialCapture(view: WebView) {
+        if (incognito || !engine.settings.capturePasswords) return
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        val url = view.url ?: return
+        if (UrlOrigins.originOf(url) == null) return
+        view.evaluateJavascript(CAPTURE_SCRIPT, null)
     }
 
     fun navigationState(): Map<String, Any?> {
@@ -391,6 +429,7 @@ class BrowserTab(
 
         override fun onPageFinished(view: WebView, url: String?) {
             lastKnownUrl = url ?: lastKnownUrl
+            injectCredentialCapture(view)
             engine.emit(
                 id,
                 "pageFinished",
@@ -478,7 +517,15 @@ class BrowserTab(
             engine.emit(
                 id,
                 "httpAuthRequest",
-                mapOf("requestId" to requestId, "host" to host, "realm" to realm),
+                mapOf(
+                    "requestId" to requestId,
+                    "host" to host,
+                    "realm" to realm,
+                    "isProxy" to engine.isSystemProxyHost(host),
+                    // False after a rejected attempt, so saved credentials are not retried in a loop.
+                    "firstAttempt" to handler.useHttpAuthUsernamePassword(),
+                    "pageUrl" to view.url,
+                ),
             )
         }
 
@@ -640,7 +687,43 @@ class BrowserTab(
     }
 
     companion object {
-        const val PROXY_ERROR_HEADER = "X-Saif-Proxy-Error"
+        const val PROXY_ERROR_HEADER = "X-Trex-Proxy-Error"
+        private const val CREDENTIAL_OBJECT = "trexCredentials"
+
+        private const val CAPTURE_SCRIPT = """
+(function() {
+  if (window.__trexCapture || !window.trexCredentials) return;
+  window.__trexCapture = true;
+  var last = '', lastAt = 0;
+  function visible(e) { return !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length); }
+  function grab(scope) {
+    var root = scope && scope.querySelectorAll ? scope : document;
+    var fields = Array.prototype.slice.call(root.querySelectorAll('input[type=password]'))
+      .filter(function(e) { return e.value && visible(e); });
+    if (!fields.length) return;
+    var pw = fields[0];
+    var inputs = Array.prototype.slice.call((pw.form || document).querySelectorAll('input')).filter(visible);
+    var user = '';
+    for (var i = inputs.indexOf(pw) - 1; i >= 0; i--) {
+      var t = (inputs[i].getAttribute('type') || 'text').toLowerCase();
+      if ((t === 'text' || t === 'email' || t === 'tel') && inputs[i].value) { user = inputs[i].value; break; }
+    }
+    var msg = JSON.stringify({ u: user, p: pw.value });
+    var now = Date.now();
+    if (msg === last && now - lastAt < 5000) return;
+    last = msg; lastAt = now;
+    try { window.trexCredentials.postMessage(msg); } catch (e) {}
+  }
+  document.addEventListener('submit', function(e) { grab(e.target); }, true);
+  document.addEventListener('click', function(e) {
+    var b = e.target && e.target.closest && e.target.closest('button, input[type=submit], [role=button]');
+    if (b) grab(b.form || document);
+  }, true);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target && e.target.type === 'password') grab(e.target.form || document);
+  }, true);
+})();
+"""
 
         private const val FILL_SCRIPT = """
 (function(u, p) {

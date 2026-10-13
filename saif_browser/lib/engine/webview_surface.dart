@@ -4,19 +4,17 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// Shows a tab's native WebView. The WebView itself lives in the native tab
-/// registry, so rebuilding or replacing this widget does not reload the page.
+/// The browser surface. It is created once; the native engine places the
+/// active tab's WebView inside it (`BrowserEngine.showTab`), so switching tabs
+/// never recreates a platform view or reloads a page.
 class WebViewSurface extends StatelessWidget {
-  const WebViewSurface({super.key, required this.tabId});
+  const WebViewSurface({super.key});
 
   static const viewType = 'saif/webview';
-
-  final String tabId;
 
   @override
   Widget build(BuildContext context) {
     return PlatformViewLink(
-      key: ValueKey('webview-$tabId'),
       viewType: viewType,
       surfaceFactory: (context, controller) {
         return AndroidViewSurface(
@@ -32,7 +30,7 @@ class WebViewSurface extends StatelessWidget {
           id: params.id,
           viewType: viewType,
           layoutDirection: TextDirection.ltr,
-          creationParams: <String, Object?>{'tabId': tabId},
+          creationParams: const <String, Object?>{},
           creationParamsCodec: const StandardMessageCodec(),
           onFocus: () => params.onFocusChanged(true),
         );

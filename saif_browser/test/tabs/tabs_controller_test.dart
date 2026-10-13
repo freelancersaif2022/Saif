@@ -119,7 +119,7 @@ void main() {
     final second = tabs.newTab(url: 'https://two.example/');
     await pump();
     expect(activeId(), second);
-    expect(h.engine.calls, contains('visible:$first:false'));
+    expect(h.engine.shownTab, second, reason: 'the native surface swaps WebViews');
 
     await tabs.switchTo(first);
     expect(activeId(), first);

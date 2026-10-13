@@ -66,25 +66,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _clear() async {
-    final range = await showDialog<Duration?>(
+    final range = await showModalBottomSheet<Duration>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Clear browsing history'),
-        children: [
-          for (final (label, duration) in const [
-            ('Last hour', Duration(hours: 1)),
-            ('Last 24 hours', Duration(days: 1)),
-            ('Last 7 days', Duration(days: 7)),
-            ('Last 4 weeks', Duration(days: 28)),
-            ('All time', Duration.zero),
-          ])
-            SimpleDialogOption(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              onPressed: () => Navigator.pop(context, duration),
-              child: Text(label),
-            ),
-        ],
-      ),
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => const _ClearHistorySheet(),
     );
     if (range == null) return;
     final since = range == Duration.zero ? null : DateTime.now().subtract(range);
@@ -92,7 +78,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     await ref.read(faviconRepositoryProvider).prune();
     ref.read(dataRevisionProvider.notifier).bump();
     await _reload();
-    if (mounted) showMessage(context, removed == 1 ? '1 entry deleted' : '$removed entries deleted');
+    if (mounted) {
+      showMessage(
+        context,
+        removed == 1 ? '1 page removed from history' : '$removed pages removed from history',
+        icon: Icons.delete_sweep_rounded,
+      );
+    }
   }
 
   @override
@@ -197,6 +189,125 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     : null,
               )
             : ListView(controller: _scroll, children: items),
+      ),
+    );
+  }
+}
+
+class _ClearHistorySheet extends StatefulWidget {
+  const _ClearHistorySheet();
+
+  @override
+  State<_ClearHistorySheet> createState() => _ClearHistorySheetState();
+}
+
+class _ClearHistorySheetState extends State<_ClearHistorySheet> {
+  static const _ranges = [
+    ('Last hour', Duration(hours: 1), Icons.schedule_rounded),
+    ('Last 24 hours', Duration(days: 1), Icons.today_rounded),
+    ('Last 7 days', Duration(days: 7), Icons.date_range_rounded),
+    ('Last 4 weeks', Duration(days: 28), Icons.calendar_month_rounded),
+    ('All time', Duration.zero, Icons.all_inclusive_rounded),
+  ];
+
+  int _selected = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final error = Theme.of(context).colorScheme.error;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(color: error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+                child: Icon(Icons.delete_sweep_rounded, color: error),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Clear browsing history',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text('Choose a time range', style: TextStyle(color: palette.textSecondary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          for (var i = 0; i < _ranges.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: i == _selected ? palette.accent.withValues(alpha: 0.22) : palette.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: i == _selected ? palette.accent : Colors.transparent, width: 1.6),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => setState(() => _selected = i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                    child: Row(
+                      children: [
+                        Icon(_ranges[i].$3, size: 22),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            _ranges[i].$1,
+                            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Icon(
+                          i == _selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                          color: i == _selected ? Theme.of(context).colorScheme.onSurface : palette.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Text(
+            'Only the history list is cleared. Cookies and saved passwords are kept '
+            '(use Settings → Clear browsing data for those).',
+            style: TextStyle(color: palette.textSecondary, fontSize: 12.5, height: 1.4),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: error,
+                    foregroundColor: Colors.white,
+                    iconColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(context, _ranges[_selected].$2),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('Clear'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

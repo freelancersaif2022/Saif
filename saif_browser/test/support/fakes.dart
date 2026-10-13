@@ -67,6 +67,14 @@ class FakeBrowserEngine implements BrowserEngine {
   @override
   Future<void> setTabVisible(String tabId, bool visible) async => calls.add('visible:$tabId:$visible');
 
+  String? shownTab;
+
+  @override
+  Future<void> showTab(String? tabId) async {
+    calls.add('show:$tabId');
+    shownTab = tabId;
+  }
+
   @override
   Future<void> loadUrl(String tabId, String url) async {
     calls.add('loadUrl:$tabId:$url');

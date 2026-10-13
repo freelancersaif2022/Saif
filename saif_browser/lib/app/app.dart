@@ -8,8 +8,8 @@ import '../features/settings/settings_controller.dart';
 import '../features/tabs/tabs_controller.dart';
 import 'secure_window.dart';
 
-class SaifBrowserApp extends ConsumerWidget {
-  const SaifBrowserApp({super.key});
+class TrexBrowserApp extends ConsumerWidget {
+  const TrexBrowserApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +29,7 @@ class SaifBrowserApp extends ConsumerWidget {
     });
 
     return MaterialApp(
-      title: 'Saif Browser',
+      title: 'Trex Browser',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(accent: accent),
       darkTheme: AppTheme.dark(accent: accent),

@@ -62,6 +62,7 @@ class TabsController extends Notifier<TabsState> {
   @override
   TabsState build() {
     _events = _engine.events.listen(_onEvent);
+    listenSelf((_, next) => _syncSurface(next));
     ref.onDispose(() {
       _events?.cancel();
       _saveTimer?.cancel();
@@ -70,6 +71,19 @@ class TabsController extends Notifier<TabsState> {
   }
 
   int _tick() => ++_clock;
+
+  String? _shownKey;
+
+  /// Tells the native browser surface which WebView to display. Switching
+  /// tabs only swaps the native view; Flutter keeps one platform view.
+  void _syncSurface(TabsState next) {
+    final tab = next.active;
+    final visible = tab != null && tab.nativeCreated && !tab.showNtp ? tab : null;
+    final key = visible == null ? null : '${visible.id}#${visible.surfaceGeneration}';
+    if (key == _shownKey) return;
+    _shownKey = key;
+    unawaited(_engine.showTab(visible?.id));
+  }
 
   // ---------------------------------------------------------------- session
 
@@ -164,10 +178,6 @@ class TabsController extends Notifier<TabsState> {
   Future<void> _activate(String id) async {
     final target = state.byId(id);
     if (target == null) return;
-    final previous = state.active;
-    if (previous != null && previous.id != id && previous.nativeCreated) {
-      unawaited(_engine.setTabVisible(previous.id, false));
-    }
     state = target.incognito
         ? state.copyWith(activePrivateId: id, privateMode: true)
         : state.copyWith(activeRegularId: id, privateMode: false);

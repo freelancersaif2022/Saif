@@ -14,6 +14,8 @@ import '../../shared/dialogs.dart';
 import '../downloads/download_item.dart';
 import '../downloads/downloads_controller.dart';
 import '../downloads/downloads_screen.dart';
+import '../passwords/http_auth_repository.dart';
+import '../passwords/sign_in_sheets.dart';
 import '../permissions/site_permission_repository.dart';
 import '../settings/settings_controller.dart';
 import '../tabs/tabs_controller.dart';
@@ -64,6 +66,8 @@ class _BrowserInteractionHostState extends ConsumerState<BrowserInteractionHost>
         showMessage(context, 'Pop-up blocked');
       case 'contextMenu':
         _onContextMenu(e);
+      case 'credentialSubmitted':
+        _onCredentialSubmitted(e);
     }
   }
 
@@ -361,7 +365,7 @@ class _BrowserInteractionHostState extends ConsumerState<BrowserInteractionHost>
         if (mounted) {
           showMessage(
             context,
-            'Saif Browser needs Android permission to share this with sites',
+            'Trex Browser needs Android permission to share this with sites',
             action: SnackBarAction(
               label: 'Settings',
               onPressed: () => ref.read(systemBridgeProvider).openAppSettings(),
@@ -377,12 +381,104 @@ class _BrowserInteractionHostState extends ConsumerState<BrowserInteractionHost>
 
   Future<void> _onHttpAuth(EngineEvent e) async {
     final requestId = e.integer('requestId')!;
-    final result = await showDialog<(String, String)>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _HttpAuthDialog(host: e.str('host') ?? '', realm: e.str('realm')),
+    final engine = ref.read(browserEngineProvider);
+    final host = e.str('host') ?? '';
+    final realm = e.str('realm') ?? '';
+    final isProxy = e.flag('isProxy');
+    final firstAttempt = e.data['firstAttempt'] != false;
+    final incognito = ref.read(tabsProvider).byId(e.tabId)?.incognito ?? false;
+    final repo = ref.read(httpAuthRepositoryProvider);
+
+    HttpAuthLogin? saved;
+    try {
+      saved = await repo.find(host, realm);
+    } on Object {
+      saved = null;
+    }
+    // Saved sign-in (e.g. Wi-Fi proxy): answer silently, unless it was just rejected.
+    if (saved != null && firstAttempt) {
+      await engine.respondHttpAuth(requestId, username: saved.username, password: saved.password);
+      return;
+    }
+    if (!mounted) return;
+    final result = await showSignInSheet(
+      context,
+      host: host,
+      realm: realm,
+      isProxy: isProxy,
+      initialUsername: saved?.username,
+      failed: !firstAttempt,
     );
-    await ref.read(browserEngineProvider).respondHttpAuth(requestId, username: result?.$1, password: result?.$2);
+    await engine.respondHttpAuth(requestId, username: result?.$1, password: result?.$2);
+    if (result == null || incognito || !mounted) return;
+    if (!ref.read(settingsProvider).offerToSavePasswords) return;
+    if (saved != null && saved.username == result.$1 && saved.password == result.$2) return;
+
+    final choice = await showSavePasswordSheet(
+      context,
+      title: isProxy ? 'Save proxy password?' : 'Save password?',
+      place: isProxy ? 'Proxy · $host' : host,
+      username: result.$1,
+      isUpdate: saved != null,
+      allowNever: false,
+      icon: isProxy ? Icons.vpn_lock_rounded : Icons.key_rounded,
+    );
+    if (choice != SaveChoice.save) return;
+    await repo.save(
+      HttpAuthLogin(host: host, realm: realm, isProxy: isProxy, username: result.$1, password: result.$2),
+    );
+    if (mounted) showMessage(context, isProxy ? 'Proxy password saved' : 'Password saved', icon: Icons.key_rounded);
+  }
+
+  // ------------------------------------------------------------ password capture
+
+  bool _savePromptOpen = false;
+  static const _neverKey = 'passwords.never';
+
+  Future<void> _onCredentialSubmitted(EngineEvent e) async {
+    final origin = e.str('origin');
+    final username = e.str('username') ?? '';
+    final password = e.str('password') ?? '';
+    final tab = ref.read(tabsProvider).byId(e.tabId);
+    if (origin == null || password.isEmpty || tab == null || tab.incognito || _savePromptOpen) return;
+    if (!ref.read(settingsProvider).offerToSavePasswords) return;
+    final prefs = ref.read(sharedPreferencesProvider);
+    if ((prefs.getStringList(_neverKey) ?? const []).contains(origin)) return;
+
+    final repo = ref.read(credentialRepositoryProvider);
+    final existing = (await repo.forOrigin(origin)).where((c) => c.username == username).firstOrNull;
+    if (existing != null) {
+      try {
+        if (await repo.revealPassword(existing.id) == password) return;
+      } on Object {
+        // Undecryptable entry: offer to replace it.
+      }
+    }
+    if (!mounted) return;
+    _savePromptOpen = true;
+    final SaveChoice choice;
+    try {
+      choice = await showSavePasswordSheet(
+        context,
+        title: existing == null ? 'Save password?' : 'Update password?',
+        place: Uri.tryParse(origin)?.host ?? origin,
+        username: username,
+        isUpdate: existing != null,
+      );
+    } finally {
+      _savePromptOpen = false;
+    }
+    switch (choice) {
+      case SaveChoice.save:
+        await repo.save(origin: origin, username: username, password: password);
+        if (mounted) {
+          showMessage(context, existing == null ? 'Password saved' : 'Password updated', icon: Icons.key_rounded);
+        }
+      case SaveChoice.never:
+        await prefs.setStringList(_neverKey, [...?prefs.getStringList(_neverKey), origin]);
+      case SaveChoice.notNow:
+        break;
+    }
   }
 
   // ------------------------------------------------------------ external apps
@@ -545,71 +641,6 @@ class _PermissionDialog extends StatelessWidget {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Block')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Allow')),
-      ],
-    );
-  }
-}
-
-class _HttpAuthDialog extends StatefulWidget {
-  const _HttpAuthDialog({required this.host, this.realm});
-
-  final String host;
-  final String? realm;
-
-  @override
-  State<_HttpAuthDialog> createState() => _HttpAuthDialogState();
-}
-
-class _HttpAuthDialogState extends State<_HttpAuthDialog> {
-  final _user = TextEditingController();
-  final _pass = TextEditingController();
-  bool _obscure = true;
-
-  @override
-  void dispose() {
-    _user.dispose();
-    _pass.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Sign in'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${widget.host} requires a username and password${widget.realm == null || widget.realm!.isEmpty ? '' : ' (“${widget.realm}”)'}.',
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _user,
-            autofocus: true,
-            autocorrect: false,
-            decoration: const InputDecoration(labelText: 'Username'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _pass,
-            obscureText: _obscure,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              suffixIcon: IconButton(
-                tooltip: _obscure ? 'Show password' : 'Hide password',
-                onPressed: () => setState(() => _obscure = !_obscure),
-                icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-              ),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, (_user.text, _pass.text)), child: const Text('Sign in')),
       ],
     );
   }

@@ -58,7 +58,10 @@ class _ClearDataScreenState extends ConsumerState<ClearDataScreen> {
           httpAuth: _cookies,
           permissions: _permissions,
         );
-    if (_passwords) await ref.read(credentialRepositoryProvider).clear();
+    if (_passwords) {
+      await ref.read(credentialRepositoryProvider).clear();
+      await ref.read(httpAuthRepositoryProvider).clear();
+    }
     if (_permissions) await ref.read(sitePermissionRepositoryProvider).clear();
     ref.read(dataRevisionProvider.notifier).bump();
     if (!mounted) return;

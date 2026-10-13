@@ -73,6 +73,7 @@ class EngineSettings {
     required this.desktopUserAgent,
     required this.safeBrowsing,
     required this.httpsFirst,
+    this.capturePasswords = true,
   });
 
   final bool javaScriptEnabled;
@@ -85,6 +86,9 @@ class EngineSettings {
   final bool safeBrowsing;
   final bool httpsFirst;
 
+  /// Offer to save passwords submitted on regular-tab pages.
+  final bool capturePasswords;
+
   Map<String, Object?> toMap() => {
     'javaScriptEnabled': javaScriptEnabled,
     'blockPopups': blockPopups,
@@ -95,6 +99,7 @@ class EngineSettings {
     'desktopUserAgent': desktopUserAgent,
     'safeBrowsing': safeBrowsing,
     'httpsFirst': httpsFirst,
+    'capturePasswords': capturePasswords,
   };
 
   @override

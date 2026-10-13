@@ -8,8 +8,10 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/dialogs.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/host_favicon.dart';
+import '../../shared/widgets/section_header.dart';
 import 'credential_editor.dart';
 import 'credential_repository.dart';
+import 'http_auth_repository.dart';
 import 'device_auth.dart';
 
 /// Saved passwords. Screenshots are blocked while open and the list is only
@@ -25,6 +27,7 @@ class _PasswordsScreenState extends ConsumerState<PasswordsScreen> {
   bool _unlocked = false;
   bool _unavailable = false;
   List<Credential> _items = const [];
+  List<HttpAuthEntry> _signIns = const [];
   String _query = '';
   late final SecureWindowController _secure = ref.read(secureWindowProvider.notifier);
 
@@ -53,7 +56,17 @@ class _PasswordsScreenState extends ConsumerState<PasswordsScreen> {
 
   Future<void> _load() async {
     final items = await ref.read(credentialRepositoryProvider).all(query: _query);
-    if (mounted) setState(() => _items = items);
+    final signIns = await ref.read(httpAuthRepositoryProvider).all();
+    final q = _query.trim().toLowerCase();
+    if (mounted) {
+      setState(() {
+        _items = items;
+        _signIns = [
+          for (final e in signIns)
+            if (q.isEmpty || e.host.toLowerCase().contains(q) || e.username.toLowerCase().contains(q)) e,
+        ];
+      });
+    }
   }
 
   Future<void> _showDetail(Credential c) async {
@@ -76,6 +89,7 @@ class _PasswordsScreenState extends ConsumerState<PasswordsScreen> {
     );
     if (!ok) return;
     await ref.read(credentialRepositoryProvider).clear();
+    await ref.read(httpAuthRepositoryProvider).clear();
     await _load();
   }
 
@@ -119,27 +133,50 @@ class _PasswordsScreenState extends ConsumerState<PasswordsScreen> {
                   ),
                 ),
                 Expanded(
-                  child: _items.isEmpty
+                  child: _items.isEmpty && _signIns.isEmpty
                       ? EmptyState(
                           icon: Icons.key_outlined,
                           title: _query.isEmpty ? 'No saved passwords' : 'No matches',
                           message: _query.isEmpty
-                              ? 'Save a password from a site’s menu (⋮ → Passwords for this site) or tap Add.'
+                              ? 'Trex offers to save passwords when you sign in to a site or a proxy. You can also tap Add.'
                               : null,
                         )
-                      : ListView.builder(
+                      : ListView(
                           padding: const EdgeInsets.only(bottom: 96),
-                          itemCount: _items.length,
-                          itemBuilder: (context, i) {
-                            final c = _items[i];
-                            return ListTile(
-                              leading: HostFavicon(url: c.origin, size: 28),
-                              title: Text(c.host),
-                              subtitle: Text(c.username.isEmpty ? '(no username)' : c.username),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => _showDetail(c),
-                            );
-                          },
+                          children: [
+                            if (_items.isNotEmpty) const SectionHeader('Websites'),
+                            for (final c in _items)
+                              ListTile(
+                                leading: HostFavicon(url: c.origin, size: 28),
+                                title: Text(c.host),
+                                subtitle: Text(c.username.isEmpty ? '(no username)' : c.username),
+                                trailing: const Icon(Icons.chevron_right_rounded),
+                                onTap: () => _showDetail(c),
+                              ),
+                            if (_signIns.isNotEmpty) const SectionHeader('Proxy & site sign-ins'),
+                            for (final e in _signIns)
+                              ListTile(
+                                leading: Icon(e.isProxy ? Icons.vpn_lock_rounded : Icons.lock_person_rounded),
+                                title: Text(e.isProxy ? 'Proxy · ${e.host}' : e.host),
+                                subtitle: Text(e.realm.isEmpty ? e.username : '${e.username} · ${e.realm}'),
+                                trailing: IconButton(
+                                  tooltip: 'Delete',
+                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  onPressed: () async {
+                                    final ok = await confirm(
+                                      context,
+                                      title: 'Delete saved sign-in?',
+                                      message: e.host,
+                                      confirmLabel: 'Delete',
+                                      destructive: true,
+                                    );
+                                    if (!ok) return;
+                                    await ref.read(httpAuthRepositoryProvider).delete(e.host, e.realm);
+                                    await _load();
+                                  },
+                                ),
+                              ),
+                          ],
                         ),
                 ),
               ],

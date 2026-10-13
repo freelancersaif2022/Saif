@@ -1,4 +1,4 @@
-name: Saif Browser APK
+name: Trex Browser APK
 
 on:
   push:
@@ -48,18 +48,18 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/saif-browser-${{ github.run_number }}.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/trex-browser-${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: saif-browser-apk
-          path: saif_browser/build/saif-browser-${{ github.run_number }}.apk
+          name: trex-browser-apk
+          path: saif_browser/build/trex-browser-${{ github.run_number }}.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: saif-browser-build-${{ github.run_number }}
-          name: Saif Browser build ${{ github.run_number }}
+          tag_name: trex-browser-build-${{ github.run_number }}
+          name: Trex Browser build ${{ github.run_number }}
           prerelease: true
           body: Release APK built from ${{ github.sha }} (signed with the debug key; add android/key.properties for your own key).
-          files: saif_browser/build/saif-browser-${{ github.run_number }}.apk
+          files: saif_browser/build/trex-browser-${{ github.run_number }}.apk

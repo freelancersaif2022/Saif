@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/url_resolver.dart';
-import '../../../shared/dialogs.dart';
 import '../../../shared/widgets/brand_mark.dart';
 import '../../../shared/widgets/host_favicon.dart';
 import '../../bookmarks/bookmark.dart';
@@ -62,10 +61,10 @@ class NewTabPage extends ConsumerWidget {
                   const BrandMark(size: 64),
                   const SizedBox(height: 14),
                   Text(
-                    'Saif',
+                    'T-rex Engine',
                     style: Theme.of(
                       context,
-                    ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1),
+                    ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
                   ),
                   const SizedBox(height: 26),
                   _SearchField(onTap: onSearch, palette: palette),
@@ -147,8 +146,10 @@ class NewTabPage extends ConsumerWidget {
   }
 
   Future<void> _editShortcut(BuildContext context, WidgetRef ref, Shortcut? existing) async {
-    final result = await showDialog<_ShortcutResult>(
+    final result = await showModalBottomSheet<_ShortcutResult>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _ShortcutDialog(existing: existing),
     );
     if (result == null) return;
@@ -319,37 +320,84 @@ class _ShortcutDialogState extends State<_ShortcutDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.existing != null;
-    return AlertDialog(
-      title: Text(editing ? 'Edit shortcut' : 'Add shortcut'),
-      content: Column(
+    final palette = context.palette;
+    final error = Theme.of(context).colorScheme.error;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(color: palette.accent, borderRadius: BorderRadius.circular(14)),
+                child: Icon(editing ? Icons.edit_rounded : Icons.add_link_rounded, color: palette.onAccent),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      editing ? 'Edit shortcut' : 'Add shortcut',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text('Pin a site to your new tab page', style: TextStyle(color: palette.textSecondary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           TextField(
             controller: _title,
-            decoration: const InputDecoration(labelText: 'Name'),
+            autofocus: !editing,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Name', prefixIcon: Icon(Icons.label_outline_rounded)),
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _url,
             keyboardType: TextInputType.url,
-            decoration: InputDecoration(labelText: 'URL', errorText: _error),
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'Website address',
+              hintText: 'example.com',
+              prefixIcon: const Icon(Icons.public_rounded),
+              errorText: _error,
+            ),
             onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              if (editing) ...[
+                IconButton.outlined(
+                  tooltip: 'Remove shortcut',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(52, 48),
+                    side: BorderSide(color: palette.border),
+                  ),
+                  onPressed: () => Navigator.pop(context, const _ShortcutResult('', '', delete: true)),
+                  icon: Icon(Icons.delete_outline_rounded, color: error),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(onPressed: _save, child: Text(editing ? 'Save' : 'Add')),
+              ),
+            ],
           ),
         ],
       ),
-      actions: [
-        if (editing)
-          TextButton(
-            onPressed: () async {
-              final ok = await confirm(context, title: 'Remove shortcut?', confirmLabel: 'Remove', destructive: true);
-              if (ok && context.mounted) Navigator.pop(context, const _ShortcutResult('', '', delete: true));
-            },
-            child: Text('Remove', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _save, child: const Text('Save')),
-      ],
     );
   }
 }

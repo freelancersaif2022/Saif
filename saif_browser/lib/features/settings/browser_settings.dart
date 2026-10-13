@@ -34,6 +34,8 @@ class BrowserSettings {
     this.downloadLocation = DownloadLocation.downloads,
     this.openWhenComplete = false,
     this.requireAuthForPasswords = true,
+    this.searchSuggestions = true,
+    this.offerToSavePasswords = true,
   });
 
   final ThemeMode themeMode;
@@ -61,6 +63,12 @@ class BrowserSettings {
   final bool openWhenComplete;
   final bool requireAuthForPasswords;
 
+  /// Ask the search engine for query suggestions while typing.
+  final bool searchSuggestions;
+
+  /// Offer to save passwords after signing in to a site.
+  final bool offerToSavePasswords;
+
   SearchEngine get engine => SearchEngine.resolve(searchEngine, customTemplate: customSearchTemplate);
 
   BrowserSettings copyWith({
@@ -86,6 +94,8 @@ class BrowserSettings {
     DownloadLocation? downloadLocation,
     bool? openWhenComplete,
     bool? requireAuthForPasswords,
+    bool? searchSuggestions,
+    bool? offerToSavePasswords,
   }) {
     return BrowserSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -110,6 +120,8 @@ class BrowserSettings {
       downloadLocation: downloadLocation ?? this.downloadLocation,
       openWhenComplete: openWhenComplete ?? this.openWhenComplete,
       requireAuthForPasswords: requireAuthForPasswords ?? this.requireAuthForPasswords,
+      searchSuggestions: searchSuggestions ?? this.searchSuggestions,
+      offerToSavePasswords: offerToSavePasswords ?? this.offerToSavePasswords,
     );
   }
 
@@ -136,6 +148,8 @@ class BrowserSettings {
     'downloadLocation': downloadLocation.name,
     'openWhenComplete': openWhenComplete,
     'requireAuthForPasswords': requireAuthForPasswords,
+    'searchSuggestions': searchSuggestions,
+    'offerToSavePasswords': offerToSavePasswords,
   };
 
   /// Reads settings, falling back to defaults for missing or invalid values.
@@ -177,6 +191,8 @@ class BrowserSettings {
       downloadLocation: pickEnum(DownloadLocation.values, 'downloadLocation', d.downloadLocation),
       openWhenComplete: pick('openWhenComplete', d.openWhenComplete),
       requireAuthForPasswords: pick('requireAuthForPasswords', d.requireAuthForPasswords),
+      searchSuggestions: pick('searchSuggestions', d.searchSuggestions),
+      offerToSavePasswords: pick('offerToSavePasswords', d.offerToSavePasswords),
     );
   }
 

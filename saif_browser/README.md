@@ -1,4 +1,4 @@
-# Saif Browser
+# Trex Browser
 
 An Android web browser built with Flutter on top of **Android System WebView**, with a native Kotlin engine layer. White, minimal UI with a `#D1FE17` accent (black text and icons on accent surfaces). No ads, analytics, telemetry, remote config or cloud sync.
 
