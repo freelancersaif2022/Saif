@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Camera captures for <input type="file"> uploads (deleted on next launch). -->
+    <cache-path name="captures" path="captures/" />
+    <!-- Downloads performed by the app itself (proxied downloads, blob/data URLs). -->
+    <external-files-path name="downloads" path="Download/" />
+    <files-path name="downloads_internal" path="downloads/" />
+</paths>
