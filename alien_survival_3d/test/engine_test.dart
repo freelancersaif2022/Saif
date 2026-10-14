@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:alien_survival_3d/engine/asset_server.dart';
 import 'package:alien_survival_3d/engine/game_bridge.dart';

@@ -6,7 +6,7 @@ export default async ({ page, sleep, st, out }) => {
   await sleep(500);
   // ---- pickups
   await ev(() => { const g = window.game; g.player.health = 40; g.player.armor = 0; g.player.grenades = 1; g.player.weapons[0].reserve = 10; });
-  const types = ['health', 'armor', 'ammo', 'grenade', 'coin', 'gem', 'shield', 'speed', 'hpboost'];
+  const types = ['health', 'armor', 'ammo', 'grenade', 'coin', 'gem', 'hpboost', 'speed', 'shield'];
   const before = await st();
   for (const t of types) { await ev((t) => window.game.debug.dropAt(t, 0, 0), t); await sleep(1200); }
   const after = await st();
