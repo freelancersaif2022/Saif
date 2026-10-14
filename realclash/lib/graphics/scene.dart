@@ -30,7 +30,6 @@ class Cam {
   double sy(double z) => horizon + (ground - horizon) * scale(z);
 }
 
-ui.Color _lerp(ui.Color a, ui.Color b, double t) => ui.Color.lerp(a, b, t)!;
 
 class SceneRenderer {
   final Cam cam = Cam();

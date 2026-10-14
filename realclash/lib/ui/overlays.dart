@@ -558,7 +558,7 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
             children: <Widget>[
               Expanded(child: Text(name, style: _label)),
               const Text('MUTE', style: _label),
-              Switch(value: muted, onChanged: onMute, activeColor: const Color(0xFFFF5A5A)),
+              Switch(value: muted, onChanged: onMute, activeThumbColor: const Color(0xFFFF5A5A)),
             ],
           ),
           SliderTheme(
