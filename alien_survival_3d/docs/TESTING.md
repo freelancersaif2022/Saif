@@ -11,7 +11,7 @@ emulator was available (no KVM).
 | Static analysis | `flutter analyze` | No issues |
 | Flutter unit + widget tests (32) | `flutter test` | All pass |
 | Engine controls (16 checks) | `node engine_src/dev/run.mjs controls … 480 270 LOW` | All pass |
-| Engine systems (26 checks) | `node engine_src/dev/run.mjs systems … 480 270 LOW` | 25 pass on the recorded run. The shield check failed for test-ordering reasons (the 10 s buff expired while other pickups were collected); the order has been fixed but not re-run. |
+| Engine systems (26 checks) | `node engine_src/dev/run.mjs systems … 480 270 LOW` | All pass (an earlier run's shield failure was a test-ordering issue, now fixed) |
 | Flutter ↔ engine contract (18 checks) | `node engine_src/dev/host_test.mjs` | All pass |
 | Combat smoke | `node engine_src/dev/run.mjs combat` | Shots, hits, kill, score and drops register |
 | Stress / pooling | `node engine_src/dev/run.mjs stress … 640 288 HIGH` | 26 alien instances reused across 78 spawns; textures and heap flat |
