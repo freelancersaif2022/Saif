@@ -5,6 +5,18 @@ import 'package:flutter/painting.dart';
 
 import 'sprites.dart';
 
+// dart:ui requires explicit stops for gradients with more than two colors.
+List<double>? _autoStops(List<ui.Color> cs, List<double>? st) {
+  if (st != null || cs.length <= 2) return st;
+  return List<double>.generate(cs.length, (int i) => i / (cs.length - 1));
+}
+
+ui.Gradient gLinear(ui.Offset a, ui.Offset b, List<ui.Color> cs, [List<double>? st]) =>
+    ui.Gradient.linear(a, b, cs, _autoStops(cs, st));
+
+ui.Gradient gRadial(ui.Offset c, double r, List<ui.Color> cs, [List<double>? st]) =>
+    ui.Gradient.radial(c, r, cs, _autoStops(cs, st));
+
 class Cam {
   double w = 0;
   double h = 0;
@@ -66,7 +78,7 @@ class SceneRenderer {
     _bg?.dispose();
     _bg = _buildBackdrop(w, h);
     _vignette = ui.Paint()
-      ..shader = ui.Gradient.radial(
+      ..shader = gRadial(
         ui.Offset(w / 2, h * 0.55),
         h * 0.80,
         const [ui.Color(0x00000000), ui.Color(0x00000000), ui.Color(0xAA000000)],
@@ -76,7 +88,7 @@ class SceneRenderer {
     final yBot = cam.sy(40);
     _fogRect = ui.Rect.fromLTRB(0, yTop, w, yBot);
     _fogPaint = ui.Paint()
-      ..shader = ui.Gradient.linear(
+      ..shader = gLinear(
         ui.Offset(0, yTop),
         ui.Offset(0, yBot),
         const [ui.Color(0xFFE9B07C), ui.Color(0xEEE9B07C), ui.Color(0x00E9B07C)],
@@ -93,7 +105,7 @@ class SceneRenderer {
     c.drawRect(
       ui.Rect.fromLTWH(0, 0, w, hz + 6),
       ui.Paint()
-        ..shader = ui.Gradient.linear(
+        ..shader = gLinear(
           ui.Offset(0, 0),
           ui.Offset(0, hz),
           const [ui.Color(0xFF16204D), ui.Color(0xFF5B3F86), ui.Color(0xFFD9764F), ui.Color(0xFFF8C078)],
@@ -106,7 +118,7 @@ class SceneRenderer {
       sunC,
       h * 0.26,
       ui.Paint()
-        ..shader = ui.Gradient.radial(
+        ..shader = gRadial(
           sunC,
           h * 0.26,
           const [ui.Color(0xCCFFE6A8), ui.Color(0x55FFB866), ui.Color(0x00FF9A44)],
@@ -141,7 +153,7 @@ class SceneRenderer {
       c.drawPath(
         path,
         ui.Paint()
-          ..shader = ui.Gradient.linear(
+          ..shader = gLinear(
             ui.Offset(0, hz - amp - base),
             ui.Offset(0, hz),
             layer == 0
@@ -272,7 +284,7 @@ class SceneRenderer {
     c.drawRect(
       ui.Rect.fromLTRB(cx - cam.roadW * 1.3, yH, cx + cam.roadW * 1.3, cam.h),
       _p
-        ..shader = ui.Gradient.linear(
+        ..shader = gLinear(
           ui.Offset(cx - cam.roadW, 0),
           ui.Offset(cx + cam.roadW, 0),
           const [ui.Color(0x33000000), ui.Color(0x00000000), ui.Color(0x33000000)],
@@ -415,7 +427,7 @@ class SceneRenderer {
     c.drawRect(
         front,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(px - hw, py - ht), ui.Offset(px + hw, py),
+          ..shader = gLinear(ui.Offset(px - hw, py - ht), ui.Offset(px + hw, py),
               const [ui.Color(0xFFC98A4B), ui.Color(0xFF9A6234), ui.Color(0xFF6B4122)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -451,7 +463,7 @@ class SceneRenderer {
     c.drawRRect(
         body,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(px - hw, py), ui.Offset(px + hw, py),
+          ..shader = gLinear(ui.Offset(px - hw, py), ui.Offset(px + hw, py),
               const [ui.Color(0xFF7A1212), ui.Color(0xFFE23A2A), ui.Color(0xFF7A1212)], const [0.0, 0.4, 1.0])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -494,7 +506,7 @@ class SceneRenderer {
     c.drawPath(
         path,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(px, py - sh), ui.Offset(px, py),
+          ..shader = gLinear(ui.Offset(px, py - sh), ui.Offset(px, py),
               const [ui.Color(0xFFF2F4F8), ui.Color(0xFF8E96A6)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -514,7 +526,7 @@ class SceneRenderer {
     c.drawOval(
         rect,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(px - rx, cy - r), ui.Offset(px + rx, cy + r),
+          ..shader = gLinear(ui.Offset(px - rx, cy - r), ui.Offset(px + rx, cy + r),
               const [ui.Color(0xFFFFF3A0), ui.Color(0xFFFFC21F), ui.Color(0xFFB87A10)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -558,7 +570,7 @@ class SceneRenderer {
     c.drawRect(
         panel,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(0, panelTop), ui.Offset(0, panelBot),
+          ..shader = gLinear(ui.Offset(0, panelTop), ui.Offset(0, panelBot),
               [c1.withAlpha((a * 255).round()), c2.withAlpha((a * 255 * 0.6).round())])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -574,7 +586,7 @@ class SceneRenderer {
       c.drawRect(
           ui.Rect.fromLTWH(sx, py - ht, postW, ht),
           _p
-            ..shader = ui.Gradient.linear(ui.Offset(sx, 0), ui.Offset(sx + postW, 0),
+            ..shader = gLinear(ui.Offset(sx, 0), ui.Offset(sx + postW, 0),
                 const [ui.Color(0xFFE9EDF4), ui.Color(0xFF8A93A6), ui.Color(0xFF3B4150)])
             ..style = ui.PaintingStyle.fill);
       _p.shader = null;
@@ -585,7 +597,7 @@ class SceneRenderer {
     c.drawRRect(
         ban,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(0, ban.top), ui.Offset(0, ban.bottom), [c1, c2])
+          ..shader = gLinear(ui.Offset(0, ban.top), ui.Offset(0, ban.bottom), [c1, c2])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
     c.drawRRect(ban, _p..color = const ui.Color(0xFF101522)..style = ui.PaintingStyle.stroke..strokeWidth = math.max(1.0, ht * 0.012));
@@ -619,7 +631,7 @@ class SceneRenderer {
         ui.Offset(px, py),
         r,
         _p
-          ..shader = ui.Gradient.radial(ui.Offset(px - r * 0.3, py - r * 0.3), r * 1.4,
+          ..shader = gRadial(ui.Offset(px - r * 0.3, py - r * 0.3), r * 1.4,
               const [ui.Color(0xFF8A8F9C), ui.Color(0xFF22252C)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -636,7 +648,7 @@ class SceneRenderer {
     c.drawRect(
         wall,
         _p
-          ..shader = ui.Gradient.linear(ui.Offset(0, wall.top), ui.Offset(0, wall.bottom),
+          ..shader = gLinear(ui.Offset(0, wall.top), ui.Offset(0, wall.bottom),
               const [ui.Color(0xFFC9C0B0), ui.Color(0xFF8A8172), ui.Color(0xFF5B5448)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -664,7 +676,7 @@ class SceneRenderer {
     c.drawPath(
         door,
         _p
-          ..shader = ui.Gradient.radial(ui.Offset(px, py - ht * 0.2), dw * 1.3,
+          ..shader = gRadial(ui.Offset(px, py - ht * 0.2), dw * 1.3,
               const [ui.Color(0x88FF4A20), ui.Color(0x00FF4A20)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -683,7 +695,7 @@ class SceneRenderer {
       c.drawRect(
           tower,
           _p
-            ..shader = ui.Gradient.linear(ui.Offset(tower.left, 0), ui.Offset(tower.right, 0),
+            ..shader = gLinear(ui.Offset(tower.left, 0), ui.Offset(tower.right, 0),
                 const [ui.Color(0xFFD2C9B8), ui.Color(0xFF8E8576), ui.Color(0xFF574F43)])
             ..style = ui.PaintingStyle.fill);
       _p.shader = null;
@@ -753,7 +765,7 @@ class SceneRenderer {
       c.drawRRect(
           wr,
           _p
-            ..shader = ui.Gradient.linear(ui.Offset(sx - 13, 0), ui.Offset(sx + 13, 0),
+            ..shader = gLinear(ui.Offset(sx - 13, 0), ui.Offset(sx + 13, 0),
                 const [ui.Color(0xFF3B2412), ui.Color(0xFF9A6A3C), ui.Color(0xFF3B2412)])
             ..style = ui.PaintingStyle.fill);
       _p.shader = null;
@@ -775,7 +787,7 @@ class SceneRenderer {
     c.drawPath(
         car,
         _p
-          ..shader = ui.Gradient.linear(const ui.Offset(-52, 0), const ui.Offset(52, 0),
+          ..shader = gLinear(const ui.Offset(-52, 0), const ui.Offset(52, 0),
               const [ui.Color(0xFF4B2E18), ui.Color(0xFFA8743F), ui.Color(0xFF4B2E18)], const [0.0, 0.5, 1.0])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
@@ -796,7 +808,7 @@ class SceneRenderer {
     c.drawPath(
         barrel,
         _p
-          ..shader = ui.Gradient.linear(const ui.Offset(-30, 0), const ui.Offset(30, 0),
+          ..shader = gLinear(const ui.Offset(-30, 0), const ui.Offset(30, 0),
               const [ui.Color(0xFF12141A), ui.Color(0xFF454C59), ui.Color(0xFFA9B3C4), ui.Color(0xFF454C59), ui.Color(0xFF12141A)],
               const [0.0, 0.22, 0.42, 0.7, 1.0])
           ..style = ui.PaintingStyle.fill);
@@ -807,7 +819,7 @@ class SceneRenderer {
       final hw = 30 - 9 * f;
       c.drawRect(ui.Rect.fromLTRB(-hw - 1, y - 5, hw + 1, y + 5),
           _p
-            ..shader = ui.Gradient.linear(ui.Offset(-hw, 0), ui.Offset(hw, 0),
+            ..shader = gLinear(ui.Offset(-hw, 0), ui.Offset(hw, 0),
                 const [ui.Color(0xFF7A5410), ui.Color(0xFFFFD25A), ui.Color(0xFF7A5410)])
             ..style = ui.PaintingStyle.fill);
       _p.shader = null;
@@ -819,7 +831,7 @@ class SceneRenderer {
         ui.Offset(0, by + 4),
         17,
         _p
-          ..shader = ui.Gradient.radial(ui.Offset(-5, by - 2), 24, const [ui.Color(0xFFB5BFCF), ui.Color(0xFF3A404D)])
+          ..shader = gRadial(ui.Offset(-5, by - 2), 24, const [ui.Color(0xFFB5BFCF), ui.Color(0xFF3A404D)])
           ..style = ui.PaintingStyle.fill);
     _p.shader = null;
     // muzzle
@@ -835,7 +847,7 @@ class SceneRenderer {
           70 * (0.6 + 0.4 * f),
           _p
             ..blendMode = ui.BlendMode.plus
-            ..shader = ui.Gradient.radial(fc, 70, [ui.Color.fromARGB((f * 255).round(), 255, 220, 120), const ui.Color(0x00FF8A20)])
+            ..shader = gRadial(fc, 70, [ui.Color.fromARGB((f * 255).round(), 255, 220, 120), const ui.Color(0x00FF8A20)])
             ..style = ui.PaintingStyle.fill);
       _p.shader = null;
       _p.blendMode = ui.BlendMode.srcOver;

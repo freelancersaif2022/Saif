@@ -63,30 +63,38 @@ class Sprites {
 
   final List<List<ui.Image>> _img = <List<ui.Image>>[];
 
-  Future<void> load() async {
-    if (_img.isNotEmpty) return;
+  bool get loaded => _img.length == styles.length;
+
+  // Rasterizes all frames with toImageSync, which never waits on the GPU
+  // thread, so it is safe to call before or during the first frame.
+  void loadSync() {
+    if (loaded) return;
+    _img.clear();
     for (var s = 0; s < styles.length; s++) {
       final list = <ui.Image>[];
       final k = s == 6 ? 2.2 : 1.5;
       for (var f = 0; f < frames; f++) {
-        list.add(await _render(styles[s], f / frames, k));
+        list.add(_render(styles[s], f / frames, k));
       }
       _img.add(list);
     }
   }
 
+  Future<void> load() async => loadSync();
+
   ui.Image get(int style, int frame) {
-    final l = _img[style];
+    if (!loaded) loadSync();
+    final l = _img[style.clamp(0, styles.length - 1).toInt()];
     return l[frame % frames];
   }
 
-  Future<ui.Image> _render(TroopStyle s, double phase, double k) async {
+  ui.Image _render(TroopStyle s, double phase, double k) {
     final rec = ui.PictureRecorder();
     final c = ui.Canvas(rec);
     c.scale(k);
     _drawHumanoid(c, s, phase);
     final pic = rec.endRecording();
-    final im = await pic.toImage((w * k).ceil(), (h * k).ceil());
+    final im = pic.toImageSync((w * k).ceil(), (h * k).ceil());
     pic.dispose();
     return im;
   }
@@ -101,11 +109,17 @@ ui.Paint _stroke(ui.Color c, double wd) => ui.Paint()
   ..strokeCap = ui.StrokeCap.round
   ..strokeJoin = ui.StrokeJoin.round;
 
+// dart:ui requires explicit stops for gradients with more than two colors.
+List<double>? _stops(List<ui.Color> cs, List<double>? st) {
+  if (st != null || cs.length <= 2) return st;
+  return List<double>.generate(cs.length, (int i) => i / (cs.length - 1));
+}
+
 ui.Paint _lin(ui.Offset a, ui.Offset b, List<ui.Color> cs, [List<double>? st]) =>
-    ui.Paint()..shader = ui.Gradient.linear(a, b, cs, st);
+    ui.Paint()..shader = ui.Gradient.linear(a, b, cs, _stops(cs, st));
 
 ui.Paint _rad(ui.Offset c, double r, List<ui.Color> cs, [List<double>? st]) =>
-    ui.Paint()..shader = ui.Gradient.radial(c, r, cs, st);
+    ui.Paint()..shader = ui.Gradient.radial(c, r, cs, _stops(cs, st));
 
 const ui.Color _ink = ui.Color(0xFF14151F);
 

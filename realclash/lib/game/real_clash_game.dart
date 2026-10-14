@@ -1145,7 +1145,7 @@ class RealClashGame extends FlameGame {
       c.drawPath(
         path,
         ui.Paint()
-          ..shader = ui.Gradient.linear(ui.Offset(0, y0), ui.Offset(0, y1),
+          ..shader = gLinear(ui.Offset(0, y0), ui.Offset(0, y1),
               const [ui.Color(0x40FFFFFF), ui.Color(0x00FFFFFF)]),
       );
     }
