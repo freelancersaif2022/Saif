@@ -8,6 +8,7 @@ emulator was available (no KVM).
 
 | Suite | Command | Result |
 | --- | --- | --- |
+| GitHub Actions (ubuntu-latest) | `.github/workflows/alien-survival-apk.yml` | Engine rebuild matches committed bundle; analyze, tests and `flutter build apk --release` succeed |
 | Static analysis | `flutter analyze` | No issues |
 | Flutter unit + widget tests (32) | `flutter test` | All pass |
 | Engine controls (16 checks) | `node engine_src/dev/run.mjs controls … 480 270 LOW` | All pass |
@@ -26,7 +27,7 @@ What these cover:
 
 ## Not tested (no device available)
 
-- An Android build in this container: the Android SDK download host (`dl.google.com`) is blocked by the environment's network policy. The GitHub Actions workflow builds the APK instead; see the workflow run for its status.
+- An Android build in this container: the Android SDK download host (`dl.google.com`) is blocked by the environment's network policy. The GitHub Actions workflow builds it instead: run #2 (commit 9528071) passed analyze and all tests and produced a 26 MB `alien-survival-3d-apk` artifact. The APK has not been installed on a device.
 - On-device behaviour: WebView WebGL performance, real frame rates, touch latency, audio output, haptics, lifecycle pausing, the back button. **No frame rate is guaranteed.** SwiftShader software rendering ran at roughly 3–20 FPS depending on resolution, which says nothing about phone GPUs. Measured renderer load at HIGH with 26 aliens was about 160–260 draw calls and 190–230k triangles. LOW (fewer chunks, no shadows, no grass, Lambert materials) is the intended preset for weak devices.
 - Memory-leak checking beyond the pooling/heap observation above.
 
