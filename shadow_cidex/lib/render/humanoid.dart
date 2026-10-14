@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import '../core/utils.dart';
 
-enum WeaponType { none, katana, dagger, axe, greatsword, claws }
+enum WeaponType { none, katana, dagger, axe, greatsword, claws, bow }
 
 /// Visual description of a shadow humanoid.
 class HumanoidStyle {
@@ -34,6 +34,8 @@ class HumanoidStyle {
     this.saya = false,
     this.veins = const Color(0x00000000),
     this.detail = const Color(0x40A8C0E0),
+    this.skeleton = false,
+    this.crown = false,
   });
 
   final double height;
@@ -79,6 +81,12 @@ class HumanoidStyle {
   /// Inner highlight line colour (lapels, plate edges).
   final Color detail;
 
+  /// Draws bones instead of a fleshed body.
+  final bool skeleton;
+
+  /// Spiked bone crown (skeleton king).
+  final bool crown;
+
   double get unit => height / 100;
 
   double get weaponLength {
@@ -94,6 +102,8 @@ class HumanoidStyle {
         return 66 * u;
       case WeaponType.claws:
         return 9 * u;
+      case WeaponType.bow:
+        return 40 * u;
       case WeaponType.none:
         return 0;
     }
@@ -682,8 +692,8 @@ class HumanoidPainter {
       c.restore();
     }
     final f = flash.clamp(0.0, 1.0);
-    final body = Color.lerp(s.body, const Color(0xFF5A6884), f * 0.6)!;
-    final back = Color.lerp(Color.lerp(s.body, s.backTint, 0.55)!, const Color(0xFF5A6884), f * 0.5)!;
+    final body = Color.lerp(s.body, const Color(0xFF4A5874), f * 0.4)!;
+    final back = Color.lerp(Color.lerp(s.body, s.backTint, 0.55)!, const Color(0xFF4A5874), f * 0.35)!;
     _figure(c, k, p, s, fade(body, alpha), fade(back, alpha), time, wind, true, inHand, cloth);
     _details(c, k, p, s, time, alpha, eyeBoost, inHand);
   }
@@ -765,6 +775,10 @@ class HumanoidPainter {
 
   static void _figure(Canvas c, Skeleton k, Pose p, HumanoidStyle s, Color main, Color back,
       double time, double wind, bool detailPass, bool inHand, ClothSet? cloth) {
+    if (s.skeleton) {
+      _bones(c, k, p, s, main, back, time, detailPass, inHand);
+      return;
+    }
     final u = s.unit;
     final bk = s.bulk;
     _p
@@ -965,6 +979,148 @@ class HumanoidPainter {
     }
   }
 
+  static void _bone(Canvas c, Offset a, Offset b, double w, Paint paint) {
+    _limb(c, a, b, w, w * 0.8, paint);
+    c.drawCircle(a, w * 0.85, paint);
+    c.drawCircle(b, w * 0.75, paint);
+  }
+
+  /// Skeleton body: bones, ribcage, skull with deep sockets.
+  static void _bones(Canvas c, Skeleton k, Pose p, HumanoidStyle s, Color main, Color back, double time, bool detailPass, bool inHand) {
+    final u = s.unit;
+    final bk = s.bulk;
+    final w = 2.8 * u * bk;
+    _p
+      ..style = PaintingStyle.fill
+      ..blendMode = BlendMode.srcOver
+      ..color = back;
+    if (s.cape) {
+      final sh = k.shoulder;
+      final sway = math.sin(time * 2.4) * 4 * u;
+      _path
+        ..reset()
+        ..moveTo(sh.dx + 2 * u, sh.dy - 1 * u)
+        ..quadraticBezierTo(sh.dx - 12 * u, sh.dy + 18 * u, sh.dx - 18 * u - sway, k.hip.dy + 38 * u)
+        ..lineTo(sh.dx - 12 * u - sway, k.hip.dy + 30 * u)
+        ..lineTo(sh.dx - 9 * u - sway, k.hip.dy + 40 * u)
+        ..lineTo(sh.dx - 2 * u, k.hip.dy + 28 * u)
+        ..quadraticBezierTo(sh.dx + 4 * u, sh.dy + 18 * u, sh.dx + 5 * u, sh.dy + 2 * u)
+        ..close();
+      c.drawPath(_path, _p);
+    }
+    // Back limbs.
+    _bone(c, k.hip, k.bKnee, w * 1.1, _p);
+    _bone(c, k.bKnee, k.bFoot, w, _p);
+    _foot(c, k.bFoot, u * 0.8, _p);
+    _bone(c, k.shoulder, k.bElbow, w * 0.95, _p);
+    _bone(c, k.bElbow, k.bHand, w * 0.85, _p);
+    _p.color = main;
+    // Pelvis.
+    c.drawOval(Rect.fromCenter(center: k.hip + Offset(0, 1 * u), width: 13 * u * bk, height: 6 * u), _p);
+    // Spine.
+    for (var i = 0; i < 8; i++) {
+      final q = Offset.lerp(k.hip, k.neck, i / 7)!;
+      c.drawCircle(q, 1.9 * u * bk, _p);
+    }
+    // Ribcage.
+    c.save();
+    c.translate(k.hip.dx, k.hip.dy);
+    c.rotate(p.torso);
+    final tl = 30 * u;
+    _s
+      ..color = main
+      ..strokeWidth = 1.8 * u * bk;
+    for (var i = 0; i < 5; i++) {
+      final y = -tl * (0.5 + i * 0.1);
+      final rw = (7.5 - (i - 2).abs() * 0.8) * u * bk;
+      _path
+        ..reset()
+        ..moveTo(-1 * u, y)
+        ..quadraticBezierTo(rw * 1.3, y + 2 * u, rw * 0.9, y + 5 * u)
+        ..moveTo(-1 * u, y)
+        ..quadraticBezierTo(-rw, y + 2 * u, -rw * 0.8, y + 4.5 * u);
+      c.drawPath(_path, _s);
+    }
+    // Collar bones / shoulder plate.
+    c.drawLine(Offset(-6 * u * bk, -tl * 0.96), Offset(7 * u * bk, -tl * 0.98), _s);
+    if (s.armor) {
+      c.drawOval(Rect.fromCenter(center: Offset(1 * u, -tl * 0.93), width: 22 * u * bk, height: 8 * u), _p);
+    }
+    c.restore();
+    // Front leg.
+    _bone(c, k.hip, k.fKnee, w * 1.15, _p);
+    _bone(c, k.fKnee, k.fFoot, w * 1.05, _p);
+    _foot(c, k.fFoot, u * 0.85, _p);
+    // Skull.
+    final h = k.head;
+    c.save();
+    c.translate(h.dx, h.dy);
+    c.rotate(p.torso + p.head);
+    _path
+      ..reset()
+      ..moveTo(-6.5 * u, 0)
+      ..quadraticBezierTo(-6.8 * u, -8 * u, 0.5 * u, -8 * u)
+      ..quadraticBezierTo(7.6 * u, -7.4 * u, 7.4 * u, 0)
+      ..lineTo(6.2 * u, 3.5 * u)
+      ..lineTo(1 * u, 4 * u)
+      ..lineTo(-3 * u, 3 * u)
+      ..close();
+    c.drawPath(_path, _p);
+    // Jaw.
+    c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-0.5 * u, 3.6 * u, 7 * u, 3.2 * u), Radius.circular(1.2 * u)), _p);
+    if (s.crown) {
+      for (var i = 0; i < 5; i++) {
+        final x = -5.5 * u + i * 2.8 * u;
+        _path
+          ..reset()
+          ..moveTo(x - 1.2 * u, -7 * u)
+          ..lineTo(x, -14 * u - (i == 2 ? 4 * u : 0))
+          ..lineTo(x + 1.2 * u, -7 * u)
+          ..close();
+        c.drawPath(_path, _p);
+      }
+    }
+    if (s.horns) {
+      _s
+        ..color = main
+        ..strokeWidth = 2.6 * u;
+      _path
+        ..reset()
+        ..moveTo(1 * u, -6 * u)
+        ..quadraticBezierTo(9 * u, -12 * u, 6 * u, -20 * u)
+        ..moveTo(-3 * u, -6 * u)
+        ..quadraticBezierTo(-11 * u, -11 * u, -12 * u, -19 * u);
+      c.drawPath(_path, _s);
+    }
+    if (detailPass) {
+      // Dark sockets, nose and teeth.
+      _p.color = fade(const Color(0xFF000000), main.a);
+      c.drawOval(Rect.fromCenter(center: Offset(3.6 * u, -2.2 * u), width: 3.6 * u, height: 3.2 * u), _p);
+      c.drawOval(Rect.fromCenter(center: Offset(-0.6 * u, -2.0 * u), width: 3.0 * u, height: 3.0 * u), _p);
+      _path
+        ..reset()
+        ..moveTo(5.2 * u, 0.6 * u)
+        ..lineTo(6.2 * u, 2.6 * u)
+        ..lineTo(4.6 * u, 2.6 * u)
+        ..close();
+      c.drawPath(_path, _p);
+      _s
+        ..color = fade(const Color(0xFF000000), main.a)
+        ..strokeWidth = 0.4 * u;
+      for (var i = 0; i < 4; i++) {
+        c.drawLine(Offset((0.6 + i * 1.6) * u, 3.6 * u), Offset((0.6 + i * 1.6) * u, 5.4 * u), _s);
+      }
+      _p.color = main;
+    }
+    c.restore();
+    // Weapon and front arm.
+    if (inHand) _weaponShape(c, k, s, main);
+    _p.color = main;
+    _bone(c, k.shoulder, k.fElbow, w, _p);
+    _bone(c, k.fElbow, k.fHand, w * 0.9, _p);
+    c.drawCircle(k.fHand, 2.4 * u * bk, _p);
+  }
+
   static void _leg(Canvas c, Offset hip, Offset knee, Offset foot, double u, double bk, bool hakama, Paint paint) {
     if (hakama) {
       _limb(c, hip, knee, 12.5 * u * bk, 11.5 * u * bk, paint, bulge: 1.5 * u);
@@ -1153,6 +1309,19 @@ class HumanoidPainter {
           ..lineTo(-3.6 * u, len * 0.55)
           ..close();
         c.drawPath(_path, _p);
+        break;
+      case WeaponType.bow:
+        _s
+          ..color = col
+          ..strokeWidth = 2.2 * u;
+        _path
+          ..reset()
+          ..moveTo(0, -len * 0.5)
+          ..quadraticBezierTo(len * 0.32, 0, 0, len * 0.5);
+        c.drawPath(_path, _s);
+        _s.strokeWidth = 0.5 * u;
+        c.drawLine(Offset(0, -len * 0.5), Offset(-len * 0.12, 0), _s);
+        c.drawLine(Offset(-len * 0.12, 0), Offset(0, len * 0.5), _s);
         break;
       case WeaponType.claws:
         _s

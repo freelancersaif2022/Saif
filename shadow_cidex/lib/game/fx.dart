@@ -115,26 +115,61 @@ class Particles {
     }
   }
 
+  // Batched sprite buffers (smoke in one call, additive glows in another).
+  late final Float32List _smokeXf = Float32List(max * 4);
+  late final Float32List _smokeRect = Float32List(max * 4);
+  late final Int32List _smokeCol = Int32List(max);
+  late final Float32List _addXf = Float32List(max * 8);
+  late final Float32List _addRect = Float32List(max * 8);
+  late final Int32List _addCol = Int32List(max * 2);
+  static final Paint _smokePaint = Paint()..filterQuality = FilterQuality.low;
+  static final Paint _addPaint = Paint()
+    ..filterQuality = FilterQuality.low
+    ..blendMode = BlendMode.plus;
+
+  static int _argb(Color c, double alpha) {
+    final a = (c.a * clampD(alpha, 0, 1) * 255).round();
+    final r = (c.r * 255).round();
+    final g = (c.g * 255).round();
+    final b = (c.b * 255).round();
+    return (a << 24) | (r << 16) | (g << 8) | b;
+  }
+
   void render(Canvas c, double left, double right) {
+    final img = SoftSprite.image;
+    const half = 32.0;
+    var ns = 0;
+    var na = 0;
+    void put(Float32List xf, Float32List rc, Int32List col, int n, double cx, double cy, double radius, int argb) {
+      final sc = radius / half;
+      xf[n * 4] = sc;
+      xf[n * 4 + 1] = 0;
+      xf[n * 4 + 2] = cx - sc * half;
+      xf[n * 4 + 3] = cy - sc * half;
+      rc[n * 4] = 0;
+      rc[n * 4 + 1] = 0;
+      rc[n * 4 + 2] = 64;
+      rc[n * 4 + 3] = 64;
+      col[n] = argb;
+    }
+
     for (var i = 0; i < count; i++) {
       final px = x[i];
       final s = size[i];
-      if (px + s < left || px - s > right) continue;
+      if (px + s * 2.5 < left || px - s * 2.5 > right) continue;
       final t = 1 - life[i] / maxLife[i];
       final k = PKind.values[kind[i]];
       switch (k) {
         case PKind.smoke:
           final a = t < 0.15 ? t / 0.15 : (1 - t) / 0.85;
-          SoftSprite.draw(c, Offset(px, y[i]), s * 2.0, fade(color[i], a));
+          put(_smokeXf, _smokeRect, _smokeCol, ns++, px, y[i], s * 2.0, _argb(color[i], a));
           break;
         case PKind.glow:
-          final a = 1 - t;
-          SoftSprite.draw(c, Offset(px, y[i]), s * 2.4, fade(color[i], a * 0.8), blend: BlendMode.plus);
-          _paint
-            ..blendMode = BlendMode.plus
-            ..color = fade(color[i], a * 0.9);
-          c.drawCircle(Offset(px, y[i]), s * 0.45, _paint);
-          _paint.blendMode = BlendMode.srcOver;
+          put(_addXf, _addRect, _addCol, na++, px, y[i], s * 2.4, _argb(color[i], (1 - t) * 0.8));
+          put(_addXf, _addRect, _addCol, na++, px, y[i], s * 0.8, _argb(color[i], (1 - t)));
+          break;
+        case PKind.ember:
+          put(_addXf, _addRect, _addCol, na++, px, y[i], s * 2.2, _argb(color[i], math.sin(t * math.pi)));
           break;
         case PKind.spark:
           final a = 1 - t;
@@ -144,14 +179,6 @@ class Particles {
             ..strokeWidth = s;
           c.drawLine(Offset(px, y[i]), Offset(px - vx[i] * 0.03, y[i] - vy[i] * 0.03), _line);
           _line.blendMode = BlendMode.srcOver;
-          break;
-        case PKind.ember:
-          final a = math.sin(t * math.pi);
-          _paint
-            ..blendMode = BlendMode.plus
-            ..color = fade(color[i], a);
-          c.drawCircle(Offset(px, y[i]), s, _paint);
-          _paint.blendMode = BlendMode.srcOver;
           break;
         case PKind.debris:
           final a = t > 0.7 ? (1 - t) / 0.3 : 1.0;
@@ -183,6 +210,12 @@ class Particles {
           c.restore();
           break;
       }
+    }
+    if (ns > 0) {
+      c.drawRawAtlas(img, Float32List.sublistView(_smokeXf, 0, ns * 4), Float32List.sublistView(_smokeRect, 0, ns * 4), Int32List.sublistView(_smokeCol, 0, ns), BlendMode.modulate, null, _smokePaint);
+    }
+    if (na > 0) {
+      c.drawRawAtlas(img, Float32List.sublistView(_addXf, 0, na * 4), Float32List.sublistView(_addRect, 0, na * 4), Int32List.sublistView(_addCol, 0, na), BlendMode.modulate, null, _addPaint);
     }
   }
 }

@@ -65,7 +65,7 @@ class _VictoryScreenState extends State<VictoryScreen> with SingleTickerProvider
                           SizedBox(height: 14 * u),
                           Opacity(
                             opacity: fadeAt(1.6),
-                            child: Text('THE SHADOW KING HAS FALLEN', textAlign: TextAlign.center, style: UiText.heading(22 * u)),
+                            child: Text('THE TIGER GOD HAS FALLEN', textAlign: TextAlign.center, style: UiText.heading(22 * u)),
                           ),
                           SizedBox(height: 8 * u),
                           Opacity(

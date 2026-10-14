@@ -11,6 +11,8 @@ import 'bosses/boss.dart';
 import 'bosses/eagle_boss.dart';
 import 'bosses/elephant_boss.dart';
 import 'bosses/final_boss.dart';
+import 'bosses/skeleton_king.dart';
+import 'bosses/tiger_boss.dart';
 import 'enemy.dart';
 import 'environment.dart';
 import 'fx.dart';
@@ -34,8 +36,12 @@ class GameInput {
   bool power = false;
   bool dash = false;
   bool sprint = false;
+  bool ultimate = false;
+  bool attackHeld = false;
 
   void reset() {
+    ultimate = false;
+    attackHeld = false;
     moveX = 0;
     attack = false;
     jump = false;
@@ -71,6 +77,7 @@ class HudState {
   final ValueNotifier<BannerInfo?> banner = ValueNotifier<BannerInfo?>(null);
   final ValueNotifier<String> objective = ValueNotifier<String>('');
   final ValueNotifier<bool> regen = ValueNotifier<bool>(false);
+  final ValueNotifier<double> ultimate = ValueNotifier<double>(1);
 
   void dispose() {
     health.dispose();
@@ -81,6 +88,7 @@ class HudState {
     banner.dispose();
     objective.dispose();
     regen.dispose();
+    ultimate.dispose();
   }
 }
 
@@ -102,6 +110,7 @@ class Battle {
     required this.baseScore,
     required this.onPlayerDied,
     required this.onLevelComplete,
+    this.ultimateEnabled = false,
   }) {
     env = Environment(cfg);
     fx = Fx(particles);
@@ -113,6 +122,12 @@ class Battle {
     _spawnQueue.sort((a, b) => a.triggerX.compareTo(b.triggerX));
     for (final s in cfg.spikes) {
       spikes.add(SpikeTrap(this, s));
+    }
+    for (final t in cfg.pendulums) {
+      hazards.add(PendulumTrap(this, t));
+    }
+    for (final t in cfg.vents) {
+      hazards.add(FlameVent(this, t));
     }
     checkpointReached = startX > 0;
     _rollTimer = cfg.rollingEvery > 0 ? cfg.rollingEvery * 0.6 : 0;
@@ -126,6 +141,12 @@ class Battle {
         break;
       case BossKind.finalBoss:
         boss = FinalBoss(this);
+        break;
+      case BossKind.skeletonKing:
+        boss = SkeletonKingBoss(this);
+        break;
+      case BossKind.tiger:
+        boss = TigerBoss(this);
         break;
       case BossKind.none:
         break;
@@ -141,9 +162,12 @@ class Battle {
   final int baseScore;
   final VoidCallback onPlayerDied;
   final void Function(int score) onLevelComplete;
+  final bool ultimateEnabled;
 
   late final Environment env;
-  final Particles particles = Particles(1500);
+  double darkness = 0;
+  double darknessTarget = 0;
+  final Particles particles = Particles(900);
   late final Fx fx;
   final List<Ring> rings = [];
   late final Player player;
@@ -222,11 +246,18 @@ class Battle {
     rings.add(Ring(x, y, r, dur, color, width, flat: flat));
   }
 
+  /// Current top-left of a (possibly moving) platform.
+  Offset platformOffset(PlatformDef p) => p.offsetAt(time);
+
   /// Returns the landing height for something falling from [prevY] to [newY] at [x].
   double? landingY(double x, double halfW, double prevY, double newY) {
     for (final p in cfg.platforms) {
-      if (x + halfW * 0.4 < p.x || x - halfW * 0.4 > p.x + p.width) continue;
-      if (prevY <= p.top + 0.5 && newY >= p.top) return p.top;
+      final o = p.moving ? p.offsetAt(time) : Offset.zero;
+      final px = p.x + o.dx;
+      final top = p.top + o.dy;
+      if (x + halfW * 0.4 < px || x - halfW * 0.4 > px + p.width) continue;
+      final tol = p.moving ? 7.0 : 0.5;
+      if (prevY <= top + tol && newY >= top) return top;
     }
     if (newY >= 0) return 0;
     return null;
@@ -234,10 +265,16 @@ class Battle {
 
   bool supportedAt(double x, double halfW, double y) {
     if (y >= -0.5) return true;
+    return platformUnder(x, halfW, y) != null;
+  }
+
+  PlatformDef? platformUnder(double x, double halfW, double y) {
     for (final p in cfg.platforms) {
-      if ((y - p.top).abs() < 1.5 && x + halfW * 0.4 >= p.x && x - halfW * 0.4 <= p.x + p.width) return true;
+      final o = p.moving ? p.offsetAt(time) : Offset.zero;
+      final tol = p.moving ? 8.0 : 1.5;
+      if ((y - (p.top + o.dy)).abs() < tol && x + halfW * 0.4 >= p.x + o.dx && x - halfW * 0.4 <= p.x + o.dx + p.width) return p;
     }
-    return false;
+    return null;
   }
 
   Iterable<Hittable> hittables() sync* {
@@ -289,6 +326,7 @@ class Battle {
     flashWhite = math.max(0, flashWhite - rawDt * 2.2);
     flashRed = math.max(0, flashRed - rawDt * 1.8);
     letterbox += (letterboxTarget - letterbox) * smoothK(4, rawDt);
+    darkness += (darknessTarget - darkness) * smoothK(6, rawDt);
 
     if (_hitStop > 0) {
       _hitStop -= rawDt;
@@ -498,7 +536,7 @@ class Battle {
     stateT = 0;
     letterboxTarget = 1;
     sfx(Sfx.levelComplete, volume: 0.9);
-    showBanner(cfg.index == 10 ? 'VICTORY' : 'LEVEL COMPLETE', cfg.name);
+    showBanner(cfg.index == 20 ? 'VICTORY' : 'LEVEL COMPLETE', cfg.name);
     SaveData.instance.clearCheckpoint(cfg.index);
   }
 
@@ -540,6 +578,8 @@ class Battle {
       hud.power.value = p;
     }
     if (hud.regen.value != player.regenerating) hud.regen.value = player.regenerating;
+    final ul = (player.ultimateCharge * 40).round() / 40;
+    if (hud.ultimate.value != ul) hud.ultimate.value = ul;
     if (score != _lastScore) {
       _lastScore = score;
       hud.score.value = score;
@@ -571,11 +611,18 @@ class Battle {
     c.scale(scale, scale);
     c.translate(0, -crop);
     env.renderBackground(c, camX, viewW, time);
+    if (darkness > 0.01) {
+      _mk
+        ..shader = null
+        ..color = fade(const Color(0xFF020208), darkness * 0.8);
+      c.drawRect(Rect.fromLTWH(0, 0, viewW, Environment.virtualH), _mk);
+    }
 
     c.save();
     c.translate(-camX + shakeX, Environment.groundScreenY + shakeY);
     env.renderGround(c, camX, viewW);
     env.renderProps(c, camX, viewW);
+    env.renderMovingPlatforms(c, time);
     _renderMarkers(c);
     for (final s in spikes) {
       s.render(c);

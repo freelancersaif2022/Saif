@@ -8,10 +8,11 @@ import 'widgets.dart';
 
 /// Gameplay HUD: hearts, health, score, boss bar, banner and touch controls.
 class GameHud extends StatelessWidget {
-  const GameHud({super.key, required this.hud, required this.input, required this.onPause});
+  const GameHud({super.key, required this.hud, required this.input, required this.onPause, this.ultimate = false});
   final HudState hud;
   final GameInput input;
   final VoidCallback onPause;
+  final bool ultimate;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +108,7 @@ class GameHud extends StatelessWidget {
               right: 30 * ctrl,
               bottom: 26 * ctrl,
               child: SizedBox(
-                width: 290 * ctrl,
+                width: (ultimate ? 322 : 300) * ctrl,
                 height: 230 * ctrl,
                 child: Stack(
                   children: [
@@ -117,7 +118,11 @@ class GameHud extends StatelessWidget {
                       child: ActionButton(
                         size: 112 * ctrl,
                         color: const Color(0xFFFF4A5A),
-                        onDown: () => input.attack = true,
+                        onDown: () {
+                          input.attack = true;
+                          input.attackHeld = true;
+                        },
+                        onUp: () => input.attackHeld = false,
                         child: CustomPaint(size: Size.square(58 * ctrl), painter: SwordIconPainter(const Color(0xFFFFE0E4))),
                       ),
                     ),
@@ -139,6 +144,15 @@ class GameHud extends StatelessWidget {
                         builder: (context, v, _) => PowerButton(size: 84 * ctrl, charge: v, onDown: () => input.power = true),
                       ),
                     ),
+                    if (ultimate)
+                      Positioned(
+                        right: 226 * ctrl,
+                        bottom: 30 * ctrl,
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: hud.ultimate,
+                          builder: (context, v, _) => UltimateButton(size: 86 * ctrl, charge: v, onDown: () => input.ultimate = true),
+                        ),
+                      ),
                     Positioned(
                       right: 128 * ctrl,
                       bottom: 108 * ctrl,
@@ -490,6 +504,41 @@ class _ActionButtonState extends State<ActionButton> {
             boxShadow: [BoxShadow(color: c.withAlpha(_down ? 120 : 50), blurRadius: _down ? 22 : 12)],
           ),
           child: Center(child: widget.child),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ultimate attack button (levels 11+), with a slow-charging ring.
+class UltimateButton extends StatelessWidget {
+  const UltimateButton({super.key, required this.size, required this.charge, required this.onDown});
+  final double size;
+  final double charge;
+  final VoidCallback onDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = charge >= 1;
+    const c = Color(0xFFFF8A3A);
+    return ActionButton(
+      size: size,
+      color: ready ? c : const Color(0xFF5A6070),
+      onDown: onDown,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _CooldownPainter(charge, ready),
+          child: Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.rotate(angle: 0.6, child: CustomPaint(size: Size.square(size * 0.46), painter: SwordIconPainter(ready ? const Color(0xFFFFE6CC) : const Color(0xFF7A8090)))),
+                Transform.rotate(angle: -0.9, child: CustomPaint(size: Size.square(size * 0.46), painter: SwordIconPainter(ready ? const Color(0xFFFFE6CC) : const Color(0xFF7A8090)))),
+              ],
+            ),
+          ),
         ),
       ),
     );

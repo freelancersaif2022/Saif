@@ -46,7 +46,7 @@ abstract class Boss implements Hittable {
   void receiveHit(double damage, double dir, double knock, {bool heavy = false}) {
     if (!canBeHit) return;
     hp -= damage;
-    flash = 1;
+    flash = 0.8;
     b.sfx(Sfx.bossHit, x: x, volume: 0.75, gap: 50);
     b.spawnPickup(hurtBox.center.dx, hurtBox.center.dy, 0.025);
     onHit(damage, dir, heavy);

@@ -16,10 +16,18 @@ class GameImages {
   static const foreground = 'foreground.png';
   static const splashBg = 'splash_bg.jpg';
   static const lobbyBg = 'lobby_bg.jpg';
+  static const skyDusk = 'sky_dusk.jpg';
+  static const skyCrimson = 'sky_crimson.jpg';
+  static const skyEmber = 'sky_ember.jpg';
+  static const bambooFar = 'bamboo_far.png';
+  static const pagodaMid = 'pagoda_mid.png';
+  static const graveyardMid = 'graveyard_mid.png';
+  static const templeMid = 'temple_mid.png';
 
   static const List<String> all = [
     splashBg, fog, lobbyBg, sky, mountainsFar, mountainsNear, treesFar,
-    ruinsMid, ground, foreground,
+    ruinsMid, ground, foreground, skyDusk, skyCrimson, skyEmber, bambooFar,
+    pagodaMid, graveyardMid, templeMid,
   ];
 
   static final Map<String, ui.Image> _cache = {};

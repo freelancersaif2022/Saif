@@ -21,6 +21,19 @@ class _LevelsScreenState extends State<LevelsScreen> with SingleTickerProviderSt
   late final BackdropPainter _painter = BackdropPainter(clock);
   int? _picked;
   final Map<int, int> _shakes = {};
+  late int _page = SaveData.instance.selectedLevel > 10 ? 1 : 0;
+  late final PageController _pages = PageController(initialPage: _page);
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _go(int page) {
+    GameAudio.instance.play(Sfx.uiClick, volume: 0.7);
+    _pages.animateToPage(page, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+  }
 
   void _select(int level) {
     final save = SaveData.instance;
@@ -48,7 +61,7 @@ class _LevelsScreenState extends State<LevelsScreen> with SingleTickerProviderSt
         final h = box.maxHeight;
         final gridW = math.min(w * 0.86, h * 1.9);
         final cardW = (gridW - 4 * 14) / 5 - 1;
-        final cardH = math.min(cardW * 1.05, (h * 0.7 - 18) / 2);
+        final cardH = math.min(cardW * 1.05, (h * 0.62 - 18) / 2);
         return Stack(
           children: [
             Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _painter))),
@@ -74,28 +87,62 @@ class _LevelsScreenState extends State<LevelsScreen> with SingleTickerProviderSt
                     ],
                   ),
                   Expanded(
-                    child: Center(
-                      child: SizedBox(
-                        width: gridW,
-                        child: Wrap(
-                          spacing: 14,
-                          runSpacing: 18,
-                          children: [
-                            for (var i = 1; i <= SaveData.levelCount; i++)
-                              _LevelCard(
-                                key: ValueKey('card$i'),
-                                level: i,
-                                width: cardW,
-                                height: cardH,
-                                delay: i * 0.06,
-                                shake: _shakes[i] ?? 0,
-                                picked: _picked == i,
-                                dimmed: _picked != null && _picked != i,
-                                onTap: () => _select(i),
+                    child: PageView(
+                      controller: _pages,
+                      onPageChanged: (i) => setState(() => _page = i),
+                      children: [
+                        for (var page = 0; page < 2; page++)
+                          Center(
+                            child: SizedBox(
+                              width: gridW,
+                              child: Wrap(
+                                spacing: 14,
+                                runSpacing: 18,
+                                children: [
+                                  for (var i = page * 10 + 1; i <= page * 10 + 10; i++)
+                                    _LevelCard(
+                                      key: ValueKey('card$i'),
+                                      level: i,
+                                      width: cardW,
+                                      height: cardH,
+                                      delay: (i - page * 10) * 0.06,
+                                      shake: _shakes[i] ?? 0,
+                                      picked: _picked == i,
+                                      dimmed: _picked != null && _picked != i,
+                                      onTap: () => _select(i),
+                                    ),
+                                ],
                               ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: h * 0.02),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _PageArrow(icon: Icons.chevron_left_rounded, enabled: _page > 0, onTap: () => _go(0)),
+                        SizedBox(width: w * 0.02),
+                        for (var i = 0; i < 2; i++)
+                          GestureDetector(
+                            onTap: () => _go(i),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: math.max(2, h * 0.006)),
+                              decoration: BoxDecoration(
+                                color: _page == i ? UiColors.accent.withAlpha(50) : const Color(0x66000000),
+                                border: Border.all(color: (_page == i ? UiColors.accent : UiColors.locked).withAlpha(180)),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(i == 0 ? 'CHAPTER I   1 - 10' : 'CHAPTER II   11 - 20', style: UiText.body(math.max(10, h * 0.028), color: _page == i ? UiColors.text : UiColors.dim)),
+                            ),
+                          ),
+                        SizedBox(width: w * 0.02),
+                        _PageArrow(icon: Icons.chevron_right_rounded, enabled: _page < 1, onTap: () => _go(1)),
+                      ],
                     ),
                   ),
                 ],
@@ -104,6 +151,21 @@ class _LevelsScreenState extends State<LevelsScreen> with SingleTickerProviderSt
           ],
         );
       }),
+    );
+  }
+}
+
+class _PageArrow extends StatelessWidget {
+  const _PageArrow({required this.icon, required this.enabled, required this.onTap});
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.3,
+      child: RoundIconButton(icon: icon, size: 36, onTap: enabled ? onTap : () {}),
     );
   }
 }

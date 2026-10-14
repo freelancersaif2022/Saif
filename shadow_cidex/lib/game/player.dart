@@ -5,10 +5,11 @@ import '../audio.dart';
 import '../core/utils.dart';
 import '../render/humanoid.dart';
 import 'battle.dart';
+import 'enemy.dart';
 import 'fx.dart';
 import 'player_fx.dart';
 
-enum PState { idle, run, air, attack, smash, dash, hurt, dead }
+enum PState { idle, run, air, attack, smash, dash, ultimate, hurt, dead }
 
 enum _Blade { sheathed, drawing, drawn, sheathing }
 
@@ -112,11 +113,24 @@ class Player {
   bool get armed => _blade == _Blade.drawn || (_blade == _Blade.drawing && _bladeT > 0.5) || (_blade == _Blade.sheathing && _bladeT < 0.5);
   Rect get box => Rect.fromLTRB(x - 20, y - 146, x + 20, y);
 
-  static const List<double> _comboDur = [0.34, 0.34, 0.44];
-  static const List<double> _activeStart = [0.08, 0.08, 0.12];
-  static const List<double> _activeEnd = [0.2, 0.2, 0.26];
-  static const List<double> _comboDmg = [17, 17, 28];
-  static const List<double> _comboKnock = [220, 240, 520];
+  // Four-hit flowing combo: down cut, rising cut, horizontal sweep, heavy finisher.
+  static const List<double> _comboDur = [0.28, 0.28, 0.3, 0.46];
+  static const List<double> _activeStart = [0.06, 0.06, 0.07, 0.15];
+  static const List<double> _activeEnd = [0.17, 0.17, 0.19, 0.3];
+  static const List<double> _comboDmg = [17, 17, 19, 32];
+  static const List<double> _comboKnock = [220, 240, 260, 560];
+  static const List<double> _comboReach = [142, 142, 165, 178];
+  static const List<String> _comboSwing = [Sfx.swordSwing, Sfx.swordSwing2, Sfx.swordSwing, Sfx.swordSwingHeavy];
+  double _lastAttackEnd = -10;
+
+  // Ultimate (levels 11+).
+  double ultimateCharge = 1;
+  static const double ultimateReload = 15;
+  int _ultPhase = 0;
+  double _ultTick = 0;
+  int _ultCuts = 0;
+  final List<Hittable> _ultTargets = [];
+  double _ultStartX = 0;
 
   // ------------------------------------------------------------------ update
 
@@ -129,6 +143,9 @@ class Player {
     if (powerCharge < 1) {
       powerCharge = math.min(1, powerCharge + dt / powerReload);
     }
+    if (b.ultimateEnabled && ultimateCharge < 1) {
+      ultimateCharge = math.min(1, ultimateCharge + dt / ultimateReload);
+    }
     final input = b.input;
     final locked = b.controlsLocked || state == PState.dead;
     final moveX = locked ? 0.0 : input.moveX;
@@ -136,11 +153,14 @@ class Player {
     final wantAttack = !locked && input.attack;
     final wantPower = !locked && input.power;
     final wantDash = !locked && input.dash;
+    final wantUltimate = !locked && input.ultimate && b.ultimateEnabled;
+    final holdAttack = !locked && input.attackHeld;
     sprinting = !locked && input.sprint && onGround && moveX.abs() > 0.2 && (state == PState.run || state == PState.idle);
     input.jump = false;
     input.attack = false;
     input.power = false;
     input.dash = false;
+    input.ultimate = false;
 
     if (wantJump) _jumpBuffer = 0.14;
     _jumpBuffer = math.max(0, _jumpBuffer - dt);
@@ -157,6 +177,9 @@ class Player {
       case PState.smash:
         _updateSmash(dt);
         break;
+      case PState.ultimate:
+        _updateUltimate(dt);
+        break;
       case PState.dash:
         if (st > 0.2) {
           vx *= 0.45;
@@ -164,7 +187,7 @@ class Player {
         }
         break;
       case PState.attack:
-        _updateAttack(dt, moveX, wantAttack);
+        _updateAttack(dt, moveX, wantAttack || holdAttack);
         if (_jumpBuffer > 0 && st > _activeEnd[combo]) _tryJump();
         if (wantDash && st > _activeEnd[combo]) _startDash(moveX);
         break;
@@ -177,7 +200,9 @@ class Player {
         if (moveX.abs() > 0.15) facing = moveX > 0 ? 1 : -1;
         if (_jumpBuffer > 0) _tryJump();
         if (wantDash) _startDash(moveX);
-        if (wantAttack && state != PState.dash) _startAttack(0);
+        if ((wantAttack || (holdAttack && b.time - _lastAttackEnd > 0.05)) && state != PState.dash) {
+          _startAttack(b.time - _lastAttackEnd < 0.45 ? (combo + 1) % 4 : 0);
+        }
         if (wantPower && powerCharge >= 1 && state != PState.dash) _startSmash();
         if (state == PState.idle || state == PState.run || state == PState.air) {
           state = !onGround ? PState.air : (vx.abs() > 30 ? PState.run : PState.idle);
@@ -186,6 +211,9 @@ class Player {
     }
     if (wantPower && powerCharge >= 1 && (state == PState.attack || state == PState.hurt) && alive) {
       _startSmash();
+    }
+    if (wantUltimate && ultimateCharge >= 1 && alive && state != PState.ultimate && state != PState.smash) {
+      _startUltimate();
     }
 
     _updateBlade(dt);
@@ -320,8 +348,12 @@ class Player {
     _hitSet.clear();
     _trailBase.clear();
     _trailTip.clear();
-    if (onGround) vx = facing * (step == 2 ? 300 : 170);
-    b.sfx(Sfx.swordSwing, volume: 0.75, gap: 30);
+    if (onGround) vx = facing * (step == 3 ? 360 : (step == 2 ? 240 : 170));
+    if (step == 3 && onGround) {
+      vy = -260;
+      onGround = false;
+    }
+    b.sfx(_comboSwing[step], volume: step == 3 ? 0.95 : 0.8, gap: 25);
   }
 
   void _updateAttack(double dt, double moveX, bool wantAttack) {
@@ -330,12 +362,127 @@ class Player {
     if (!onGround) vx += (moveX * 300 - vx) * smoothK(4, dt);
     if (wantAttack && st > _activeStart[combo]) _queued = true;
     if (st >= _comboDur[combo]) {
-      if (_queued && combo < 2) {
-        _startAttack(combo + 1);
+      _lastAttackEnd = b.time;
+      if (_queued) {
+        _startAttack((combo + 1) % 4);
       } else {
         _toMove();
-        combo = 0;
       }
+    }
+  }
+
+  // ------------------------------------------------------------------ ultimate
+
+  void _startUltimate() {
+    _forceDrawn();
+    ultimateCharge = 0;
+    state = PState.ultimate;
+    st = 0;
+    _ultPhase = 0;
+    _ultCuts = 0;
+    _ultTick = 0;
+    _ultStartX = x;
+    vx = 0;
+    vy = 0;
+    invuln = 3;
+    b.darknessTarget = 1;
+    b.letterboxTarget = 1;
+    b.sfx(Sfx.ultimateCharge, volume: 1.0);
+    b.slowMotion(0.4, 0.5);
+    _ultTargets
+      ..clear()
+      ..addAll(b.hittables().where((h) => h.hurtBox.right > b.viewLeft && h.hurtBox.left < b.viewRight));
+    _ultTargets.sort((a, c) => (a.hurtBox.center.dx - x).abs().compareTo((c.hurtBox.center.dx - x).abs()));
+  }
+
+  void _updateUltimate(double dt) {
+    vx = 0;
+    vy = 0;
+    invuln = math.max(invuln, 0.3);
+    switch (_ultPhase) {
+      case 0:
+        for (var i = 0; i < 4; i++) {
+          final a = rng.nextDouble() * math.pi * 2;
+          final r = randRange(120, 240);
+          b.particles.spawn(px: x + math.cos(a) * r, py: y - 80 + math.sin(a) * r, pvx: -math.cos(a) * r * 3.5, pvy: -math.sin(a) * r * 3.5, plife: 0.28, psize: randRange(2, 4), pcolor: i.isEven ? const Color(0xFF9FD8FF) : const Color(0xFFB09CFF), pkind: PKind.glow);
+        }
+        if (st > 0.45) {
+          _ultPhase = 1;
+          st = 0;
+          b.sfx(Sfx.ultimateSlash, volume: 1.0);
+        }
+        break;
+      case 1:
+        _ultTick -= dt;
+        if (_ultTick <= 0 && _ultCuts < 7) {
+          _ultTick = 0.085;
+          _ultimateCut();
+          _ultCuts++;
+        }
+        if (_ultCuts >= 7 && st > 0.65) {
+          _ultPhase = 2;
+          st = 0;
+          x = clampD(_ultStartX, 30, b.cfg.length - 30);
+        }
+        break;
+      case 2:
+        if (st > 0.3 && st - dt <= 0.3) _ultimateFinale();
+        if (st > 0.75) {
+          b.darknessTarget = 0;
+          b.letterboxTarget = 0;
+          invuln = 0.5;
+          _toMove();
+        }
+        break;
+    }
+  }
+
+  void _ultimateCut() {
+    final from = Offset(x, y - 80);
+    Hittable? t;
+    _ultTargets.removeWhere((h) => !h.canBeHit);
+    if (_ultTargets.isNotEmpty) t = _ultTargets[_ultCuts % _ultTargets.length];
+    final side = _ultCuts.isEven ? 1.0 : -1.0;
+    double nx;
+    if (t != null) {
+      final r = t.hurtBox;
+      nx = r.center.dx + side * (r.width * 0.5 + 50);
+    } else {
+      nx = x + side * randRange(160, 260);
+    }
+    nx = clampD(nx, 40, b.cfg.length - 40);
+    final to = Offset(nx, y - randRange(40, 130));
+    b.playerFx.add(UltimateCut(b, from, to));
+    x = nx;
+    facing = -side;
+    if (t != null) {
+      final r = t.hurtBox;
+      final dir = r.center.dx >= from.dx ? 1.0 : -1.0;
+      t.receiveHit(t is Enemy ? 52 : 70, dir, 300, heavy: true);
+      b.fx.hitSparks(r.center.dx, r.center.dy, dir, n: 12, color: const Color(0xFFCFE8FF));
+      b.fx.shadowBurst(r.center.dx, r.center.dy, n: 6, spread: 0.8);
+    }
+    b.addShake(0.25);
+    b.hitStop(0.03);
+  }
+
+  void _ultimateFinale() {
+    b.flashWhite = 0.45;
+    b.addShake(1);
+    b.hitStop(0.1);
+    final cx = b.viewLeft + b.viewW * 0.5;
+    b.playerFx.add(UltimateCross(b, cx, -200));
+    b.ring(cx, -200, 700, 0.9, const Color(0xFF9FD8FF), 14, flat: 1);
+    b.fx.energy(cx, -200, n: 90, color: const Color(0xFFB0E0FF), speed: 900);
+    for (final h in b.hittables().toList()) {
+      final r = h.hurtBox;
+      if (r.right < b.viewLeft || r.left > b.viewRight) continue;
+      final dir = r.center.dx >= x ? 1.0 : -1.0;
+      h.receiveHit(h is Enemy ? 95 : 150, dir, 700, heavy: true);
+      b.fx.hitSparks(r.center.dx, r.center.dy, dir, n: 18, color: const Color(0xFFE0F0FF));
+    }
+    for (final p in b.projectiles) {
+      if (p.destructible) p.destroy();
     }
   }
 
@@ -479,7 +626,7 @@ class Player {
     final prevY = y;
     var g = 2500.0;
     if (state == PState.attack && !onGround) g = 1500;
-    if (state == PState.dash) g = 0;
+    if (state == PState.dash || state == PState.ultimate) g = 0;
     if (state == PState.smash && _smashPhase == 0) g = 300;
     vy = math.min(vy + g * dt, 1900);
     x += vx * dt;
@@ -499,6 +646,16 @@ class Player {
       _airDash = true;
     } else if (onGround && !b.supportedAt(x, 40, y)) {
       onGround = false;
+    }
+    // Ride moving platforms.
+    if (onGround && y < -1) {
+      final pl = b.platformUnder(x, 40, y);
+      if (pl != null && pl.moving) {
+        final now = pl.offsetAt(b.time);
+        final before = pl.offsetAt(b.time - dt);
+        x += now.dx - before.dx;
+        y = pl.top + now.dy;
+      }
     }
     if (y < -1 && vy == 0 && state != PState.dash && !b.supportedAt(x, 40, y)) onGround = false;
   }
@@ -521,8 +678,8 @@ class Player {
     final s = _activeStart[combo];
     final e = _activeEnd[combo];
     if (st < s || st > e) return;
-    final reach = combo == 2 ? 150.0 : 135.0;
-    final top = y - (combo == 1 ? 210 : 175);
+    final reach = _comboReach[combo];
+    final top = y - (combo == 1 ? 215 : (combo == 3 ? 200 : 180));
     final hb = facing > 0 ? Rect.fromLTRB(x - 10, top, x + reach, y + 10) : Rect.fromLTRB(x - reach, top, x + 10, y + 10);
     var any = false;
     for (final h in b.hittables().toList()) {
@@ -532,14 +689,14 @@ class Player {
       _hitSet.add(h);
       any = true;
       final hit = r.intersect(hb);
-      h.receiveHit(_comboDmg[combo], facing, _comboKnock[combo], heavy: combo == 2);
-      b.fx.hitSparks(hit.center.dx, hit.center.dy, facing, n: combo == 2 ? 14 : 9);
+      h.receiveHit(_comboDmg[combo], facing, _comboKnock[combo], heavy: combo == 3);
+      b.fx.hitSparks(hit.center.dx, hit.center.dy, facing, n: combo == 3 ? 16 : 10);
       b.fx.shadowBurst(hit.center.dx, hit.center.dy, n: 5, spread: 0.6);
     }
     if (any) {
-      b.sfx(Sfx.swordHit, volume: 0.85, gap: 30);
-      b.hitStop(combo == 2 ? 0.07 : 0.045);
-      b.addShake(combo == 2 ? 0.3 : 0.16);
+      b.sfx(combo == 3 ? Sfx.swordHitHeavy : Sfx.swordHit, volume: 0.9, gap: 30);
+      b.hitStop(combo == 3 ? 0.08 : 0.045);
+      b.addShake(combo == 3 ? 0.35 : 0.16);
     }
     for (final h in b.hazards) {
       if (h.smashable && hb.contains(Offset(h.x, h.y - 20))) h.shatter();
@@ -687,10 +844,20 @@ class Player {
           case 1:
             target.slashUp(t < s ? 0 : k);
             break;
+          case 2:
+            target.sweep(t < s ? 0 : k);
+            break;
           default:
-            target.thrust(t < s ? 0 : k);
+            if (t < s) {
+              target.windUp(clampD(t / s, 0, 1));
+              target.fThigh = 0.9;
+              target.bShin = -1.0;
+            } else {
+              target.slashDown(k);
+              target.torso += 0.15;
+            }
         }
-        rate = 38;
+        rate = 40;
         break;
       case PState.smash:
         switch (_smashPhase) {
@@ -718,6 +885,24 @@ class Player {
             rate = 34;
         }
         break;
+      case PState.ultimate:
+        if (_ultPhase == 0) {
+          target.windUp(0.6);
+          target.weapon = -0.9;
+          target.fUpper = -0.3;
+          target.fFore = 0.9;
+          target.fThigh = 0.9;
+          target.bShin = -1.2;
+        } else if (_ultPhase == 1) {
+          target.dash();
+          target.fUpper = 1.6;
+          target.weapon = _ultCuts.isEven ? 0.9 : 2.4;
+        } else {
+          target.smashImpact();
+          target.weapon = 0.2;
+        }
+        rate = 40;
+        break;
       case PState.hurt:
         target.hurt();
         rate = 26;
@@ -734,10 +919,11 @@ class Player {
     rig.updateCloth(dt, x, y, facing, b.time, wind: wind);
     // Blade trail while swinging.
     final swinging = state == PState.attack || (state == PState.smash && (_smashPhase == 1 || _smashPhase == 2));
+    final trailMax = state == PState.attack ? (combo == 3 ? 12 : 9) : 10;
     if (swinging && armed) {
       _trailBase.add(_world(skel.fHand + skel.wDir * 10));
       _trailTip.add(_world(skel.wTip));
-      if (_trailBase.length > (_smashPhase == 1 ? 10 : 7)) {
+      if (_trailBase.length > trailMax) {
         _trailBase.removeAt(0);
         _trailTip.removeAt(0);
       }
@@ -748,7 +934,7 @@ class Player {
   }
 
   void _updateGhosts(double dt) {
-    final fast = state == PState.dash || sprinting || (state == PState.smash && _smashPhase == 2);
+    final fast = state == PState.dash || sprinting || (state == PState.smash && _smashPhase == 2) || (state == PState.ultimate && _ultPhase == 1);
     if (fast) {
       _ghostT -= dt;
       if (_ghostT <= 0) {
@@ -803,10 +989,10 @@ class Player {
         flash: blink ? math.max(flash, 0.55) : flash,
         rimDx: facing,
         wind: clampD(-vx * facing / 400, -1, 1) + 0.3,
-        eyeBoost: state == PState.smash ? 1.4 : (state == PState.dash ? 0.8 : 0),
+        eyeBoost: state == PState.smash || state == PState.ultimate ? 1.6 : (state == PState.dash ? 0.8 : 0),
         sheathed: armed ? 0 : 1,
         cloth: rig.cloth);
-    if (state == PState.smash && _smashPhase < 3) {
+    if ((state == PState.smash && _smashPhase < 3) || (state == PState.ultimate && _ultPhase == 0)) {
       final pulse = 0.25 + 0.12 * math.sin(b.time * 30);
       _glow.color = fade(const Color(0xFF4F9CFF), pulse);
       c.drawCircle(skel.wTip, 24, _glow);

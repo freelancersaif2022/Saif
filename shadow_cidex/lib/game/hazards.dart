@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'dart:ui';
 
 import '../audio.dart';
 import '../core/utils.dart';
+import '../render/soft_sprite.dart';
 import 'battle.dart';
 import 'enemy.dart';
 import 'fx.dart';
@@ -688,5 +690,383 @@ class CrossSigil extends Projectile {
 void damageEnemiesInRadius(Battle b, double x, double r, double dmg) {
   for (final Enemy e in b.enemies) {
     if (e.canBeHit && (e.x - x).abs() < r) e.receiveHit(dmg, e.x >= x ? 1 : -1, 300, heavy: true);
+  }
+}
+
+/// Bone arrow fired by skeleton archers.
+class BoneArrow extends Projectile {
+  BoneArrow(super.b, super.x, super.y, this.vx, this.vy, this.damage);
+  double vx;
+  double vy;
+  final double damage;
+  double life = 3;
+
+  @override
+  void update(double dt) {
+    life -= dt;
+    vy += 420 * dt;
+    x += vx * dt;
+    y += vy * dt;
+    if (life <= 0 || y >= -2 || x < -100 || x > b.cfg.length + 100) {
+      dead = true;
+      if (y >= -2) b.fx.dust(x, 0, n: 2, power: 0.4);
+      return;
+    }
+    final p = b.player;
+    if (p.alive && p.box.inflate(4).contains(Offset(x, y))) {
+      dead = true;
+      p.damage(damage, x - vx.sign * 30, knock: 220);
+      b.fx.hitSparks(x, y, vx.sign, n: 6, color: const Color(0xFFE8DCC0));
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    final a = math.atan2(vy, vx);
+    c.save();
+    c.translate(x, y);
+    c.rotate(a);
+    _stroke
+      ..color = const Color(0xFF1A1814)
+      ..strokeWidth = 2.6;
+    c.drawLine(const Offset(-30, 0), const Offset(4, 0), _stroke);
+    _paint
+      ..blendMode = BlendMode.srcOver
+      ..color = const Color(0xFFD8CCB0);
+    _path
+      ..reset()
+      ..moveTo(10, 0)
+      ..lineTo(0, -4)
+      ..lineTo(2, 0)
+      ..lineTo(0, 4)
+      ..close();
+    c.drawPath(_path, _paint);
+    _paint.color = const Color(0xFF2A2620);
+    _path
+      ..reset()
+      ..moveTo(-30, 0)
+      ..lineTo(-36, -5)
+      ..lineTo(-24, 0)
+      ..lineTo(-36, 5)
+      ..close();
+    c.drawPath(_path, _paint);
+    c.restore();
+  }
+}
+
+/// Giant blade swinging from chains above the path.
+class PendulumTrap extends Hazard {
+  PendulumTrap(Battle b, this.def) : super(b, def.x, -620);
+  final TrapDef def;
+  static const double length = 470;
+  static const double period = 2.6;
+  double _hitCd = 0;
+  double _lastSide = 0;
+  double angle = 0;
+
+  @override
+  bool get behind => false;
+
+  Offset get bladePos => Offset(x + math.sin(angle) * length, y + math.cos(angle) * length);
+
+  @override
+  void update(double dt) {
+    _hitCd = math.max(0, _hitCd - dt);
+    angle = math.sin((b.time / period + def.phase) * math.pi * 2) * 1.05;
+    final side = math.sin(angle).sign;
+    if (side != _lastSide && (x - b.player.x).abs() < 900) {
+      b.sfx(Sfx.pendulumSwing, x: x, volume: 0.5, gap: 400);
+    }
+    _lastSide = side;
+    final p = b.player;
+    final bp = bladePos;
+    if (_hitCd <= 0 && p.alive) {
+      final r = p.box;
+      final nx = clampD(bp.dx, r.left, r.right);
+      final ny = clampD(bp.dy, r.top, r.bottom);
+      if ((Offset(nx, ny) - bp).distance < 46) {
+        _hitCd = 0.9;
+        final dir = math.cos(angle) * (math.sin((b.time / period + def.phase) * math.pi * 2 + math.pi / 2)).sign;
+        p.damage(24 * b.cfg.damageMul.clamp(1.0, 2.0), p.x - dir * 40, knock: 520, lift: 420);
+        b.fx.hitSparks(nx, ny, dir, n: 10, color: const Color(0xFFFFE0C0));
+      }
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    if (x < b.viewLeft - 600 || x > b.viewRight + 600) return;
+    final bp = bladePos;
+    // Beam above.
+    _paint
+      ..blendMode = BlendMode.srcOver
+      ..color = const Color(0xFF0A0B10);
+    c.drawRect(Rect.fromCenter(center: Offset(x, y), width: 90, height: 18), _paint);
+    _stroke
+      ..color = const Color(0xFF15171E)
+      ..strokeWidth = 5;
+    c.drawLine(Offset(x, y), bp, _stroke);
+    _stroke
+      ..color = const Color(0x557F96B8)
+      ..strokeWidth = 1.2;
+    c.drawLine(Offset(x + 2, y), bp + const Offset(2, 0), _stroke);
+    // Crescent blade.
+    c.save();
+    c.translate(bp.dx, bp.dy);
+    c.rotate(-angle);
+    _path
+      ..reset()
+      ..moveTo(-58, -6)
+      ..quadraticBezierTo(0, 62, 58, -6)
+      ..quadraticBezierTo(0, 26, -58, -6)
+      ..close();
+    _paint.color = const Color(0xFF0C0D12);
+    c.drawPath(_path, _paint);
+    _stroke
+      ..color = const Color(0xCCD8E4F0)
+      ..strokeWidth = 2;
+    _path
+      ..reset()
+      ..moveTo(-56, -4)
+      ..quadraticBezierTo(0, 60, 56, -4);
+    c.drawPath(_path, _stroke);
+    _paint.color = const Color(0xFF1A1C24);
+    c.drawCircle(Offset.zero, 10, _paint);
+    c.restore();
+  }
+}
+
+/// Floor grate that erupts in a pillar of shadow fire.
+class FlameVent extends Hazard {
+  FlameVent(Battle b, this.def) : super(b, def.x, 0);
+  final TrapDef def;
+  static const double period = 3.8;
+  double _hitCd = 0;
+  bool _wasOn = false;
+
+  double get _phase => (b.time + def.phase) % period;
+  bool get erupting => _phase > 2.6 && _phase < 3.6;
+  bool get warning => _phase > 2.0 && _phase <= 2.6;
+
+  @override
+  bool get behind => true;
+
+  @override
+  void update(double dt) {
+    _hitCd = math.max(0, _hitCd - dt);
+    final on = erupting;
+    if (on && !_wasOn && (x - b.player.x).abs() < 900) b.sfx(Sfx.flameVent, x: x, volume: 0.6, gap: 300);
+    _wasOn = on;
+    if (warning && rng.nextDouble() < 0.5) {
+      b.particles.spawn(px: x + randRange(-25, 25), py: -4, pvy: -randRange(60, 140), plife: 0.4, psize: 2, pcolor: const Color(0xFFFF7A2A), pkind: PKind.ember);
+    }
+    if (on) {
+      for (var i = 0; i < 2; i++) {
+        b.particles.spawn(px: x + randRange(-22, 22), py: -randRange(0, 30), pvx: randRange(-30, 30), pvy: -randRange(380, 560), plife: randRange(0.35, 0.6), psize: randRange(6, 12), pgrow: 14, pcolor: i == 0 ? const Color(0xFFFF5A1A) : const Color(0xFF9A3AFF), pkind: PKind.glow);
+      }
+      if (rng.nextDouble() < 0.5) {
+        b.particles.spawn(px: x + randRange(-20, 20), py: -randRange(120, 260), pvy: -80, plife: 0.8, psize: randRange(10, 18), pgrow: 16, pcolor: const Color(0x9906070C));
+      }
+      final p = b.player;
+      if (_hitCd <= 0 && p.alive && (p.x - x).abs() < 42 && p.y > -260) {
+        _hitCd = 0.5;
+        p.damage(16 * b.cfg.damageMul.clamp(1.0, 2.0), x, knock: 260, lift: 300);
+      }
+      for (final e in b.enemies) {
+        if (e.canBeHit && (e.x - x).abs() < 40 && rng.nextDouble() < 0.05) e.receiveHit(8, e.x >= x ? 1 : -1, 100);
+      }
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    if (x < b.viewLeft - 100 || x > b.viewRight + 100) return;
+    _paint
+      ..blendMode = BlendMode.srcOver
+      ..color = const Color(0xFF050507);
+    c.drawRect(Rect.fromCenter(center: Offset(x, 1), width: 76, height: 9), _paint);
+    _stroke
+      ..color = const Color(0xFF2A2C34)
+      ..strokeWidth = 2;
+    for (var i = -3; i <= 3; i++) {
+      c.drawLine(Offset(x + i * 10.0, -3), Offset(x + i * 10.0, 5), _stroke);
+    }
+    final glow = erupting ? 1.0 : (warning ? 0.5 + 0.5 * math.sin(b.time * 30) : 0.15);
+    SoftSprite.draw(c, Offset(x, -6), 46, fade(const Color(0xFFFF5A1A), 0.5 * glow), blend: BlendMode.plus);
+    if (erupting) {
+      final e = _phase - 2.6;
+      final h = 270 * clampD(e / 0.12, 0, 1) * (e > 0.85 ? clampD((1.0 - e) / 0.15, 0, 1) : 1);
+      final r = Rect.fromLTRB(x - 26, -h, x + 26, 0);
+      _paint
+        ..shader = ui.Gradient.linear(r.bottomCenter, r.topCenter, [const Color(0xEEFF7A2A), const Color(0xAA9A3AFF), const Color(0x00200030)], const [0.0, 0.55, 1.0])
+        ..blendMode = BlendMode.plus;
+      c.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(20)), _paint);
+      _paint
+        ..shader = null
+        ..blendMode = BlendMode.srcOver;
+    }
+  }
+}
+
+/// Fireball (dragon / tiger breath). Bursts on contact with ground or player.
+class Fireball extends Projectile {
+  Fireball(super.b, super.x, super.y, this.vx, this.vy, {this.damage = 14, this.gravity = 0, this.radius = 16, this.color = const Color(0xFFFF6A1A)});
+  double vx;
+  double vy;
+  final double damage;
+  final double gravity;
+  final double radius;
+  final Color color;
+  double life = 3;
+
+  @override
+  void update(double dt) {
+    life -= dt;
+    vy += gravity * dt;
+    x += vx * dt;
+    y += vy * dt;
+    if (rng.nextDouble() < 0.7) {
+      b.particles.spawn(px: x, py: y, pvx: -vx * 0.1 + randRange(-20, 20), pvy: -randRange(10, 60), plife: 0.35, psize: radius * 0.5, pgrow: 10, pcolor: color, pkind: PKind.glow);
+    }
+    final p = b.player;
+    final hitPlayer = p.alive && p.box.inflate(radius * 0.6).contains(Offset(x, y));
+    if (life <= 0 || y >= -2 || hitPlayer || x < -100 || x > b.cfg.length + 100) {
+      dead = true;
+      b.fx.energy(x, math.min(y, -4), n: 10, color: color, speed: 260);
+      b.fx.shadowBurst(x, math.min(y, -4), n: 4, spread: 0.6);
+      if (p.alive && (p.box.center - Offset(x, y)).distance < radius + 46) {
+        p.damage(damage, x, knock: 260, lift: 240);
+      }
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    SoftSprite.draw(c, Offset(x, y), radius * 2.6, fade(color, 0.55), blend: BlendMode.plus);
+    _paint
+      ..blendMode = BlendMode.plus
+      ..color = fade(const Color(0xFFFFE0A0), 0.9);
+    c.drawCircle(Offset(x, y), radius * 0.45, _paint);
+    _paint.blendMode = BlendMode.srcOver;
+  }
+}
+
+/// Burning meteor with a ground warning, called down by the dragon.
+class FireMeteor extends Projectile {
+  FireMeteor(Battle b, double tx, {this.delay = 1.0, this.damage = 20}) : super(b, tx, -900);
+  final double delay;
+  final double damage;
+  double t = 0;
+  bool _landed = false;
+
+  @override
+  bool get destructible => false;
+
+  @override
+  void update(double dt) {
+    t += dt;
+    if (t < delay) return;
+    final k = (t - delay) / 0.45;
+    y = -900 + 900 * clampD(k, 0, 1);
+    if (rng.nextDouble() < 0.9) {
+      b.particles.spawn(px: x + randRange(-10, 10), py: y, pvy: -randRange(20, 80), plife: 0.4, psize: randRange(6, 12), pgrow: 10, pcolor: const Color(0xFFFF5A1A), pkind: PKind.glow);
+    }
+    if (k >= 1 && !_landed) {
+      _landed = true;
+      dead = true;
+      b.addShake(0.4);
+      b.sfx(Sfx.bombExplode, x: x, volume: 0.7, gap: 80);
+      b.ring(x, -3, 140, 0.45, const Color(0xFFFF6A1A), 6);
+      b.fx.energy(x, -10, n: 22, color: const Color(0xFFFF7A2A), speed: 380);
+      b.fx.debris(x, 0, n: 6);
+      final p = b.player;
+      if (p.alive && (p.x - x).abs() < 90 && p.y > -140) p.damage(damage, x, knock: 380, lift: 380);
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    if (t < delay) {
+      final k = t / delay;
+      final pulse = 0.5 + 0.5 * math.sin(b.time * 20);
+      _paint
+        ..blendMode = BlendMode.plus
+        ..color = fade(const Color(0xFFFF4A1A), 0.25 + 0.35 * k * pulse);
+      c.drawOval(Rect.fromCenter(center: Offset(x, 0), width: 180 * (0.5 + 0.5 * k), height: 16), _paint);
+      _paint.blendMode = BlendMode.srcOver;
+      return;
+    }
+    SoftSprite.draw(c, Offset(x, y), 70, fade(const Color(0xFFFF5A1A), 0.6), blend: BlendMode.plus);
+    _paint.color = const Color(0xFF14080A);
+    c.drawCircle(Offset(x, y), 22, _paint);
+    _paint
+      ..blendMode = BlendMode.plus
+      ..color = const Color(0xCCFFB060);
+    c.drawCircle(Offset(x + 4, y + 6), 9, _paint);
+    _paint.blendMode = BlendMode.srcOver;
+  }
+}
+
+/// Row of bone spikes erupting one after another along the ground.
+class BoneSpikeRow extends Projectile {
+  BoneSpikeRow(Battle b, double x0, this.dir, {this.count = 8, this.spacing = 90, this.damage = 20}) : super(b, x0, 0);
+  final double dir;
+  final int count;
+  final double spacing;
+  final double damage;
+  double t = 0;
+  bool _hit = false;
+  static const double step = 0.09;
+
+  @override
+  bool get destructible => false;
+
+  @override
+  void update(double dt) {
+    t += dt;
+    if (t > count * step + 0.7) dead = true;
+    final p = b.player;
+    for (var i = 0; i < count; i++) {
+      final e = t - i * step;
+      if (e < 0 || e > 0.45) continue;
+      final sx = x + dir * i * spacing;
+      if ((e - dt) < 0) {
+        b.fx.dust(sx, 0, n: 3, power: 0.8);
+        if (i % 2 == 0) b.sfx(Sfx.boneBreak, x: sx, volume: 0.45, gap: 70);
+      }
+      if (!_hit && p.alive && e < 0.35 && (p.x - sx).abs() < 42 && p.y > -120) {
+        _hit = true;
+        p.damage(damage, sx - dir * 10, knock: 300, lift: 520);
+      }
+    }
+  }
+
+  @override
+  void render(Canvas c) {
+    for (var i = 0; i < count; i++) {
+      final e = t - i * step;
+      if (e < 0) continue;
+      final sx = x + dir * i * spacing;
+      final grow = e < 0.06 ? e / 0.06 : (e > 0.35 ? clampD(1 - (e - 0.35) / 0.3, 0, 1) : 1.0);
+      if (grow <= 0) continue;
+      for (var j = -1; j <= 1; j++) {
+        final h = (120 - j.abs() * 40) * grow;
+        _path
+          ..reset()
+          ..moveTo(sx + j * 16 - 9, 0)
+          ..lineTo(sx + j * 16 + j * 6, -h)
+          ..lineTo(sx + j * 16 + 9, 0)
+          ..close();
+        _paint
+          ..blendMode = BlendMode.srcOver
+          ..color = const Color(0xFF2A2620);
+        c.drawPath(_path, _paint);
+        _stroke
+          ..color = const Color(0x99E8DCC0)
+          ..strokeWidth = 1.5;
+        c.drawLine(Offset(sx + j * 16 - 4, -h * 0.2), Offset(sx + j * 16 + j * 6, -h), _stroke);
+      }
+      SoftSprite.draw(c, Offset(sx, -10), 50, fade(const Color(0xFFFF2A1A), 0.3 * grow), blend: BlendMode.plus);
+    }
   }
 }

@@ -66,6 +66,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
+  bool get _ultimateEnabled => _level >= 11 || SaveData.instance.unlockedLevel >= 11;
+
   void _playMusic() {
     final boss = levelConfig(_level).isBoss;
     GameAudio.instance.playMusic(boss ? Sfx.musicBoss : Sfx.musicGame, volume: boss ? 0.6 : 0.5);
@@ -91,6 +93,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       baseScore: _levelStartScore,
       onPlayerDied: _onPlayerDied,
       onLevelComplete: _onLevelComplete,
+      ultimateEnabled: _ultimateEnabled,
     );
     _overlay = _Overlay.none;
     _playMusic();
@@ -191,7 +194,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     final k = e.logicalKey;
     if (e is KeyDownEvent) {
       _keys.add(k);
-      if (k == LogicalKeyboardKey.keyJ || k == LogicalKeyboardKey.enter) _input.attack = true;
+      if (k == LogicalKeyboardKey.keyJ || k == LogicalKeyboardKey.enter) {
+        _input.attack = true;
+        _input.attackHeld = true;
+      }
+      if (k == LogicalKeyboardKey.keyU || k == LogicalKeyboardKey.keyQ) _input.ultimate = true;
       if (k == LogicalKeyboardKey.keyK || k == LogicalKeyboardKey.space || k == LogicalKeyboardKey.keyW || k == LogicalKeyboardKey.arrowUp) _input.jump = true;
       if (k == LogicalKeyboardKey.keyL || k == LogicalKeyboardKey.keyE) _input.power = true;
       if (k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight) {
@@ -208,6 +215,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     } else if (e is KeyUpEvent) {
       _keys.remove(k);
       if (k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight) _input.sprint = false;
+      if (k == LogicalKeyboardKey.keyJ || k == LogicalKeyboardKey.enter) _input.attackHeld = false;
     }
     final left = _keys.contains(LogicalKeyboardKey.keyA) || _keys.contains(LogicalKeyboardKey.arrowLeft);
     final right = _keys.contains(LogicalKeyboardKey.keyD) || _keys.contains(LogicalKeyboardKey.arrowRight);
@@ -259,7 +267,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: _overlay != _Overlay.none,
-                    child: RepaintBoundary(child: GameHud(hud: _hud, input: _input, onPause: _pause)),
+                    child: RepaintBoundary(child: GameHud(hud: _hud, input: _input, onPause: _pause, ultimate: _ultimateEnabled)),
                   ),
                 ),
               ),

@@ -34,6 +34,22 @@ class Sfx {
   static const swordHit = 'sword_hit.wav';
   static const swordDraw = 'sword_draw.wav';
   static const swordSheathe = 'sword_sheathe.wav';
+  static const swordSwing2 = 'sword_swing2.wav';
+  static const swordSwingHeavy = 'sword_swing_heavy.wav';
+  static const swordHitHeavy = 'sword_hit_heavy.wav';
+  static const ultimateCharge = 'ultimate_charge.wav';
+  static const ultimateSlash = 'ultimate_slash.wav';
+  static const skeletonRattle = 'skeleton_rattle.wav';
+  static const boneBreak = 'bone_break.wav';
+  static const arrowShot = 'arrow_shot.wav';
+  static const wraithShriek = 'wraith_shriek.wav';
+  static const monsterGrowl = 'monster_growl.wav';
+  static const pendulumSwing = 'pendulum_swing.wav';
+  static const flameVent = 'flame_vent.wav';
+  static const tigerRoar = 'tiger_roar.wav';
+  static const tigerClaw = 'tiger_claw.wav';
+  static const dragonRoar = 'dragon_roar.wav';
+  static const fireBreath = 'fire_breath.wav';
   static const enemyHit = 'enemy_hit.wav';
   static const enemyDeath = 'enemy_death.wav';
   static const playerHurt = 'player_hurt.wav';
@@ -92,6 +108,22 @@ class Sfx {
     swordHit: 4,
     swordDraw: 1,
     swordSheathe: 1,
+    swordSwing2: 3,
+    swordSwingHeavy: 2,
+    swordHitHeavy: 3,
+    ultimateCharge: 1,
+    ultimateSlash: 1,
+    skeletonRattle: 3,
+    boneBreak: 3,
+    arrowShot: 3,
+    wraithShriek: 2,
+    monsterGrowl: 2,
+    pendulumSwing: 2,
+    flameVent: 2,
+    tigerRoar: 1,
+    tigerClaw: 3,
+    dragonRoar: 1,
+    fireBreath: 2,
     enemyHit: 4,
     enemyDeath: 3,
     playerHurt: 2,
@@ -140,6 +172,8 @@ class _Voice {
   _Voice(this.file);
   final String file;
   final List<AudioPlayer> players = [];
+  final List<bool> busy = [];
+  final List<double> volumes = [];
   int next = 0;
   bool ready = false;
 }
@@ -212,6 +246,8 @@ class GameAudio {
         await p.setReleaseMode(ReleaseMode.stop);
         await p.setSource(AssetSource(file));
         v.players.add(p);
+        v.busy.add(false);
+        v.volumes.add(-1);
       } catch (_) {
         try {
           await p.dispose();
@@ -222,17 +258,34 @@ class GameAudio {
     v.ready = v.players.isNotEmpty;
   }
 
+  /// Sounds that must never be dropped by the rate limiter.
+  static const Set<String> _priority = {
+    Sfx.swordSwing, Sfx.swordSwing2, Sfx.swordSwingHeavy, Sfx.swordHit, Sfx.swordHitHeavy,
+    Sfx.playerHurt, Sfx.powerUp, Sfx.ultimateSlash, Sfx.bossHit, Sfx.bossRoar, Sfx.bossDeath,
+    Sfx.tigerRoar, Sfx.dragonRoar, Sfx.uiClick,
+  };
+
+  int _windowStart = 0;
+  int _windowCount = 0;
+
   /// Plays a one-shot sound effect. [minGapMs] throttles rapid repeats.
   void play(String file, {double volume = 1.0, int minGapMs = 40}) {
     if (!enabled) return;
     final now = _clock.elapsedMilliseconds;
     final last = _lastPlayed[file];
     if (last != null && now - last < minGapMs) return;
+    // Global limiter: at most 7 new sounds per 120 ms keeps the platform
+    // channel from flooding when the frame rate drops.
+    if (now - _windowStart > 120) {
+      _windowStart = now;
+      _windowCount = 0;
+    }
+    if (_windowCount >= 7 && !_priority.contains(file)) return;
+    _windowCount++;
     _lastPlayed[file] = now;
     final vol = volume.clamp(0.0, 1.0).toDouble();
     final v = _voices[file];
     if (v == null || !v.ready) {
-      // Not preloaded yet: prepare in the background and play once ready.
       _safe(() async {
         await _prepare(file, Sfx.voices[file] ?? 1);
         final pv = _voices[file];
@@ -244,11 +297,29 @@ class GameAudio {
   }
 
   Future<void> _start(_Voice v, double volume) async {
-    final p = v.players[v.next % v.players.length];
-    v.next++;
-    await p.stop();
-    await p.setVolume(volume);
-    await p.resume();
+    // Pick the next voice that is not still being started.
+    var idx = -1;
+    for (var i = 0; i < v.players.length; i++) {
+      final j = (v.next + i) % v.players.length;
+      if (!v.busy[j]) {
+        idx = j;
+        break;
+      }
+    }
+    if (idx < 0) return;
+    v.next = idx + 1;
+    final p = v.players[idx];
+    v.busy[idx] = true;
+    try {
+      await p.stop();
+      if ((v.volumes[idx] - volume).abs() > 0.02) {
+        v.volumes[idx] = volume;
+        await p.setVolume(volume);
+      }
+      await p.resume();
+    } finally {
+      v.busy[idx] = false;
+    }
   }
 
   /// Starts a looping music track (no-op if it is already playing).

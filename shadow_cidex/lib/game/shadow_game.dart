@@ -15,6 +15,7 @@ class ShadowGame extends FlameGame {
     required this.baseScore,
     required this.onPlayerDied,
     required this.onLevelComplete,
+    this.ultimateEnabled = false,
   });
 
   final int level;
@@ -24,6 +25,7 @@ class ShadowGame extends FlameGame {
   final int baseScore;
   final VoidCallback onPlayerDied;
   final void Function(int score) onLevelComplete;
+  final bool ultimateEnabled;
 
   Battle? battle;
 
@@ -41,6 +43,7 @@ class ShadowGame extends FlameGame {
       baseScore: baseScore,
       onPlayerDied: onPlayerDied,
       onLevelComplete: onLevelComplete,
+      ultimateEnabled: ultimateEnabled,
     );
   }
 

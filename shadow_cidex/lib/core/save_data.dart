@@ -6,7 +6,7 @@ class SaveData {
   SaveData._();
   static final SaveData instance = SaveData._();
 
-  static const int levelCount = 10;
+  static const int levelCount = 20;
 
   SharedPreferences? _prefs;
 

@@ -186,3 +186,79 @@ class ShadowSpike extends PlayerEffect {
     _stroke.blendMode = BlendMode.srcOver;
   }
 }
+
+/// Bright blade streak left by an ultimate blink-cut.
+class UltimateCut extends PlayerEffect {
+  UltimateCut(Battle b, this.from, this.to) : super(b, to.dx, to.dy);
+  final Offset from;
+  final Offset to;
+  double t = 0;
+  static const double life = 0.55;
+
+  @override
+  void update(double dt) {
+    t += dt;
+    if (t > life) dead = true;
+  }
+
+  @override
+  void render(Canvas c) {
+    final k = 1 - t / life;
+    final d = to - from;
+    final n = Offset(-d.dy, d.dx) / math.max(d.distance, 0.001);
+    final w = 16 * k;
+    _path
+      ..reset()
+      ..moveTo(from.dx, from.dy)
+      ..quadraticBezierTo((from.dx + to.dx) / 2 + n.dx * w, (from.dy + to.dy) / 2 + n.dy * w, to.dx, to.dy)
+      ..quadraticBezierTo((from.dx + to.dx) / 2 - n.dx * w * 0.3, (from.dy + to.dy) / 2 - n.dy * w * 0.3, from.dx, from.dy)
+      ..close();
+    _paint
+      ..blendMode = BlendMode.plus
+      ..color = fade(const Color(0xFF6FB6FF), 0.7 * k);
+    c.drawPath(_path, _paint);
+    _stroke
+      ..blendMode = BlendMode.plus
+      ..strokeWidth = 3 * k + 1
+      ..color = fade(const Color(0xFFF0F8FF), k);
+    c.drawLine(from, to, _stroke);
+    _paint.blendMode = BlendMode.srcOver;
+    _stroke.blendMode = BlendMode.srcOver;
+  }
+}
+
+/// Screen-wide cross slash that ends the ultimate.
+class UltimateCross extends PlayerEffect {
+  UltimateCross(super.b, super.x, super.y);
+  double t = 0;
+  static const double life = 0.9;
+
+  @override
+  void update(double dt) {
+    t += dt;
+    if (t > life) dead = true;
+  }
+
+  @override
+  void render(Canvas c) {
+    final k = clampD(t / 0.12, 0, 1);
+    final fadeK = clampD(1 - (t - 0.3) / 0.6, 0, 1);
+    final half = b.viewW * 0.6 * k;
+    for (final dir in [const Offset(1, 0.42), const Offset(1, -0.42)]) {
+      final d = dir / dir.distance;
+      final a = Offset(x, y) - d * half;
+      final e = Offset(x, y) + d * half;
+      _stroke
+        ..blendMode = BlendMode.plus
+        ..strokeWidth = 34 * fadeK
+        ..color = fade(const Color(0xFF3F7CFF), 0.45 * fadeK);
+      c.drawLine(a, e, _stroke);
+      _stroke
+        ..strokeWidth = 8 * fadeK + 1
+        ..color = fade(const Color(0xFFF4FAFF), fadeK);
+      c.drawLine(a, e, _stroke);
+    }
+    _stroke.blendMode = BlendMode.srcOver;
+    SoftSprite.draw(c, Offset(x, y), 260 * k, fade(const Color(0xFF6FA8FF), 0.4 * fadeK), blend: BlendMode.plus);
+  }
+}

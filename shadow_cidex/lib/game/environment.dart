@@ -22,6 +22,7 @@ class Environment {
     ..filterQuality = FilterQuality.low
     ..isAntiAlias = false;
   final Paint _fill = Paint()..isAntiAlias = true;
+  final Path _path = Path();
 
   void dispose() {
     for (final p in _chunks) {
@@ -33,7 +34,14 @@ class Environment {
   // ------------------------------------------------------------ background
 
   void renderBackground(Canvas c, double camX, double viewW, double time) {
-    final sky = GameImages.get(GameImages.sky);
+    final theme = cfg.theme;
+    final skyName = switch (theme) {
+      EnvTheme.bamboo => GameImages.skyDusk,
+      EnvTheme.graveyard => GameImages.skyCrimson,
+      EnvTheme.volcano => GameImages.skyEmber,
+      EnvTheme.classic => GameImages.sky,
+    };
+    final sky = GameImages.get(skyName) ?? GameImages.get(GameImages.sky);
     if (sky != null) {
       final s = math.max(viewW / sky.width, virtualH / sky.height) * 1.08;
       final w = sky.width * s;
@@ -45,11 +53,33 @@ class Environment {
       c.drawRect(Rect.fromLTWH(0, 0, viewW, virtualH), _fill);
       _fill.shader = null;
     }
-    _layer(c, GameImages.get(GameImages.mountainsFar), camX, 0.06, viewW, 575, 430);
-    _layer(c, GameImages.get(GameImages.mountainsNear), camX, 0.14, viewW, 595, 360);
-    _layer(c, GameImages.get(GameImages.treesFar), camX, 0.3, viewW, 628, 380);
-    _fog(c, camX, viewW, time, 0.35, 470, 200, 0.28, 14);
-    _layer(c, GameImages.get(GameImages.ruinsMid), camX, 0.55, viewW, 642, 360);
+    switch (theme) {
+      case EnvTheme.classic:
+        _layer(c, GameImages.get(GameImages.mountainsFar), camX, 0.06, viewW, 575, 430);
+        _layer(c, GameImages.get(GameImages.mountainsNear), camX, 0.14, viewW, 595, 360);
+        _layer(c, GameImages.get(GameImages.treesFar), camX, 0.3, viewW, 628, 380);
+        _fog(c, camX, viewW, time, 0.35, 470, 200, 0.28, 14);
+        _layer(c, GameImages.get(GameImages.ruinsMid), camX, 0.55, viewW, 642, 360);
+        break;
+      case EnvTheme.bamboo:
+        _layer(c, GameImages.get(GameImages.mountainsFar), camX, 0.06, viewW, 575, 430, tint: const Color(0xFFB8A8C8));
+        _layer(c, GameImages.get(GameImages.bambooFar), camX, 0.28, viewW, 632, 430);
+        _fog(c, camX, viewW, time, 0.35, 470, 200, 0.3, 14);
+        _layer(c, GameImages.get(GameImages.pagodaMid), camX, 0.55, viewW, 646, 360);
+        break;
+      case EnvTheme.graveyard:
+        _layer(c, GameImages.get(GameImages.mountainsNear), camX, 0.1, viewW, 595, 380, tint: const Color(0xFFC07070));
+        _layer(c, GameImages.get(GameImages.treesFar), camX, 0.3, viewW, 628, 360, tint: const Color(0xFF8A5050));
+        _fog(c, camX, viewW, time, 0.35, 470, 200, 0.24, 14);
+        _layer(c, GameImages.get(GameImages.graveyardMid), camX, 0.55, viewW, 646, 360);
+        break;
+      case EnvTheme.volcano:
+        _layer(c, GameImages.get(GameImages.mountainsFar), camX, 0.06, viewW, 575, 430, tint: const Color(0xFFE09070));
+        _layer(c, GameImages.get(GameImages.mountainsNear), camX, 0.14, viewW, 595, 360, tint: const Color(0xFFB06050));
+        _fog(c, camX, viewW, time, 0.35, 470, 200, 0.2, 14);
+        _layer(c, GameImages.get(GameImages.templeMid), camX, 0.55, viewW, 648, 380);
+        break;
+    }
     // Level tint grade (limited to the sky band to save fill rate).
     _fill
       ..shader = null
@@ -57,8 +87,11 @@ class Environment {
     c.drawRect(Rect.fromLTWH(0, 0, viewW, 640), _fill);
   }
 
-  void _layer(Canvas c, ui.Image? img, double camX, double factor, double viewW, double bottom, double height, {double drift = 0, double opacity = 1}) {
+  final Map<int, ColorFilter> _tints = {};
+
+  void _layer(Canvas c, ui.Image? img, double camX, double factor, double viewW, double bottom, double height, {double drift = 0, double opacity = 1, Color? tint}) {
     if (img == null) return;
+    _img.colorFilter = tint == null ? null : (_tints[tint.toARGB32()] ??= ColorFilter.mode(tint, BlendMode.modulate));
     final s = height / img.height;
     final tileW = img.width * s;
     var off = -((camX * factor + drift) % tileW);
@@ -68,7 +101,9 @@ class Environment {
     for (var x = off; x < viewW; x += tileW) {
       c.drawImageRect(img, src, Rect.fromLTWH(x, bottom - height, tileW + 1, height), _img);
     }
-    _img.color = const Color(0xFFFFFFFF);
+    _img
+      ..color = const Color(0xFFFFFFFF)
+      ..colorFilter = null;
   }
 
   void _fog(Canvas c, double camX, double viewW, double time, double factor, double top, double height, double opacity, double speed) {
@@ -122,6 +157,17 @@ class Environment {
     _fill.shader = null;
   }
 
+  void renderMovingPlatforms(Canvas c, double time) {
+    for (final pl in cfg.platforms) {
+      if (!pl.moving) continue;
+      final o = pl.offsetAt(time);
+      c.save();
+      c.translate(o.dx, o.dy);
+      _drawPlatform(c, pl, floating: true);
+      c.restore();
+    }
+  }
+
   void renderForeground(Canvas c, double camX, double viewW, double time) {
     _fog(c, camX, viewW, time, 1.1, 610, 120, 0.16, 30);
     _layer(c, GameImages.get(GameImages.foreground), camX, 1.35, viewW, 742, 150, opacity: 0.96);
@@ -136,14 +182,23 @@ class Environment {
     while (x < cfg.length + 400) {
       final roll = r.nextDouble();
       _PropType t;
-      if (cfg.index == 4 || cfg.index == 10) {
+      if (cfg.theme == EnvTheme.bamboo) {
+        const opts = [_PropType.house, _PropType.crates, _PropType.barrels, _PropType.lantern, _PropType.tree, _PropType.wood, _PropType.crates, _PropType.torii];
+        t = opts[r.nextInt(opts.length)];
+      } else if (cfg.theme == EnvTheme.graveyard) {
+        const opts = [_PropType.tombs, _PropType.tombs, _PropType.deadTree, _PropType.crates, _PropType.lantern, _PropType.ruin, _PropType.house, _PropType.bones];
+        t = opts[r.nextInt(opts.length)];
+      } else if (cfg.theme == EnvTheme.volcano) {
+        const opts = [_PropType.ruin, _PropType.stone, _PropType.crates, _PropType.lantern, _PropType.torii, _PropType.bones];
+        t = opts[r.nextInt(opts.length)];
+      } else if (cfg.index == 4 || cfg.index == 10) {
         t = roll < 0.45 ? _PropType.ruin : (roll < 0.7 ? _PropType.stone : _PropType.deadTree);
       } else if (cfg.index == 2) {
         t = roll < 0.5 ? _PropType.tree : (roll < 0.7 ? _PropType.stone : (roll < 0.85 ? _PropType.wood : _PropType.ruin));
       } else if (cfg.index == 3) {
         t = roll < 0.45 ? _PropType.house : (roll < 0.65 ? _PropType.wood : (roll < 0.85 ? _PropType.tree : _PropType.stone));
       } else {
-        const all = _PropType.values;
+        const all = [_PropType.house, _PropType.stone, _PropType.wood, _PropType.tree, _PropType.deadTree, _PropType.ruin, _PropType.crates];
         t = all[r.nextInt(all.length)];
       }
       props.add(_Prop(t, x, 0.7 + r.nextDouble() * 0.6, r.nextInt(1 << 20)));
@@ -160,6 +215,7 @@ class Environment {
         _drawProp(c, p);
       }
       for (final pl in cfg.platforms) {
+        if (pl.moving) continue;
         if (pl.x + pl.width < rect.left || pl.x > rect.right) continue;
         _drawPlatform(c, pl);
       }
@@ -247,6 +303,104 @@ class Environment {
       case _PropType.deadTree:
         _tree(c, p.x, 320 * s, r, paint, leafy: false);
         break;
+      case _PropType.crates:
+        final box = Paint()..color = const Color(0xFF15120F);
+        final edge = Paint()
+          ..color = const Color(0x667F96B8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6;
+        final seams = Paint()
+          ..color = const Color(0xFF07060A)
+          ..strokeWidth = 2;
+        final n = 2 + r.nextInt(3);
+        for (var i = 0; i < n; i++) {
+          final bw = (48 + r.nextDouble() * 22) * s;
+          final row = i < 2 ? 0 : 1;
+          final bx = p.x + (i % 2) * 58 * s + row * 26 * s;
+          final rect = Rect.fromLTWH(bx, -bw - row * 62 * s, bw, bw);
+          c.drawRect(rect, box);
+          c.drawRect(rect, edge);
+          c.drawLine(rect.topLeft, rect.bottomRight, seams);
+          c.drawLine(rect.topRight, rect.bottomLeft, seams);
+        }
+        break;
+      case _PropType.barrels:
+        final bar = Paint()..color = const Color(0xFF14110E);
+        final band = Paint()
+          ..color = const Color(0x557F96B8)
+          ..strokeWidth = 2;
+        for (var i = 0; i < 2 + r.nextInt(2); i++) {
+          final bx = p.x + i * 44 * s;
+          final rr = RRect.fromRectAndRadius(Rect.fromLTWH(bx, -62 * s, 38 * s, 62 * s), Radius.circular(10 * s));
+          c.drawRRect(rr, bar);
+          c.drawLine(Offset(bx + 2, -18 * s), Offset(bx + 36 * s, -18 * s), band);
+          c.drawLine(Offset(bx + 2, -46 * s), Offset(bx + 36 * s, -46 * s), band);
+        }
+        break;
+      case _PropType.lantern:
+        final pole = Paint()
+          ..color = _propCol
+          ..strokeWidth = 6 * s;
+        c.drawLine(Offset(p.x, 0), Offset(p.x, -180 * s), pole);
+        c.drawLine(Offset(p.x, -170 * s), Offset(p.x + 46 * s, -170 * s), pole..strokeWidth = 4 * s);
+        final lx = p.x + 42 * s;
+        final ly = -140 * s;
+        final glow = Paint()
+          ..shader = ui.Gradient.radial(Offset(lx, ly), 90 * s, [const Color(0x55FF9A3A), const Color(0x00FF7A2A)]);
+        c.drawCircle(Offset(lx, ly), 90 * s, glow);
+        c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(lx, ly), width: 22 * s, height: 30 * s), Radius.circular(8 * s)), Paint()..color = const Color(0xFFE07A30));
+        c.drawRect(Rect.fromCenter(center: Offset(lx, ly - 16 * s), width: 18 * s, height: 4 * s), paint);
+        c.drawRect(Rect.fromCenter(center: Offset(lx, ly + 16 * s), width: 18 * s, height: 4 * s), paint);
+        break;
+      case _PropType.torii:
+        final w = 230 * s, h = 220 * s;
+        c.drawRect(Rect.fromLTWH(p.x, -h, 14 * s, h), paint);
+        c.drawRect(Rect.fromLTWH(p.x + w - 14 * s, -h, 14 * s, h), paint);
+        path
+          ..moveTo(p.x - 34 * s, -h - 8 * s)
+          ..quadraticBezierTo(p.x + w / 2, -h + 6 * s, p.x + w + 34 * s, -h - 8 * s)
+          ..lineTo(p.x + w + 26 * s, -h + 14 * s)
+          ..quadraticBezierTo(p.x + w / 2, -h + 24 * s, p.x - 26 * s, -h + 14 * s)
+          ..close();
+        c.drawPath(path, paint);
+        c.drawPath(path, rim);
+        c.drawRect(Rect.fromLTWH(p.x - 12 * s, -h * 0.76, w + 24 * s, 10 * s), paint);
+        break;
+      case _PropType.tombs:
+        for (var i = 0; i < 3; i++) {
+          final tx = p.x + i * 70 * s + r.nextDouble() * 20;
+          final th = (50 + r.nextDouble() * 40) * s;
+          final tw = (30 + r.nextDouble() * 14) * s;
+          c.save();
+          c.translate(tx, 0);
+          c.rotate((r.nextDouble() - 0.5) * 0.25);
+          if (r.nextDouble() < 0.5) {
+            final rr = RRect.fromRectAndCorners(Rect.fromLTWH(-tw / 2, -th, tw, th + 4), topLeft: Radius.circular(tw / 2), topRight: Radius.circular(tw / 2));
+            c.drawRRect(rr, paint);
+            c.drawRRect(rr, rim);
+          } else {
+            final cr = Paint()
+              ..color = _propCol
+              ..strokeWidth = 7 * s;
+            c.drawLine(Offset(0, 4), Offset(0, -th * 1.2), cr);
+            c.drawLine(Offset(-th * 0.35, -th * 0.85), Offset(th * 0.35, -th * 0.85), cr);
+          }
+          c.restore();
+        }
+        break;
+      case _PropType.bones:
+        final bone = Paint()..color = const Color(0xFF1E1C1A);
+        for (var i = 0; i < 6; i++) {
+          final bx = p.x + r.nextDouble() * 90 * s;
+          c.save();
+          c.translate(bx, -4 - r.nextDouble() * 8);
+          c.rotate(r.nextDouble() * math.pi);
+          c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 34 * s, height: 5 * s), Radius.circular(3 * s)), bone);
+          c.restore();
+        }
+        c.drawCircle(Offset(p.x + 40 * s, -14 * s), 13 * s, bone);
+        c.drawOval(Rect.fromCenter(center: Offset(p.x + 44 * s, -16 * s), width: 6 * s, height: 6 * s), Paint()..color = const Color(0xFF050505));
+        break;
       case _PropType.ruin:
         final h = (180 + r.nextDouble() * 160) * s;
         final w = 54 * s;
@@ -313,8 +467,24 @@ class Environment {
     branch(Offset(x, -50), (r.nextDouble() - 0.5) * 0.2, h * 0.38, 16, leafy ? 3 : 4);
   }
 
-  void _drawPlatform(Canvas c, PlatformDef pl) {
+  void _drawPlatform(Canvas c, PlatformDef pl, {bool floating = false}) {
     final top = pl.top;
+    if (floating) {
+      // Hovering stone slab held by shadow energy.
+      final slab = Paint()..color = const Color(0xFF14151C);
+      final rr = RRect.fromRectAndRadius(Rect.fromLTWH(pl.x, top, pl.width, 20), const Radius.circular(5));
+      c.drawRRect(rr, slab);
+      _path
+        ..reset()
+        ..moveTo(pl.x + 8, top + 20)
+        ..lineTo(pl.x + pl.width * 0.5, top + 46)
+        ..lineTo(pl.x + pl.width - 8, top + 20)
+        ..close();
+      c.drawPath(_path, slab);
+      c.drawRect(Rect.fromLTWH(pl.x + 2, top, pl.width - 4, 2), Paint()..color = const Color(0x8890B0FF));
+      c.drawCircle(Offset(pl.x + pl.width * 0.5, top + 30), 5, Paint()..color = const Color(0xCC7F9CFF));
+      return;
+    }
     final postPaint = Paint()
       ..color = const Color(0xFF0E0C0B)
       ..strokeWidth = 10;
@@ -360,7 +530,7 @@ class Environment {
   }
 }
 
-enum _PropType { house, stone, wood, tree, deadTree, ruin }
+enum _PropType { house, stone, wood, tree, deadTree, ruin, crates, barrels, lantern, torii, tombs, bones }
 
 class _Prop {
   _Prop(this.type, this.x, this.scale, this.seed);
