@@ -1,7 +1,7 @@
 name: alien_survival_3d
 description: "Alien Survival 3D: a third-person 3D endless alien survival shooter for Android."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.13.5

@@ -1,4 +1,6 @@
-# Builds, analyses and tests Alien Survival 3D and produces a release APK.
+# Builds, analyses and tests Alien Survival 3D, verifies the APK signatures,
+# installs and launches it on an Android emulator, and only then publishes a
+# GitHub release with the APKs.
 name: Alien Survival 3D - Android APK
 
 on:
@@ -12,7 +14,7 @@ permissions:
   contents: write
 
 jobs:
-  apk:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
@@ -43,26 +45,87 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build universal release APK
+        run: |
+          flutter build apk --release
+          mkdir -p ../out
+          cp build/app/outputs/flutter-apk/app-release.apk ../out/AlienSurvival3D.apk
 
-      - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/AlienSurvival3D.apk
+      - name: Build per-ABI release APKs
+        run: |
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../out/AlienSurvival3D-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../out/AlienSurvival3D-armv7.apk
+
+      - name: Verify APK signatures and alignment
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for f in ../out/*.apk; do
+            echo "== $f"
+            "$BT/zipalign" -c -v 4 "$f" > /dev/null && echo "zipalign OK"
+            "$BT/apksigner" verify --verbose --min-sdk-version 24 "$f" | head -8
+            "$BT/aapt2" dump badging "$f" | head -3
+          done
+          (cd ../out && sha256sum *.apk | tee SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         with:
           name: alien-survival-3d-apk
-          path: alien_survival_3d/build/app/outputs/flutter-apk/AlienSurvival3D.apk
+          path: out/*
           if-no-files-found: error
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
+  emulator-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          tag_name: alien-survival-3d-build-${{ github.run_number }}
-          name: Alien Survival 3D APK (build ${{ github.run_number }})
-          target_commitish: ${{ github.sha }}
-          body: |
-            Release APK built from ${{ github.sha }}.
-            Signed with the debug key (fine for installing and testing; not for store publishing).
-            Requires Android 7+ with an up-to-date Android System WebView (WebGL 2).
-          files: alien_survival_3d/build/app/outputs/flutter-apk/AlienSurvival3D.apk
+          name: alien-survival-3d-apk
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash alien_survival_3d/tool/ci/smoke_test.sh apk/AlienSurvival3D.apk
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-test-output
+          path: ci-out/
+
+  release:
+    needs: [build, emulator-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: alien-survival-3d-apk
+          path: out
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="alien-survival-3d-build-${{ github.run_number }}"
+          gh release create "$TAG" out/*.apk out/SHA256SUMS.txt --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Alien Survival 3D APK (build ${{ github.run_number }}, emulator-verified)" \
+            --notes "Installed and launched on an Android 14 emulator by CI before publishing.
+
+          Which file to install:
+          - AlienSurvival3D-arm64.apk: most phones from 2017 on (smallest download)
+          - AlienSurvival3D-armv7.apk: older 32-bit phones
+          - AlienSurvival3D.apk: universal (all of the above)
+
+          If an older build is installed, uninstall it first. Requires Android 7+ with an up-to-date Android System WebView. Debug-signed (v1+v2+v3); fine for installing, not for store publishing. Check the download against SHA256SUMS.txt."

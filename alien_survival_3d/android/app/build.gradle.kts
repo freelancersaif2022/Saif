@@ -27,6 +27,16 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Sign with every scheme: some phone installers reject APKs that
+            // only carry the v2 signature AGP produces by default for minSdk 24.
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
     buildTypes {
         release {
             // Debug keys so `flutter build apk --release` works out of the box.
