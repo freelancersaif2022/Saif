@@ -9,7 +9,7 @@ on:
       - '.github/workflows/alien-survival-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -46,8 +46,23 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/AlienSurvival3D.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: alien-survival-3d-apk
-          path: alien_survival_3d/build/app/outputs/flutter-apk/app-release.apk
+          path: alien_survival_3d/build/app/outputs/flutter-apk/AlienSurvival3D.apk
           if-no-files-found: error
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: alien-survival-3d-build-${{ github.run_number }}
+          name: Alien Survival 3D APK (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          body: |
+            Release APK built from ${{ github.sha }}.
+            Signed with the debug key (fine for installing and testing; not for store publishing).
+            Requires Android 7+ with an up-to-date Android System WebView (WebGL 2).
+          files: alien_survival_3d/build/app/outputs/flutter-apk/AlienSurvival3D.apk
