@@ -23,10 +23,10 @@ svg { width: 100%; height: 100%; display: block; }
 .panel { position: absolute; background: var(--panel); border: 1px solid var(--panel-b); border-radius: 10px; backdrop-filter: blur(2px); }
 .stat { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; letter-spacing: .5px; }
 .stat i { width: 18px; height: 18px; color: var(--lime); display: inline-block; }
-.stats { left: max(10px, env(safe-area-inset-left)); top: 8px; padding: 6px 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; max-width: 52vw; }
+.stats { left: max(10px, env(safe-area-inset-left)); top: 8px; padding: 6px 12px; display: flex; gap: 14px; align-items: center; }
 .stats .score span { color: var(--lime); font-size: 18px; }
 .stats .score b { margin-left: 6px; color: #ffcf33; font-size: 13px; }
-.stats .remaining { width: 100%; font-size: 11px; color: #c9d1bd; letter-spacing: 1px; margin-top: -2px; }
+.stats .remaining { position: absolute; left: 12px; top: 100%; margin-top: 3px; white-space: nowrap; font-size: 11px; font-weight: 800; color: #e8eedf; letter-spacing: 1px; text-shadow: 0 1px 3px #000; }
 .stats .remaining:empty { display: none; }
 .wallet { right: calc(max(10px, env(safe-area-inset-right)) + 150px); top: 8px; padding: 6px 12px; display: flex; gap: 12px; }
 .wallet .coin i { color: #ffc21a; } .wallet .gem i { color: #3fb6ff; }
@@ -56,8 +56,8 @@ svg { width: 100%; height: 100%; display: block; }
 .weapon .wname { position: absolute; left: 10px; top: -15px; font-size: 10px; color: var(--lime); letter-spacing: 1px; }
 .weapon.empty .ammo span { color: var(--red); }
 .weapon.reloading .ammo span { color: #ffcf33; animation: blink .5s infinite; }
-.nades { left: calc(50% + 120px); bottom: 10px; padding: 4px 8px; display: flex; align-items: center; gap: 4px; font-weight: 900; font-size: 18px; pointer-events: auto; }
-.nades img { width: 30px; height: 30px; }
+.weapon .nades { display: flex; align-items: center; gap: 2px; font-weight: 900; font-size: 16px; padding-left: 8px; margin-left: 2px; border-left: 1px solid var(--panel-b); }
+.weapon .nades img { width: 24px; height: 24px; }
 @keyframes blink { 50% { opacity: .35; } }
 
 .crosshair { position: absolute; left: 50%; top: 50%; --gap: 8px; transition: opacity .1s; }
@@ -88,7 +88,7 @@ svg { width: 100%; height: 100%; display: block; }
 .banner .b-sub { font-size: 15px; letter-spacing: 2px; color: #e8eedf; text-shadow: 0 2px 4px #000; }
 .banner.danger .b-title { color: #ff3b5c; text-shadow: 0 0 22px rgba(255, 40, 80, .5), 0 3px 6px #000; }
 .countdown { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); font-weight: 800; letter-spacing: 2px; color: #e8eedf; text-shadow: 0 2px 4px #000; font-size: 16px; }
-.killfeed { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 126px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.killfeed { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 66px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .kf { background: var(--panel); border-left: 3px solid var(--lime); padding: 2px 8px; font-size: 12px; transition: opacity .5s; }
 .kf b { color: #ff7a7a; } .kf em { color: #ffcf33; font-style: normal; }
 .kf.fade, .toast.fade { opacity: 0; }

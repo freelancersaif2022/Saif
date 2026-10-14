@@ -60,11 +60,10 @@ export class Hud {
     this.weaponPanel = el('div', 'panel weapon', `
       <img data-k="wicon" alt=""/>
       <div class="ammo"><i>${ICONS.bullets}</i><span data-k="ammo">30/120</span></div>
-      <div class="wname" data-k="wname"></div>
-      <div class="reload-ring" data-k="reloadRing"></div>`);
+      <div class="nades"><img data-k="nicon" alt=""/><span data-k="nades">3</span></div>
+      <div class="wname" data-k="wname"></div>`);
     r.appendChild(this.weaponPanel);
-    this.nadePanel = el('div', 'panel nades', `<img data-k="nicon" alt=""/><span data-k="nades">3</span>`);
-    r.appendChild(this.nadePanel);
+    this.nadePanel = this.weaponPanel.querySelector('.nades');
 
     // centre
     this.cross = el('div', 'crosshair', '<span class="c t"></span><span class="c b"></span><span class="c l"></span><span class="c r"></span><span class="dot"></span>');

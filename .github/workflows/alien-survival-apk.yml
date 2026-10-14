@@ -1,0 +1,53 @@
+# Builds, analyses and tests Alien Survival 3D and produces a release APK.
+name: Alien Survival 3D - Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'alien_survival_3d/**'
+      - '.github/workflows/alien-survival-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: alien_survival_3d
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Rebuild the 3D engine bundle and check it matches the committed one
+        run: |
+          cd engine_src
+          npm ci
+          npm run build
+          git diff --exit-code --stat -- ../assets/game/game.js || echo "::warning::assets/game/game.js differs from a fresh build"
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alien-survival-3d-apk
+          path: alien_survival_3d/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

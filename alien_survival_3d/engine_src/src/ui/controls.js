@@ -6,15 +6,15 @@ import { ICONS } from './icons.js';
 export const DEFAULT_LAYOUT = {
   joystick: { x: 0.12, y: 0.74 },
   sprint: { x: 0.27, y: 0.52 },
-  fire: { x: 0.885, y: 0.66 },
-  aim: { x: 0.765, y: 0.83 },
-  reload: { x: 0.745, y: 0.585 },
-  jump: { x: 0.955, y: 0.4 },
-  crouch: { x: 0.84, y: 0.4 },
+  fire: { x: 0.885, y: 0.68 },
+  reload: { x: 0.73, y: 0.66 },
+  aim: { x: 0.75, y: 0.87 },
+  grenade: { x: 0.775, y: 0.46 },
+  crouch: { x: 0.875, y: 0.39 },
+  jump: { x: 0.96, y: 0.485 },
   roll: { x: 0.955, y: 0.9 },
-  grenade: { x: 0.64, y: 0.86 },
-  switch: { x: 0.64, y: 0.66 },
-  interact: { x: 0.55, y: 0.52 },
+  switch: { x: 0.655, y: 0.66 },
+  interact: { x: 0.6, y: 0.45 },
 };
 
 const BUTTONS = {

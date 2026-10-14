@@ -126,7 +126,6 @@ class Game {
     this.hud = new Hud(root, this);
     this.controls.registerExtra('pause', this.hud.pauseBtn);
     this.controls.registerExtra('switch', this.hud.weaponPanel);
-    this.controls.registerExtra('grenade', this.hud.nadePanel);
     try {
       const icons = makeIcons(renderer);
       this.icons = icons;
