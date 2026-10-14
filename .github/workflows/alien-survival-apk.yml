@@ -128,4 +128,4 @@ jobs:
           - AlienSurvival3D-armv7.apk: older 32-bit phones
           - AlienSurvival3D.apk: universal (all of the above)
 
-          If an older build is installed, uninstall it first. Requires Android 7+ with an up-to-date Android System WebView. Debug-signed (v1+v2+v3); fine for installing, not for store publishing. Check the download against SHA256SUMS.txt."
+          If an older build is installed, uninstall it first. Requires Android 7+ with an up-to-date Android System WebView. Debug-signed (APK signature v2+v3); fine for installing, not for store publishing. Check the download against SHA256SUMS.txt."
