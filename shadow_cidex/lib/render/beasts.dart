@@ -4,6 +4,23 @@ import 'dart:ui';
 import '../core/utils.dart';
 import 'soft_sprite.dart';
 
+/// Shared pose values for one tiger frame.
+class _TigerGeo {
+  _TigerGeo(this.run, double crouch, double mouth, this.morph, this.roar, this.time)
+      : dy = crouch * 40 - roar * 10,
+        headAngle = -roar * 0.7 + crouch * 0.12,
+        jaw = math.max(mouth * 0.38, roar * 0.85),
+        neck = Offset(150, -178 + crouch * 40 - roar * 22);
+  final double run;
+  final double morph;
+  final double roar;
+  final double time;
+  final double dy;
+  final double headAngle;
+  final double jaw;
+  final Offset neck;
+}
+
 /// Procedural silhouettes of the shadow beasts. All drawn facing +x.
 class BeastPainter {
   BeastPainter._();
@@ -845,7 +862,8 @@ class BeastPainter {
   // ---------------------------------------------------------------- TIGER
 
   /// Shadow tiger (feet at origin, ~420px long at k=1). [morph] 0 = tiger,
-  /// 1 = monster tiger with spikes, horns and sabre fangs.
+  /// 1 = monster tiger with spikes, horns and sabre fangs. [roar] raises the
+  /// head and opens the jaws wide.
   static void tiger(
     Canvas c, {
     required double k,
@@ -856,6 +874,7 @@ class BeastPainter {
     double crouch = 0,
     double mouth = 0,
     double morph = 0,
+    double roar = 0,
     double rimDx = 1,
     double time = 0,
     Color stripes = const Color(0xFF3A8BFF),
@@ -863,165 +882,348 @@ class BeastPainter {
     if (alpha <= 0.01) return;
     c.save();
     c.scale(k, k);
-    aura(c, Rect.fromLTRB(-200, -230 - morph * 40, 260, 0), time, alpha, glow: stripes);
+    aura(c, Rect.fromLTRB(-210, -240 - morph * 40, 270, 0), time, alpha, glow: stripes);
     final a4 = alpha * alpha * alpha * alpha;
-    _tigerShape(c, run, crouch, mouth, morph, fade(rim, 0.45 * a4), true, rimDx, time, alpha, stripes);
-    _tigerShape(c, run, crouch, mouth, morph, _body(alpha, flash), false, rimDx, time, alpha, stripes);
-    final dy = crouch * 40;
-    glowEye(c, Offset(214, -196 + dy - morph * 10), 6.5, eyeGlow * alpha, color: Color.lerp(const Color(0xFFFFC020), redEye, morph)!);
+    final g = _TigerGeo(run, crouch, mouth, morph, roar, time);
+    _tigerShape(c, g, fade(rim, 0.5 * a4), true, rimDx, alpha, stripes);
+    _tigerShape(c, g, _body(alpha, flash), false, rimDx, alpha, stripes);
+    // Eyes.
+    c.save();
+    c.translate(g.neck.dx, g.neck.dy);
+    c.rotate(g.headAngle);
+    c.scale(1.28, 1.28);
+    glowEye(c, const Offset(66, -22), 4.2, eyeGlow * alpha * (1 + roar * 0.6), color: Color.lerp(const Color(0xFFFFC020), redEye, morph)!);
+    c.restore();
     c.restore();
   }
 
-  static void _tigerShape(Canvas c, double run, double crouch, double mouth, double morph, Color col, bool rimPass, double rimDx, double time, double alpha, Color stripes) {
+  static void _tigerShape(Canvas c, _TigerGeo g, Color col, bool rimPass, double rimDx, double alpha, Color stripes) {
     c.save();
     if (rimPass) c.translate(rimDx * 3, -3);
-    final dy = crouch * 40;
-    final big = 1 + morph * 0.12;
+    final dy = g.dy;
+    final m = g.morph;
+    final big = 1 + m * 0.1;
+    final farCol = rimPass ? col : Color.lerp(col, const Color(0xFF161B28), 0.42)!;
     _p
       ..style = PaintingStyle.fill
       ..blendMode = BlendMode.srcOver
-      ..color = rimPass ? col : Color.lerp(col, const Color(0xFF151A26), 0.4)!;
+      ..color = farCol;
     // Far legs.
-    _tigerLeg(c, Offset(-120, -95 + dy), run + math.pi, true, big);
-    _tigerLeg(c, Offset(110, -100 + dy), run + 0.4, false, big);
+    _tigerHind(c, Offset(-128, -128 + dy), g.run + math.pi, big);
+    _tigerFore(c, Offset(102, -132 + dy), g.run + 0.5, big);
     _p.color = col;
-    // Tail.
+    // Tail: thick base, S-curve, raised when roaring.
     final tail = <Offset>[];
-    for (var i = 0; i <= 12; i++) {
-      final t = i / 12;
-      tail.add(Offset(-165 - t * 150, -150 + dy * 0.6 - math.sin(t * 2.2) * 70 * t + math.sin(time * 3 + t * 4) * 18 * t));
+    for (var i = 0; i <= 14; i++) {
+      final t = i / 14;
+      tail.add(Offset(-170 - t * 160, -165 + dy * 0.6 - math.sin(t * 2.4) * (60 + g.roar * 50) * t + math.sin(g.time * 2.6 + t * 4) * 16 * t));
     }
-    _taper(c, tail, 22, 8, _p);
-    // Body.
+    _taper(c, tail, 26, 11, _p);
+    // Haunch and shoulder masses.
+    c.drawOval(Rect.fromCenter(center: Offset(-128, -140 + dy), width: 118, height: 108), _p);
+    c.drawOval(Rect.fromCenter(center: Offset(98, -158 + dy - g.roar * 6), width: 126 * big, height: 112 * big), _p);
+    // Torso.
     _path
       ..reset()
-      ..moveTo(-175, -120 + dy)
-      ..cubicTo(-190, -190 + dy, -90, -205 * big + dy, -10, -196 * big + dy)
-      ..cubicTo(70, -212 * big + dy, 130, -220 * big + dy, 160, -170 + dy)
-      ..cubicTo(170, -130 + dy, 140, -90 + dy, 90, -82 + dy)
-      ..cubicTo(20, -70 + dy, -60, -80 + dy, -120, -78 + dy)
-      ..cubicTo(-160, -80 + dy, -178, -98 + dy, -175, -120 + dy)
+      ..moveTo(-182, -138 + dy)
+      ..cubicTo(-188, -186 + dy, -120, -192 + dy, -40, -176 + dy)
+      ..cubicTo(20, -168 + dy, 60, -206 * big + dy, 110, -208 * big + dy - g.roar * 8)
+      ..cubicTo(150, -208 + dy, 172, -180 + dy, 172, -146 + dy)
+      ..cubicTo(170, -110 + dy, 140, -96 + dy, 100, -98 + dy)
+      ..cubicTo(40, -92 + dy, -20, -76 + dy, -70, -84 + dy)
+      ..cubicTo(-120, -90 + dy, -176, -98 + dy, -182, -138 + dy)
       ..close();
     c.drawPath(_path, _p);
-    if (morph > 0.05) {
-      for (var i = 0; i < 8; i++) {
-        final x = -150.0 + i * 38;
-        final y = -192 * big + dy - math.sin((i / 7) * math.pi) * 18;
-        final h = (24 + math.sin((i / 7) * math.pi) * 26) * morph;
+    // Belly fur fringe.
+    for (var i = 0; i < 6; i++) {
+      final x = -90.0 + i * 30;
+      _lens(c, Offset(x, -88 + dy), const Offset(-0.3, 1), 22, 6, _p);
+    }
+    // Monster spikes.
+    if (m > 0.05) {
+      for (var i = 0; i < 9; i++) {
+        final x = -165.0 + i * 36;
+        final y = -180 * big + dy - math.sin((i / 8) * math.pi) * 22;
+        final h = (22 + math.sin((i / 8) * math.pi) * 34) * m;
         _path
           ..reset()
-          ..moveTo(x - 10, y + 14)
-          ..lineTo(x - 6, y - h)
-          ..lineTo(x + 10, y + 14)
+          ..moveTo(x - 11, y + 14)
+          ..quadraticBezierTo(x - 10, y - h * 0.6, x - 2, y - h)
+          ..quadraticBezierTo(x + 4, y - h * 0.4, x + 11, y + 14)
           ..close();
         c.drawPath(_path, _p);
       }
     }
-    // Head.
-    final hx = 200.0;
-    final hy = -180.0 + dy - morph * 10;
-    c.drawOval(Rect.fromCenter(center: Offset(hx - 15, hy + 5), width: 110 * big, height: 92 * big), _p);
+    // Neck.
     _path
       ..reset()
-      ..moveTo(hx + 10, hy - 30)
-      ..quadraticBezierTo(hx + 60, hy - 24, hx + 72, hy + 2)
-      ..lineTo(hx + 66, hy + 14)
-      ..quadraticBezierTo(hx + 30, hy + 18, hx + 10, hy + 8)
+      ..moveTo(110, -200 + dy)
+      ..quadraticBezierTo(g.neck.dx + 10, g.neck.dy - 40, g.neck.dx + 40, g.neck.dy - 30)
+      ..lineTo(g.neck.dx + 40, g.neck.dy + 34)
+      ..quadraticBezierTo(150, -110 + dy, 120, -110 + dy)
       ..close();
     c.drawPath(_path, _p);
-    // Lower jaw (opens).
-    final jaw = mouth * 26;
-    _path
-      ..reset()
-      ..moveTo(hx - 10, hy + 18)
-      ..lineTo(hx + 62, hy + 14 + jaw)
-      ..lineTo(hx + 54, hy + 30 + jaw)
-      ..lineTo(hx - 12, hy + 36)
-      ..close();
-    c.drawPath(_path, _p);
-    // Ears / horns.
-    _path
-      ..reset()
-      ..moveTo(hx - 50, hy - 25)
-      ..lineTo(hx - 40, hy - 62 - morph * 30)
-      ..lineTo(hx - 22, hy - 34)
-      ..close()
-      ..moveTo(hx - 22, hy - 34)
-      ..lineTo(hx - 8, hy - 66 - morph * 34)
-      ..lineTo(hx + 4, hy - 34)
-      ..close();
-    c.drawPath(_path, _p);
-    // Cheek ruff.
-    for (var i = 0; i < 4; i++) {
-      _lens(c, Offset(hx - 55, hy + 4 + i * 8.0), const Offset(-1, 0.4), 34, 6, _p);
-    }
+    // Head (pivots at the neck).
+    c.save();
+    c.translate(g.neck.dx, g.neck.dy);
+    c.rotate(g.headAngle);
+    c.scale(1.28, 1.28);
+    _tigerHead(c, g, col, rimPass, alpha, stripes, big);
+    c.restore();
     if (!rimPass) {
-      // Fangs.
-      _p.color = fade(bone, alpha);
-      final fang = 16 + morph * 26;
+      // Body stripes: tapered glowing bands that follow the barrel.
+      final pulse = 0.65 + 0.35 * math.sin(g.time * 3);
+      for (var i = 0; i < 9; i++) {
+        final x = -165.0 + i * 36;
+        final topY = -182 + dy - (i > 5 ? (i - 5) * 8.0 : 0);
+        final len = 58.0 + (i.isEven ? 16 : 0);
+        _stripe(c, Offset(x, topY), Offset(x + 10 + (i.isEven ? 6 : -4), topY + len), 11, alpha * pulse, stripes);
+      }
+      for (var i = 0; i < 4; i++) {
+        final t = 0.35 + i * 0.16;
+        final q = tail[(t * 14).round().clamp(0, 14)];
+        _stripe(c, q + const Offset(0, -10), q + const Offset(4, 10), 7, alpha * pulse, stripes);
+      }
+      // Muscle seams.
+      _s
+        ..color = fade(detail, alpha)
+        ..strokeWidth = 2;
       _path
         ..reset()
-        ..moveTo(hx + 46, hy + 12)
-        ..lineTo(hx + 50, hy + 12 + fang)
-        ..lineTo(hx + 56, hy + 12)
-        ..close()
-        ..moveTo(hx + 30, hy + 14)
-        ..lineTo(hx + 33, hy + 12 + fang * 0.7)
-        ..lineTo(hx + 38, hy + 14)
-        ..close();
-      c.drawPath(_path, _p);
-      _p.color = col;
-      if (mouth > 0.1) {
-        _p
-          ..blendMode = BlendMode.plus
-          ..color = fade(Color.lerp(const Color(0xFFFF6A1A), stripes, 0.4)!, 0.55 * alpha * mouth);
-        c.drawOval(Rect.fromCenter(center: Offset(hx + 34, hy + 18 + jaw * 0.5), width: 44, height: 8 + jaw), _p);
-        _p.blendMode = BlendMode.srcOver;
+        ..moveTo(-175, -150 + dy)
+        ..quadraticBezierTo(-120, -190 + dy, -80, -120 + dy)
+        ..moveTo(50, -190 + dy)
+        ..quadraticBezierTo(110, -140 + dy, 70, -104 + dy);
+      c.drawPath(_path, _s);
+      if (m > 0.05) {
+        _veins(c, [
+          [Offset(-150, -150 + dy), Offset(-90, -165 + dy), Offset(-30, -140 + dy), Offset(40, -170 + dy), Offset(110, -150 + dy)],
+          [Offset(-30, -140 + dy), Offset(-10, -100 + dy)],
+        ], 2.6, alpha * m, g.time);
       }
-      // Glowing stripes.
-      final pulse = 0.65 + 0.35 * math.sin(time * 3);
-      _s
-        ..blendMode = BlendMode.plus
-        ..strokeWidth = 5
-        ..color = fade(stripes, 0.55 * alpha * pulse);
-      for (var i = 0; i < 7; i++) {
-        final x = -150.0 + i * 42;
-        _path
-          ..reset()
-          ..moveTo(x, -188 + dy)
-          ..quadraticBezierTo(x + 14, -150 + dy, x + 4, -112 + dy);
-        c.drawPath(_path, _s);
-      }
-      _s.strokeWidth = 3;
-      c.drawLine(Offset(hx - 40, hy - 18), Offset(hx - 10, hy - 6), _s);
-      c.drawLine(Offset(hx - 44, hy - 4), Offset(hx - 16, hy + 2), _s);
-      _s.blendMode = BlendMode.srcOver;
     }
     // Near legs.
     _p.color = col;
-    _tigerLeg(c, Offset(-140, -95 + dy), run, true, big);
-    _tigerLeg(c, Offset(130, -100 + dy), run + math.pi + 0.4, false, big);
+    _tigerHind(c, Offset(-140, -126 + dy), g.run, big);
+    _tigerFore(c, Offset(118, -130 + dy), g.run + math.pi + 0.5, big);
+    if (!rimPass) {
+      final pulse = 0.65 + 0.35 * math.sin(g.time * 3);
+      // Leg stripes.
+      _stripe(c, Offset(-150, -100 + dy), Offset(-130, -96 + dy), 6, alpha * pulse, stripes);
+      _stripe(c, Offset(112, -96 + dy), Offset(132, -92 + dy), 6, alpha * pulse, stripes);
+      _stripe(c, Offset(114, -66 + dy), Offset(134, -62 + dy), 6, alpha * pulse, stripes);
+    }
     c.restore();
   }
 
-  static void _tigerLeg(Canvas c, Offset top, double phase, bool hind, double big) {
-    final sw = math.sin(phase) * 0.55;
-    final lift = math.max(0.0, math.cos(phase)) * 22;
-    final knee = top + Offset(math.sin(sw) * 38 + (hind ? -26 : 8), 46 - lift * 0.4);
-    final foot = Offset(top.dx + math.sin(sw) * 64 + (hind ? -8 : 10), -lift - 8);
-    _taper(c, [top, knee, foot], (hind ? 54 : 46) * big, 20 * big, _p);
-    c.drawOval(Rect.fromCenter(center: foot + const Offset(10, 2), width: 40 * big, height: 16), _p);
+  static void _stripe(Canvas c, Offset a, Offset b, double w, double alpha, Color color) {
+    final d = b - a;
+    final len = math.max(d.distance, 0.001);
+    final n = Offset(-d.dy, d.dx) / len;
+    final mid = Offset.lerp(a, b, 0.4)! + n * (w * 0.4);
+    _path
+      ..reset()
+      ..moveTo(a.dx - n.dx * w / 2, a.dy - n.dy * w / 2)
+      ..quadraticBezierTo(mid.dx + n.dx * w, mid.dy + n.dy * w, b.dx, b.dy)
+      ..quadraticBezierTo(mid.dx - n.dx * w * 0.2, mid.dy - n.dy * w * 0.2, a.dx + n.dx * w / 2, a.dy + n.dy * w / 2)
+      ..close();
+    _p
+      ..blendMode = BlendMode.plus
+      ..color = fade(color, 0.22 * alpha);
+    c.drawPath(_path, _p);
+    _s
+      ..blendMode = BlendMode.plus
+      ..strokeWidth = 1.6
+      ..color = fade(color, 0.6 * alpha);
+    _path
+      ..reset()
+      ..moveTo(a.dx, a.dy)
+      ..quadraticBezierTo(mid.dx, mid.dy, b.dx, b.dy);
+    c.drawPath(_path, _s);
+    _p.blendMode = BlendMode.srcOver;
+    _s.blendMode = BlendMode.srcOver;
+  }
+
+  static void _tigerHead(Canvas c, _TigerGeo g, Color col, bool rimPass, double alpha, Color stripes, double big) {
+    final m = g.morph;
+    _p
+      ..style = PaintingStyle.fill
+      ..color = col;
+    // Cheek ruff behind the jaw.
+    for (var i = 0; i < 6; i++) {
+      final ang = 1.5 + i * 0.22;
+      _lens(c, Offset(14, 14 + i * 3.0), Offset(-math.cos(ang - 1.2), math.sin(ang - 1.2) * 0.8 + 0.3), 40 + i * 2.0, 8, _p);
+    }
+    // Skull.
+    c.drawOval(Rect.fromCenter(center: const Offset(38, -10), width: 100 * big, height: 80 * big), _p);
+    // Brow ridge.
+    _path
+      ..reset()
+      ..moveTo(30, -42)
+      ..quadraticBezierTo(62, -46, 84, -26)
+      ..lineTo(80, -18)
+      ..quadraticBezierTo(60, -30, 34, -28)
+      ..close();
+    c.drawPath(_path, _p);
+    // Muzzle and nose.
+    _path
+      ..reset()
+      ..moveTo(60, -24)
+      ..quadraticBezierTo(98, -26, 106, -6)
+      ..quadraticBezierTo(108, 6, 98, 10)
+      ..lineTo(56, 12)
+      ..close();
+    c.drawPath(_path, _p);
+    // Ears or horns.
+    if (m < 0.5) {
+      _path
+        ..reset()
+        ..moveTo(4, -38)
+        ..quadraticBezierTo(4, -70, 22, -66)
+        ..quadraticBezierTo(30, -52, 26, -38)
+        ..close()
+        ..moveTo(26, -44)
+        ..quadraticBezierTo(30, -74, 46, -66)
+        ..quadraticBezierTo(50, -52, 46, -40)
+        ..close();
+      c.drawPath(_path, _p);
+    }
+    if (m > 0.05) {
+      _s
+        ..color = col
+        ..strokeWidth = 9 * m + 1;
+      _path
+        ..reset()
+        ..moveTo(20, -40)
+        ..cubicTo(-10, -70 * m - 20, -50, -60 * m - 20, -60, -20 * m - 20)
+        ..moveTo(40, -44)
+        ..cubicTo(30, -90 * m - 20, -10, -100 * m - 20, -30, -70 * m - 20);
+      c.drawPath(_path, _s);
+    }
+    // Lower jaw hinged behind the cheek.
+    final jawA = g.jaw;
+    if (!rimPass && jawA > 0.04) {
+      // Dark mouth cavity between the jaws.
+      final cs = math.cos(jawA), sn = math.sin(jawA);
+      final tip = Offset(36 + 62 * cs - 4 * sn, 14 + 62 * sn + 4 * cs);
+      _p.color = fade(const Color(0xFF2A070A), alpha);
+      _path
+        ..reset()
+        ..moveTo(30, 10)
+        ..lineTo(100, 8)
+        ..quadraticBezierTo(104, 14, tip.dx, tip.dy)
+        ..lineTo(36, 18)
+        ..close();
+      c.drawPath(_path, _p);
+      _p.color = col;
+    }
+    c.save();
+    c.translate(36, 14);
+    c.rotate(jawA);
+    _path
+      ..reset()
+      ..moveTo(-10, -4)
+      ..quadraticBezierTo(30, 0, 64, -2)
+      ..lineTo(60, 12)
+      ..quadraticBezierTo(24, 20, -12, 12)
+      ..close();
+    c.drawPath(_path, _p);
+    if (!rimPass) {
+      // Lower fangs.
+      _p.color = fade(bone, alpha);
+      _path
+        ..reset()
+        ..moveTo(46, -2)
+        ..lineTo(50, -14 - m * 6)
+        ..lineTo(54, -2)
+        ..close();
+      c.drawPath(_path, _p);
+      _p.color = col;
+    }
+    c.restore();
+    if (!rimPass) {
+      // Mouth interior glow when open.
+      final open = (jawA / 0.75).clamp(0.0, 1.0);
+      if (open > 0.05) {
+        _p
+          ..blendMode = BlendMode.plus
+          ..color = fade(Color.lerp(const Color(0xFFFF4A1A), stripes, 0.35)!, 0.3 * alpha * open);
+        c.drawOval(Rect.fromCenter(center: Offset(62, 16 + 12 * open), width: 34, height: 6 + 14 * open), _p);
+        _p.blendMode = BlendMode.srcOver;
+      }
+      // Upper fangs (sabre when monster).
+      _p.color = fade(bone, alpha);
+      final fang = 18 + m * 30;
+      _path
+        ..reset()
+        ..moveTo(84, 8)
+        ..quadraticBezierTo(86, 8 + fang * 0.6, 90, 8 + fang)
+        ..lineTo(95, 8)
+        ..close()
+        ..moveTo(66, 10)
+        ..lineTo(69, 10 + fang * 0.55)
+        ..lineTo(73, 10)
+        ..close();
+      c.drawPath(_path, _p);
+      // Nose highlight, whiskers and brow detail.
+      _s
+        ..color = fade(detail, alpha * 1.6)
+        ..strokeWidth = 1.2;
+      for (var i = 0; i < 4; i++) {
+        c.drawLine(Offset(92, -2 + i * 3.0), Offset(140, -16 + i * 9.0 + g.roar * 6), _s);
+      }
+      _s.strokeWidth = 2;
+      c.drawLine(const Offset(44, -32), const Offset(80, -22), _s);
+      // Face stripes.
+      final pulse = 0.65 + 0.35 * math.sin(g.time * 3);
+      _stripe(c, const Offset(18, -30), const Offset(40, -18), 6, alpha * pulse, stripes);
+      _stripe(c, const Offset(14, -14), const Offset(38, -6), 6, alpha * pulse, stripes);
+      _stripe(c, const Offset(50, -48), const Offset(56, -32), 5, alpha * pulse, stripes);
+      _p.color = col;
+    }
+  }
+
+  static void _tigerHind(Canvas c, Offset hip, double phase, double big) {
+    final sw = math.sin(phase) * 0.5;
+    final lift = math.max(0.0, math.cos(phase)) * 24;
+    final knee = hip + Offset(math.sin(sw) * 34 + 18, 44 - lift * 0.3);
+    final hock = Offset(knee.dx - 34 + math.sin(sw) * 10, -48 - lift * 0.6);
+    final paw = Offset(hock.dx + 18 + math.sin(sw) * 24, -lift - 9);
+    _taper(c, [hip, knee], 66 * big, 42 * big, _p);
+    _taper(c, [knee, hock], 40 * big, 26 * big, _p);
+    _taper(c, [hock, paw], 26 * big, 22 * big, _p);
+    _paw(c, paw, big);
+  }
+
+  static void _tigerFore(Canvas c, Offset shoulder, double phase, double big) {
+    final sw = math.sin(phase) * 0.5;
+    final lift = math.max(0.0, math.cos(phase)) * 26;
+    final elbow = shoulder + Offset(math.sin(sw) * 26 - 6, 58 - lift * 0.4);
+    final wrist = Offset(elbow.dx + math.sin(sw) * 34 + 6, -26 - lift);
+    final paw = Offset(wrist.dx + 10, -lift - 9);
+    _taper(c, [shoulder, elbow], 56 * big, 38 * big, _p);
+    _taper(c, [elbow, wrist], 36 * big, 28 * big, _p);
+    _taper(c, [wrist, paw], 28 * big, 24 * big, _p);
+    _paw(c, paw, big);
+  }
+
+  static void _paw(Canvas c, Offset paw, double big) {
+    c.drawOval(Rect.fromCenter(center: paw + const Offset(12, 4), width: 46 * big, height: 18), _p);
+    for (var i = 0; i < 3; i++) {
+      c.drawCircle(paw + Offset(22.0 + i * 7, 6), 6 * big, _p);
+    }
     _s
       ..color = _p.color
-      ..strokeWidth = 3.5;
+      ..strokeWidth = 3;
     for (var i = 0; i < 3; i++) {
-      c.drawLine(foot + Offset(24.0 + i * 3, 2), foot + Offset(34.0 + i * 3, 8), _s);
+      c.drawLine(paw + Offset(28.0 + i * 7, 6), paw + Offset(36.0 + i * 7, 12), _s);
     }
   }
 
   // ---------------------------------------------------------------- DRAGON
 
   /// Two-headed shadow dragon centred on its body ([s] ~ 90 for the boss).
+  /// [roar] rears both heads back with jaws wide open.
   static void dragon(
     Canvas c, {
     required double s,
@@ -1031,140 +1233,223 @@ class BeastPainter {
     double eyeGlow = 1,
     double mouthA = 0,
     double mouthB = 0,
+    double roar = 0,
     double rimDx = 1,
     double time = 0,
   }) {
     if (alpha <= 0.01) return;
-    aura(c, Rect.fromCenter(center: Offset(0.3 * s, -0.2 * s), width: 4.5 * s, height: 2.6 * s), time, alpha, glow: const Color(0xFFFF3A10));
+    aura(c, Rect.fromCenter(center: Offset(0.3 * s, -0.2 * s), width: 4.6 * s, height: 2.8 * s), time, alpha, glow: const Color(0xFFFF3A10));
     final a4 = alpha * alpha * alpha * alpha;
-    _dragonShape(c, s, flap, mouthA, mouthB, fade(rim, 0.45 * a4), true, rimDx, time, alpha);
-    _dragonShape(c, s, flap, mouthA, mouthB, _body(alpha, flash), false, rimDx, time, alpha);
-    final ha = _dragonHead(s, time, 0);
-    final hb = _dragonHead(s, time, 1);
-    glowEye(c, ha + Offset(0.22 * s, -0.12 * s), 0.07 * s, eyeGlow * alpha);
-    glowEye(c, hb + Offset(0.22 * s, -0.12 * s), 0.07 * s, eyeGlow * alpha);
+    final ma = math.max(mouthA, roar);
+    final mb = math.max(mouthB, roar);
+    _dragonShape(c, s, flap, ma, mb, roar, fade(rim, 0.5 * a4), true, rimDx, time, alpha);
+    _dragonShape(c, s, flap, ma, mb, roar, _body(alpha, flash), false, rimDx, time, alpha);
+    for (var h = 0; h < 2; h++) {
+      final head = _dragonHead(s, time, h, roar);
+      final ang = _headAngle(h, roar, time);
+      final e = head + Offset(math.cos(ang) * 0.24 * s - math.sin(ang) * -0.1 * s, math.sin(ang) * 0.24 * s + math.cos(ang) * -0.1 * s);
+      glowEye(c, e, 0.07 * s, eyeGlow * alpha * (1 + roar * 0.5));
+    }
   }
 
-  static Offset _dragonHead(double s, double time, int which) {
-    if (which == 0) return Offset(1.95 * s + math.sin(time * 1.3) * 0.12 * s, -1.5 * s + math.cos(time * 1.7) * 0.1 * s);
-    return Offset(2.25 * s + math.sin(time * 1.6 + 1) * 0.12 * s, -0.55 * s + math.cos(time * 1.4 + 2) * 0.1 * s);
+  static Offset _dragonHead(double s, double time, int which, [double roar = 0]) {
+    if (which == 0) return Offset(1.95 * s + math.sin(time * 1.3) * 0.12 * s - roar * 0.3 * s, -1.5 * s + math.cos(time * 1.7) * 0.1 * s - roar * 0.35 * s);
+    return Offset(2.25 * s + math.sin(time * 1.6 + 1) * 0.12 * s - roar * 0.2 * s, -0.55 * s + math.cos(time * 1.4 + 2) * 0.1 * s - roar * 0.25 * s);
   }
+
+  static double _headAngle(int which, double roar, double time) => (which == 0 ? -0.15 : 0.08) - roar * 0.55 + math.sin(time * 1.5 + which) * 0.05;
 
   /// Mouth position of a dragon head in model space.
-  static Offset dragonMouth(double s, double time, int which) => _dragonHead(s, time, which) + Offset(0.55 * s, 0.05 * s);
+  static Offset dragonMouth(double s, double time, int which) {
+    final h = _dragonHead(s, time, which);
+    final a = _headAngle(which, 0, time);
+    return h + Offset(math.cos(a) * 0.6 * s, math.sin(a) * 0.6 * s);
+  }
 
-  static void _dragonShape(Canvas c, double s, double flap, double mouthA, double mouthB, Color col, bool rimPass, double rimDx, double time, double alpha) {
+  static void _dragonShape(Canvas c, double s, double flap, double mouthA, double mouthB, double roar, Color col, bool rimPass, double rimDx, double time, double alpha) {
     c.save();
     if (rimPass) c.translate(rimDx * 0.03 * s, -0.03 * s);
     _p
       ..style = PaintingStyle.fill
       ..blendMode = BlendMode.srcOver
-      ..color = rimPass ? col : Color.lerp(col, const Color(0xFF151A26), 0.35)!;
-    _batWing(c, s, math.sin(flap - 0.4), Offset(-0.1 * s, -0.4 * s), 0.85, rimPass, alpha, time);
+      ..color = rimPass ? col : Color.lerp(col, const Color(0xFF161B28), 0.38)!;
+    _batWing(c, s, math.sin(flap - 0.4), Offset(-0.1 * s, -0.42 * s), 0.86, rimPass, alpha, time);
     _p.color = col;
-    // Tail.
+    // Tail with dorsal spikes and a spade tip.
     final tail = <Offset>[];
-    for (var i = 0; i <= 14; i++) {
-      final t = i / 14;
-      tail.add(Offset(-1.0 * s - t * 2.4 * s, 0.1 * s + math.sin(time * 2.4 + t * 5) * 0.25 * s * t + t * 0.3 * s));
+    for (var i = 0; i <= 16; i++) {
+      final t = i / 16;
+      tail.add(Offset(-1.0 * s - t * 2.6 * s, 0.1 * s + math.sin(time * 2.4 + t * 5) * 0.26 * s * t + t * 0.32 * s));
     }
-    _taper(c, tail, 0.42 * s, 0.08 * s, _p);
+    _taper(c, tail, 0.48 * s, 0.07 * s, _p);
+    for (var i = 2; i < 15; i += 2) {
+      final q = tail[i];
+      final d = tail[i + 1] - tail[i - 1];
+      final n = Offset(d.dy, -d.dx) / math.max(d.distance, 0.001);
+      final w = 0.48 * s * (1 - i / 16);
+      _lens(c, q + n * (w * 0.35), n * 1.0 - d / math.max(d.distance, 0.001) * 0.6, 0.22 * s * (1 - i / 20), 0.05 * s, _p);
+    }
     final tip = tail.last;
     _path
       ..reset()
-      ..moveTo(tip.dx, tip.dy)
-      ..lineTo(tip.dx - 0.35 * s, tip.dy - 0.18 * s)
-      ..lineTo(tip.dx - 0.2 * s, tip.dy + 0.02 * s)
-      ..lineTo(tip.dx - 0.3 * s, tip.dy + 0.22 * s)
+      ..moveTo(tip.dx + 0.05 * s, tip.dy)
+      ..lineTo(tip.dx - 0.38 * s, tip.dy - 0.22 * s)
+      ..lineTo(tip.dx - 0.22 * s, tip.dy + 0.02 * s)
+      ..lineTo(tip.dx - 0.34 * s, tip.dy + 0.26 * s)
       ..close();
     c.drawPath(_path, _p);
-    // Body.
-    c.drawOval(Rect.fromCenter(center: Offset(0, 0), width: 2.5 * s, height: 0.95 * s), _p);
-    // Hind legs.
+    // Muscular body with a deep chest.
+    _path
+      ..reset()
+      ..moveTo(-1.3 * s, 0.05 * s)
+      ..cubicTo(-1.2 * s, -0.42 * s, 0.2 * s, -0.62 * s, 0.95 * s, -0.4 * s)
+      ..cubicTo(1.3 * s, -0.25 * s, 1.2 * s, 0.35 * s, 0.7 * s, 0.48 * s)
+      ..cubicTo(0.1 * s, 0.56 * s, -1.0 * s, 0.4 * s, -1.3 * s, 0.05 * s)
+      ..close();
+    c.drawPath(_path, _p);
+    // Hind and fore legs with talons.
     for (var i = 0; i < 2; i++) {
-      final hx = -0.5 * s + i * 0.9 * s;
-      _taper(c, [Offset(hx, 0.2 * s), Offset(hx + 0.15 * s, 0.6 * s), Offset(hx + 0.05 * s, 0.85 * s)], 0.32 * s, 0.12 * s, _p);
+      final hx = -0.55 * s + i * 1.0 * s;
+      final hy = 0.25 * s;
+      _taper(c, [Offset(hx, hy), Offset(hx + 0.2 * s, hy + 0.38 * s), Offset(hx + 0.05 * s, hy + 0.66 * s)], (i == 0 ? 0.4 : 0.3) * s, 0.12 * s, _p);
       _s
         ..color = col
         ..strokeWidth = 0.05 * s;
       for (var j = 0; j < 3; j++) {
-        c.drawLine(Offset(hx + 0.05 * s, 0.85 * s), Offset(hx + (0.12 + j * 0.05) * s, 0.98 * s), _s);
+        final b0 = Offset(hx + 0.05 * s, hy + 0.66 * s);
+        _path
+          ..reset()
+          ..moveTo(b0.dx, b0.dy)
+          ..quadraticBezierTo(b0.dx + (0.1 + j * 0.06) * s, b0.dy + 0.04 * s, b0.dx + (0.12 + j * 0.08) * s, b0.dy + 0.16 * s);
+        c.drawPath(_path, _s);
       }
     }
     // Back spines.
-    for (var i = 0; i < 7; i++) {
-      final x = -1.0 * s + i * 0.3 * s;
-      _path
-        ..reset()
-        ..moveTo(x - 0.08 * s, -0.35 * s)
-        ..lineTo(x - 0.02 * s, -0.68 * s)
-        ..lineTo(x + 0.1 * s, -0.35 * s)
-        ..close();
-      c.drawPath(_path, _p);
+    for (var i = 0; i < 8; i++) {
+      final x = -1.05 * s + i * 0.27 * s;
+      final y = -0.38 * s - math.sin((i / 7) * math.pi) * 0.1 * s;
+      _lens(c, Offset(x, y + 0.06 * s), const Offset(-0.45, -1), (0.3 + math.sin((i / 7) * math.pi) * 0.12) * s, 0.06 * s, _p);
     }
     // Necks and heads.
     for (var which = 0; which < 2; which++) {
-      final head = _dragonHead(s, time, which);
-      final base = Offset(0.95 * s, -0.25 * s + which * 0.2 * s);
-      final ctrl = Offset((base.dx + head.dx) / 2 - 0.2 * s, (base.dy + head.dy) / 2 - 0.2 * s);
+      final head = _dragonHead(s, time, which, roar);
+      final ang = _headAngle(which, roar, time);
+      final base = Offset(0.95 * s, -0.25 * s + which * 0.22 * s);
+      final ctrl = Offset((base.dx + head.dx) / 2 - 0.25 * s, (base.dy + head.dy) / 2 - 0.15 * s);
       final pts = <Offset>[];
-      for (var i = 0; i <= 10; i++) {
-        pts.add(_quad(base, ctrl, head, i / 10));
+      for (var i = 0; i <= 12; i++) {
+        pts.add(_quad(base, ctrl, head, i / 12));
       }
-      _taper(c, pts, 0.44 * s, 0.24 * s, _p);
-      final m = which == 0 ? mouthA : mouthB;
+      _taper(c, pts, 0.48 * s, 0.26 * s, _p);
+      // Neck spines.
+      for (var i = 1; i < 11; i += 2) {
+        final d = pts[i + 1] - pts[i - 1];
+        final n = Offset(d.dy, -d.dx) / math.max(d.distance, 0.001);
+        final w = lerpD(0.48, 0.26, i / 12) * s;
+        _lens(c, pts[i] + n * (w * 0.4), n - d / math.max(d.distance, 0.001) * 0.7, 0.17 * s, 0.04 * s, _p);
+      }
+      final mo = which == 0 ? mouthA : mouthB;
       c.save();
       c.translate(head.dx, head.dy);
+      c.rotate(ang);
+      // Wedge skull with brow.
       _path
         ..reset()
-        ..moveTo(-0.15 * s, -0.2 * s)
-        ..quadraticBezierTo(0.3 * s, -0.26 * s, 0.62 * s, -0.04 * s)
-        ..lineTo(0.6 * s, 0.04 * s)
-        ..quadraticBezierTo(0.3 * s, 0.06 * s, -0.12 * s, 0.14 * s)
+        ..moveTo(-0.2 * s, -0.18 * s)
+        ..quadraticBezierTo(0.05 * s, -0.3 * s, 0.32 * s, -0.2 * s)
+        ..quadraticBezierTo(0.5 * s, -0.12 * s, 0.68 * s, -0.04 * s)
+        ..lineTo(0.66 * s, 0.04 * s)
+        ..quadraticBezierTo(0.32 * s, 0.07 * s, -0.16 * s, 0.16 * s)
         ..close();
       c.drawPath(_path, _p);
+      // Jaw.
+      c.save();
+      c.translate(-0.05 * s, 0.1 * s);
+      c.rotate(mo * 0.55);
       _path
         ..reset()
-        ..moveTo(-0.08 * s, 0.1 * s)
-        ..lineTo(0.55 * s, 0.06 * s + m * 0.25 * s)
-        ..lineTo(0.5 * s, 0.14 * s + m * 0.25 * s)
-        ..lineTo(-0.1 * s, 0.2 * s)
+        ..moveTo(-0.05 * s, -0.02 * s)
+        ..lineTo(0.62 * s, -0.04 * s)
+        ..lineTo(0.56 * s, 0.06 * s)
+        ..quadraticBezierTo(0.2 * s, 0.12 * s, -0.08 * s, 0.08 * s)
         ..close();
       c.drawPath(_path, _p);
-      _s
-        ..color = col
-        ..strokeWidth = 0.07 * s;
-      _path
-        ..reset()
-        ..moveTo(0.0, -0.18 * s)
-        ..quadraticBezierTo(-0.3 * s, -0.4 * s, -0.5 * s, -0.3 * s)
-        ..moveTo(0.1 * s, -0.2 * s)
-        ..quadraticBezierTo(-0.1 * s, -0.5 * s, -0.3 * s, -0.55 * s);
-      c.drawPath(_path, _s);
       if (!rimPass) {
         _p.color = fade(bone, alpha);
-        for (var i = 0; i < 3; i++) {
-          final x = 0.2 * s + i * 0.12 * s;
+        for (var i = 0; i < 4; i++) {
+          final x = 0.18 * s + i * 0.1 * s;
           _path
             ..reset()
-            ..moveTo(x, 0.0)
-            ..lineTo(x + 0.03 * s, 0.09 * s + m * 0.05 * s)
-            ..lineTo(x + 0.06 * s, 0.0)
+            ..moveTo(x, -0.03 * s)
+            ..lineTo(x + 0.025 * s, -0.1 * s)
+            ..lineTo(x + 0.05 * s, -0.03 * s)
             ..close();
           c.drawPath(_path, _p);
-        }
-        if (m > 0.1) {
-          _p
-            ..blendMode = BlendMode.plus
-            ..color = fade(const Color(0xFFFF7A1A), 0.7 * alpha * m);
-          c.drawCircle(Offset(0.5 * s, 0.08 * s + m * 0.1 * s), 0.16 * s, _p);
-          _p.blendMode = BlendMode.srcOver;
         }
         _p.color = col;
       }
       c.restore();
+      // Swept-back horns and cheek frill.
+      _s
+        ..color = col
+        ..strokeWidth = 0.075 * s;
+      _path
+        ..reset()
+        ..moveTo(0.05 * s, -0.2 * s)
+        ..quadraticBezierTo(-0.3 * s, -0.45 * s, -0.62 * s, -0.36 * s)
+        ..moveTo(0.18 * s, -0.22 * s)
+        ..quadraticBezierTo(-0.05 * s, -0.6 * s, -0.4 * s, -0.66 * s);
+      c.drawPath(_path, _s);
+      for (var i = 0; i < 3; i++) {
+        _lens(c, Offset(-0.05 * s, 0.02 * s + i * 0.05 * s), Offset(-1, 0.3 + i * 0.3), 0.24 * s, 0.04 * s, _p);
+      }
+      if (!rimPass) {
+        _p.color = fade(bone, alpha);
+        for (var i = 0; i < 4; i++) {
+          final x = 0.2 * s + i * 0.11 * s;
+          _path
+            ..reset()
+            ..moveTo(x, 0.02 * s)
+            ..lineTo(x + 0.03 * s, 0.1 * s + mo * 0.03 * s)
+            ..lineTo(x + 0.06 * s, 0.02 * s)
+            ..close();
+          c.drawPath(_path, _p);
+        }
+        if (mo > 0.08) {
+          _p
+            ..blendMode = BlendMode.plus
+            ..color = fade(const Color(0xFFFF7A1A), 0.75 * alpha * mo);
+          c.drawOval(Rect.fromCenter(center: Offset(0.42 * s, 0.12 * s + mo * 0.12 * s), width: 0.5 * s, height: 0.1 * s + mo * 0.22 * s), _p);
+          _p.blendMode = BlendMode.srcOver;
+        }
+        // Nostril embers.
+        _p
+          ..blendMode = BlendMode.plus
+          ..color = fade(const Color(0xFFFF5A1A), 0.5 * alpha * (0.6 + 0.4 * math.sin(time * 5 + which)));
+        c.drawCircle(Offset(0.62 * s, -0.06 * s), 0.025 * s, _p);
+        _p
+          ..blendMode = BlendMode.srcOver
+          ..color = col;
+        _s
+          ..color = fade(detail, alpha * 1.5)
+          ..strokeWidth = 0.012 * s;
+        c.drawLine(Offset(0.1 * s, -0.16 * s), Offset(0.45 * s, -0.1 * s), _s);
+      }
+      c.restore();
     }
     if (!rimPass) {
+      // Belly plates and scale seams.
+      _s
+        ..color = fade(detail, alpha * 1.4)
+        ..strokeWidth = 0.015 * s;
+      for (var i = 0; i < 7; i++) {
+        final x = -0.9 * s + i * 0.28 * s;
+        _path
+          ..reset()
+          ..moveTo(x, 0.28 * s)
+          ..quadraticBezierTo(x + 0.12 * s, 0.4 * s, x + 0.2 * s, 0.36 * s);
+        c.drawPath(_path, _s);
+      }
       final pulse = 0.6 + 0.4 * math.sin(time * 3.2);
       _s
         ..blendMode = BlendMode.plus
@@ -1172,22 +1457,19 @@ class BeastPainter {
         ..color = fade(vein, 0.6 * alpha * pulse);
       _path
         ..reset()
-        ..moveTo(-1.0 * s, 0.05 * s)
-        ..lineTo(-0.3 * s, -0.12 * s)
-        ..lineTo(0.4 * s, 0.05 * s)
-        ..lineTo(0.95 * s, -0.2 * s)
-        ..moveTo(-0.3 * s, -0.12 * s)
-        ..lineTo(-0.1 * s, 0.25 * s);
+        ..moveTo(-1.1 * s, 0.05 * s)
+        ..lineTo(-0.4 * s, -0.16 * s)
+        ..lineTo(0.3 * s, 0.02 * s)
+        ..lineTo(0.95 * s, -0.22 * s)
+        ..moveTo(-0.4 * s, -0.16 * s)
+        ..lineTo(-0.2 * s, 0.24 * s);
       c.drawPath(_path, _s);
       _s.blendMode = BlendMode.srcOver;
-      _p
-        ..blendMode = BlendMode.plus
-        ..color = fade(const Color(0xFFFF4A1A), 0.3 * alpha * pulse);
-      c.drawCircle(Offset(0.3 * s, 0.05 * s), 0.25 * s, _p);
-      _p.blendMode = BlendMode.srcOver;
+      // Furnace glow in the chest.
+      SoftSprite.draw(c, Offset(0.55 * s, 0.05 * s), 0.55 * s, fade(const Color(0xFFFF4A1A), 0.45 * alpha * pulse), blend: BlendMode.plus);
     }
     _p.color = col;
-    _batWing(c, s, math.sin(flap), Offset(0.1 * s, -0.38 * s), 1.0, rimPass, alpha, time);
+    _batWing(c, s, math.sin(flap), Offset(0.12 * s, -0.4 * s), 1.0, rimPass, alpha, time);
     c.restore();
   }
 
@@ -1196,34 +1478,44 @@ class BeastPainter {
     c.translate(shoulder.dx, shoulder.dy);
     final sy = up >= 0 ? -(0.3 + 0.7 * up) : (0.3 + 0.55 * (-up));
     c.scale(scale, sy * scale);
-    final wrist = Offset(0.55 * s, 1.5 * s);
+    final elbow = Offset(0.25 * s, 0.75 * s);
+    final wrist = Offset(0.6 * s, 1.55 * s);
     final tips = [
-      Offset(1.1 * s, 3.0 * s),
-      Offset(0.3 * s, 3.2 * s),
-      Offset(-0.6 * s, 2.9 * s),
-      Offset(-1.3 * s, 2.2 * s),
+      Offset(1.2 * s, 3.1 * s),
+      Offset(0.35 * s, 3.35 * s),
+      Offset(-0.6 * s, 3.05 * s),
+      Offset(-1.35 * s, 2.3 * s),
     ];
+    // Membrane (slightly translucent so the sky glows through).
+    final memCol = _p.color;
+    _p.color = rimPass ? memCol : fade(memCol, 0.88);
     _path
       ..reset()
-      ..moveTo(0.2 * s, 0)
+      ..moveTo(0.15 * s, 0)
+      ..lineTo(elbow.dx, elbow.dy)
       ..lineTo(wrist.dx, wrist.dy)
       ..lineTo(tips[0].dx, tips[0].dy);
     for (var i = 1; i < tips.length; i++) {
-      final mid = Offset.lerp(tips[i - 1], tips[i], 0.5)! - Offset(0, 0.45 * s);
+      final mid = Offset.lerp(tips[i - 1], tips[i], 0.5)! - Offset(0, 0.5 * s);
       _path.quadraticBezierTo(mid.dx, mid.dy, tips[i].dx, tips[i].dy);
     }
     _path
-      ..quadraticBezierTo(-1.2 * s, 1.0 * s, -0.7 * s, 0.1 * s)
+      ..quadraticBezierTo(-1.25 * s, 1.0 * s, -0.75 * s, 0.1 * s)
       ..close();
     c.drawPath(_path, _p);
+    _p.color = memCol;
+    // Arm and finger bones.
     _s
-      ..color = _p.color
-      ..strokeWidth = 0.09 * s / scale;
-    c.drawLine(Offset(0.2 * s, 0), wrist, _s);
-    _s.strokeWidth = 0.05 * s / scale;
+      ..color = memCol
+      ..strokeWidth = 0.12 * s / scale;
+    c.drawLine(Offset(0.15 * s, 0), elbow, _s);
+    c.drawLine(elbow, wrist, _s);
+    _s.strokeWidth = 0.055 * s / scale;
     for (final t in tips) {
       c.drawLine(wrist, t, _s);
     }
+    // Wrist claw.
+    _lens(c, wrist, const Offset(0.6, -0.3), 0.3 * s, 0.05 * s, _p);
     if (!rimPass) {
       final pulse = 0.5 + 0.5 * math.sin(time * 3);
       _s

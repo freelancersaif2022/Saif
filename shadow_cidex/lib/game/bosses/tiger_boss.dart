@@ -68,6 +68,9 @@ class TigerBoss extends Boss {
   double mouthA = 0;
   double mouthB = 0;
   double _eyeBoost = 0;
+  double roarK = 0;
+  double _roarHold = 0;
+  double _ringT = 0;
   double _next = 1;
   bool _did = false;
   int _count = 0;
@@ -100,6 +103,12 @@ class TigerBoss extends Boss {
   @override
   bool get vulnerable => _state != _T.dodge;
 
+  void _roar(double hold) {
+    _roarHold = math.max(_roarHold, hold);
+    _ringT = 0;
+    _eyeBoost = 1;
+  }
+
   void _set(_T s) {
     _state = s;
     _st = 0;
@@ -113,6 +122,23 @@ class TigerBoss extends Boss {
     _eyeBoost = math.max(0, _eyeBoost - dt * 2);
     _dodgeCd = math.max(0, _dodgeCd - dt);
     mouth = math.max(0, mouth - dt * 2);
+    _roarHold -= dt;
+    roarK += ((_roarHold > 0 ? 1.0 : 0.0) - roarK) * smoothK(_roarHold > 0 ? 10 : 5, dt);
+    if (_roarHold > 0 && roarK > 0.5 && tigerAlpha * alpha > 0.3 || _roarHold > 0 && isDragon) {
+      _ringT -= dt;
+      if (_ringT <= 0) {
+        _ringT = 0.16;
+        final col = phases[phase].color;
+        if (isDragon) {
+          for (var h = 0; h < 2; h++) {
+            final m = BeastPainter.dragonMouth(_ds, b.time, h);
+            b.ring(x + m.dx * facing, y + m.dy, 150, 0.45, col, 5, flat: 0);
+          }
+        } else {
+          b.ring(x + facing * 250 * _k, y - 240 * _k + crouch * 40, 170, 0.45, col, 6, flat: 0);
+        }
+      }
+    }
     final p = b.player;
     final adx = (p.x - x).abs();
     switch (_state) {
@@ -161,6 +187,7 @@ class TigerBoss extends Boss {
       b.fx.dust(x, 0, n: 20, power: 1.8);
       b.sfx(Sfx.tigerRoar, volume: 1.0);
       mouth = 1;
+      _roar(1.5);
     }
     if (_st > 1.1) {
       y = 0;
@@ -225,6 +252,7 @@ class TigerBoss extends Boss {
           _hopH = 260 + randRange(0, 80);
           _hitOnce.clear();
           b.sfx(Sfx.tigerRoar, x: x, volume: 0.6, gap: 800);
+          _roar(0.25);
           b.sfx(Sfx.tigerClaw, x: x, volume: 0.8);
           mouth = 1;
           _set(_T.pounce);
@@ -312,6 +340,7 @@ class TigerBoss extends Boss {
       case _T.roar:
         vx *= 0.6;
         mouth = 1;
+        if (_st < 0.1) _roar(0.9);
         if (_st > 0.3 && !_did) {
           _did = true;
           b.sfx(Sfx.tigerRoar, x: x, volume: 1.0);
@@ -454,6 +483,7 @@ class TigerBoss extends Boss {
           _toX = clampD(p.x, arenaMin, arenaMax);
           b.sfx(Sfx.eagleDive, x: x, volume: 0.9);
           b.sfx(Sfx.dragonRoar, x: x, volume: 0.7);
+          _roar(0.5);
           _hitOnce.clear();
           _set(_T.dive);
         }
@@ -504,6 +534,7 @@ class TigerBoss extends Boss {
         if (_st > 0.4 && !_did) {
           _did = true;
           b.sfx(Sfx.dragonRoar, x: x, volume: 1.0);
+          _roar(0.8);
           b.addShake(0.5);
           final n = enraged ? 7 : 5;
           for (var i = 0; i < n; i++) {
@@ -581,6 +612,7 @@ class TigerBoss extends Boss {
     b.letterboxTarget = 1;
     b.sfx(Sfx.bossTransform, volume: 1.0);
     b.sfx(_from == 0 ? Sfx.tigerRoar : Sfx.dragonRoar, volume: 1.0);
+    _roar(1.4);
     b.showBanner('TRANSFORMATION', _from == 0 ? 'THE BEAST AWAKENS' : 'THE DRAGON RISES');
   }
 
@@ -616,6 +648,7 @@ class TigerBoss extends Boss {
       b.flashWhite = 1;
       b.addShake(1);
       b.sfx(_from == 0 ? Sfx.tigerRoar : Sfx.dragonRoar, volume: 1.0);
+      _roar(1.0);
       b.fx.energy(x, -180, n: 70, color: color, speed: 760);
       b.ring(x, -4, 480, 0.8, color, 11);
     }
@@ -647,6 +680,7 @@ class TigerBoss extends Boss {
     b.slowMotion(2.4, 0.4);
     b.letterboxTarget = 1;
     b.sfx(Sfx.dragonRoar, volume: 1.0);
+    _roar(1.1);
     mouthA = 1;
     mouthB = 1;
   }
@@ -710,7 +744,7 @@ class TigerBoss extends Boss {
       c.translate(x, isDragon ? 0 : y);
       c.scale(facing, 1);
       final stripes = phase == 0 ? const Color(0xFF3A8BFF) : const Color(0xFFFFB020);
-      BeastPainter.tiger(c, k: _k, run: run, alpha: ta, flash: flash, eyeGlow: 1 + _eyeBoost, crouch: crouch, mouth: mouth, morph: morph, rimDx: facing, time: b.time, stripes: stripes);
+      BeastPainter.tiger(c, k: _k, run: run, alpha: ta, flash: flash, eyeGlow: 1 + _eyeBoost, crouch: crouch, mouth: mouth, morph: morph, roar: roarK, rimDx: facing, time: b.time, stripes: stripes);
       c.restore();
     }
     if (da > 0.01) {
@@ -718,7 +752,7 @@ class TigerBoss extends Boss {
       c.translate(x, y);
       c.scale(facing, 1);
       c.rotate(tilt);
-      BeastPainter.dragon(c, s: _ds, flap: flap, alpha: da, flash: flash, eyeGlow: 1 + _eyeBoost, mouthA: mouthA, mouthB: mouthB, rimDx: facing, time: b.time);
+      BeastPainter.dragon(c, s: _ds, flap: flap, alpha: da, flash: flash, eyeGlow: 1 + _eyeBoost, mouthA: mouthA, mouthB: mouthB, roar: roarK, rimDx: facing, time: b.time);
       c.restore();
     }
   }

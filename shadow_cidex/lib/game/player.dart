@@ -85,6 +85,7 @@ class Player {
   int combo = 0;
   bool _queued = false;
   final Set<Object> _hitSet = <Object>{};
+  final Map<Object, double> _moveHitCd = <Object, double>{};
   int _smashPhase = 0;
   double _spinTick = 0;
   double _footT = 0;
@@ -222,6 +223,7 @@ class Player {
     _animate(dt);
     _footsteps(dt);
     _attackHits();
+    _motionHits(dt);
     _updateGhosts(dt);
   }
 
@@ -703,6 +705,55 @@ class Player {
     }
   }
 
+  /// The drawn blade cuts anything it passes through while dashing,
+  /// sprinting or airborne.
+  void _motionHits(double dt) {
+    if (_moveHitCd.isNotEmpty) {
+      _moveHitCd.updateAll((_, v) => v - dt);
+      _moveHitCd.removeWhere((_, v) => v <= 0);
+    }
+    if (!alive || !armed) return;
+    final double dmg;
+    final double knock;
+    final double cd;
+    if (state == PState.dash) {
+      dmg = 16;
+      knock = 300;
+      cd = 0.3;
+    } else if (state == PState.air) {
+      final diving = vy > 250;
+      dmg = diving ? 15 : 11;
+      knock = 240;
+      cd = 0.4;
+    } else if (sprinting && state == PState.run && vx.abs() > 300) {
+      dmg = 10;
+      knock = 260;
+      cd = 0.45;
+    } else {
+      return;
+    }
+    final front = state == PState.dash ? 150.0 : 125.0;
+    final hb = facing > 0 ? Rect.fromLTRB(x - 25, y - 175, x + front, y + 15) : Rect.fromLTRB(x - front, y - 175, x + 25, y + 15);
+    var any = false;
+    for (final h in b.hittables().toList()) {
+      if (_moveHitCd.containsKey(h)) continue;
+      final r = h.hurtBox;
+      if (!r.overlaps(hb)) continue;
+      _moveHitCd[h] = cd;
+      any = true;
+      final hit = r.intersect(hb);
+      h.receiveHit(dmg, facing, knock);
+      b.fx.hitSparks(hit.center.dx, hit.center.dy, facing, n: 9);
+      b.fx.shadowBurst(hit.center.dx, hit.center.dy, n: 4, spread: 0.6);
+    }
+    if (any) {
+      _calmT = 0;
+      b.sfx(Sfx.swordHit, volume: 0.85, gap: 40);
+      b.hitStop(0.035);
+      b.addShake(0.14);
+    }
+  }
+
   // ------------------------------------------------------------------ damage
 
   void damage(double dmg, double fromX, {double knock = 320, double lift = 0}) {
@@ -817,6 +868,11 @@ class Player {
         if (_sheathedLook) {
           target.fUpper = -0.6;
           target.fFore = -0.2;
+        } else if (armed) {
+          // Blade held forward, ready to cut on the way through.
+          target.fUpper = 1.15;
+          target.fFore = 1.65;
+          target.weapon = vy < 0 ? 1.1 : 1.5;
         }
         rate = 12;
         break;
@@ -918,7 +974,7 @@ class Player {
     final wind = 0.35 + clampD(vx.abs() / 900, 0, 0.6);
     rig.updateCloth(dt, x, y, facing, b.time, wind: wind);
     // Blade trail while swinging.
-    final swinging = state == PState.attack || (state == PState.smash && (_smashPhase == 1 || _smashPhase == 2));
+    final swinging = state == PState.attack || state == PState.dash || (state == PState.air && vy > 250) || (state == PState.smash && (_smashPhase == 1 || _smashPhase == 2));
     final trailMax = state == PState.attack ? (combo == 3 ? 12 : 9) : 10;
     if (swinging && armed) {
       _trailBase.add(_world(skel.fHand + skel.wDir * 10));
