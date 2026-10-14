@@ -1,0 +1,30 @@
+name: alien_survival_3d
+description: "Alien Survival 3D: a third-person 3D endless alien survival shooter for Android."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Hosts the real-time three.js/WebGL 3D engine (assets/game) on an Android WebView surface.
+  webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.14.1
+  # Local save data: progression, high scores, statistics, settings.
+  shared_preferences: ^2.5.3
+  # Menu music and UI sounds outside the 3D engine.
+  audioplayers: ^6.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/game/
+    - assets/game/audio/
+    - assets/images/

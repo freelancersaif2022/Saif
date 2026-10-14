@@ -1,0 +1,16 @@
+{
+  "name": "alien-survival-engine",
+  "private": true,
+  "version": "1.0.0",
+  "description": "three.js real-time 3D game engine for Alien Survival 3D (bundled into the Flutter app assets)",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10"
+  }
+}
