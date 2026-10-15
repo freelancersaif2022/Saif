@@ -1,0 +1,57 @@
+name: Build Beam APK
+
+on:
+  push:
+    branches: [ ccr-bc087f79-n7267b ]
+    paths:
+      - 'beam_android/**'
+      - '.github/workflows/beam-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: beam_android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APKs
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Rename APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/Beam-release.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Beam-debug.apk
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-apk
+          path: beam_android/dist/*.apk
+
+      - name: Publish test release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: beam-build-${{ github.run_number }}
+          name: Beam test build ${{ github.run_number }}
+          prerelease: true
+          make_latest: false
+          body: |
+            Test build of Beam from `${{ github.sha }}`.
+            Install **Beam-release.apk** on two Android phones (Android 8+ with Google Play services).
+          files: beam_android/dist/*.apk
