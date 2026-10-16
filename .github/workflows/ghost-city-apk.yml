@@ -75,6 +75,24 @@ jobs:
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../GhostCity-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../GhostCity-armv7.apk
 
+      # The Android Gradle Plugin leaves out the v1 (JAR) signature when minSdk >= 24.
+      # Some installers and file managers still need it, so re-sign with v1 + v2 + v3.
+      - name: Re-sign APKs with v1 + v2 + v3
+        working-directory: .
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          PASS="${KEYSTORE_PASSWORD:-ghostcity-release}"
+          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)apksigner
+          for f in GhostCity.apk GhostCity-arm64.apk GhostCity-armv7.apk; do
+            "$APKSIGNER" sign --ks ghost_city/android/app/upload-keystore.jks \
+              --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --ks-key-alias upload \
+              --min-sdk-version 21 \
+              --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+              "$f"
+            rm -f "$f.idsig"
+          done
+
       - name: Verify APK signatures
         working-directory: .
         run: |
