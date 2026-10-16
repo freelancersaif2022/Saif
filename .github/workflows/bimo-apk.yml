@@ -1,0 +1,42 @@
+name: Build Bimo APK
+
+on:
+  push:
+    branches: [ccr-ec1f9a27-rrcfsh, main]
+    paths: ['bimo_learn_flutter/**', '.github/workflows/bimo-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bimo_learn_flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        run: chmod +x gradlew && ./gradlew --no-daemon testDebugUnitTest
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk ../Bimo-Learn-Flutter-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bimo-Learn-Flutter-debug-apk
+          path: Bimo-Learn-Flutter-debug.apk
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bimo-latest
+          name: Bimo – Learn Flutter (latest debug build)
+          prerelease: true
+          files: Bimo-Learn-Flutter-debug.apk
+          body: Debug APK built automatically from branch ${{ github.ref_name }} (commit ${{ github.sha }}). Uses Google test ads and mock billing.
