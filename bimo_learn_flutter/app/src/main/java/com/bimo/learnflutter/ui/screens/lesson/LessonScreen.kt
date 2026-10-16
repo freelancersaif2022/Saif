@@ -135,6 +135,16 @@ class LessonViewModel @Inject constructor(
         }
     }
 
+    /** For lessons without a quiz: completes the lesson and returns the next lesson id. */
+    fun completeWithoutQuiz(onDone: (String?) -> Unit) {
+        val ready = _state.value as? LessonUiState.Ready ?: return
+        viewModelScope.launch {
+            learning.markLessonRead(ready.lesson)
+            val outcome = learning.completeLessonWithoutQuiz(ready.lesson)
+            onDone(outcome?.nextLessonId)
+        }
+    }
+
     /** Marks the content as read, then hands control to the quiz. */
     fun startQuiz(onReady: () -> Unit) {
         val ready = _state.value as? LessonUiState.Ready ?: return
@@ -156,7 +166,9 @@ fun LessonScreen(navigator: BimoNavigator, viewModel: LessonViewModel = hiltView
         is LessonUiState.Locked -> Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) {
             EmptyState(Icons.Filled.Lock, "This lesson is locked", s.reason, actionLabel = "Go back", onAction = navigator::back)
         }
-        is LessonUiState.Ready -> LessonContentScreen(s, navigator, onStartQuiz = {
+        is LessonUiState.Ready -> LessonContentScreen(s, navigator, onComplete = {
+            viewModel.completeWithoutQuiz { next -> if (next != null) navigator.replace(Routes.lesson(next)) else navigator.back() }
+        }, onStartQuiz = {
             viewModel.startQuiz {
                 navigator.to(Routes.quiz(if (s.completed) QuizMode.PRACTICE else QuizMode.LESSON, s.lesson.id))
             }
@@ -165,7 +177,7 @@ fun LessonScreen(navigator: BimoNavigator, viewModel: LessonViewModel = hiltView
 }
 
 @Composable
-private fun LessonContentScreen(state: LessonUiState.Ready, navigator: BimoNavigator, onStartQuiz: () -> Unit) {
+private fun LessonContentScreen(state: LessonUiState.Ready, navigator: BimoNavigator, onComplete: () -> Unit, onStartQuiz: () -> Unit) {
     val lesson = state.lesson
     val listState = rememberLazyListState()
     val readProgress by remember {
@@ -214,7 +226,7 @@ private fun LessonContentScreen(state: LessonUiState.Ready, navigator: BimoNavig
                 Box(Modifier.widthIn(max = 760.dp)) { LessonBlock(block) }
             }
             item(key = "footer") {
-                LessonFooter(state, onStartQuiz, onNext = { id -> navigator.replace(Routes.lesson(id)) })
+                LessonFooter(state, onStartQuiz, onComplete, onNext = { id -> navigator.replace(Routes.lesson(id)) })
             }
             item(key = "spacer") { Spacer(Modifier.navigationBarsPadding()) }
         }
@@ -244,7 +256,7 @@ private fun LessonHeader(state: LessonUiState.Ready) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     MetaChip(Icons.Outlined.Schedule, "${lesson.minutes} min")
                     MetaChip(Icons.Filled.Code, "${lesson.codeExampleCount} examples")
-                    MetaChip(Icons.Filled.Quiz, "${lesson.quiz.questions.size} questions")
+                    if (lesson.quiz.questions.isNotEmpty()) MetaChip(Icons.Filled.Quiz, "${lesson.quiz.questions.size} questions")
                 }
             }
         }
@@ -278,7 +290,7 @@ private fun MetaChip(icon: androidx.compose.ui.graphics.vector.ImageVector, text
 }
 
 @Composable
-private fun LessonFooter(state: LessonUiState.Ready, onStartQuiz: () -> Unit, onNext: (String) -> Unit) {
+private fun LessonFooter(state: LessonUiState.Ready, onStartQuiz: () -> Unit, onComplete: () -> Unit, onNext: (String) -> Unit) {
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -300,11 +312,18 @@ private fun LessonFooter(state: LessonUiState.Ready, onStartQuiz: () -> Unit, on
                     }
                     Spacer(Modifier.height(8.dp))
                 }
-                OutlinedButton(onClick = onStartQuiz, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                if (state.lesson.quiz.questions.isNotEmpty()) OutlinedButton(onClick = onStartQuiz, modifier = Modifier.fillMaxWidth().height(50.dp)) {
                     Icon(Icons.Filled.Replay, null)
                     Spacer(Modifier.width(6.dp))
                     Text("Practise this quiz again")
                 }
+            } else if (state.lesson.quiz.questions.isEmpty()) {
+                Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("Finished reading?", style = MaterialTheme.typography.titleMedium)
+                Text("Mark this lesson complete to unlock the next one.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = onComplete, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("Mark as complete") }
             } else {
                 Icon(Icons.Filled.Quiz, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp))
                 Spacer(Modifier.height(8.dp))

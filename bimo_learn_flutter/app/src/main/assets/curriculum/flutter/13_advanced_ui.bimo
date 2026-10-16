@@ -1,0 +1,226 @@
+@module flutter-m13 | Advanced UI
+@summary Custom painting, clipping, custom widgets, gestures, drag and drop, theming, accessibility and i18n.
+
+@lesson flutter-m13-l01 | CustomPainter | 8
+## Learning objectives
+- Draw anything on a canvas
+
+## CustomPainter
+CustomPainter gives you a Canvas to draw shapes, paths, text and images. Use it for charts, rings and custom decorations.
+
+```dart
+import 'package:flutter/material.dart';
+
+class RingPainter extends CustomPainter {
+  RingPainter(this.progress);
+  final double progress;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 8..color = Colors.indigo;
+    canvas.drawArc(Offset.zero & size, -1.57, 6.28 * progress, false, paint);
+  }
+  @override
+  bool shouldRepaint(RingPainter old) => old.progress != progress;
+}
+```
+
+## Summary
+- Return false from shouldRepaint when nothing changed.
+
+@lesson flutter-m13-l02 | CustomClipper | 8
+## Learning objectives
+- Clip widgets to custom shapes
+
+## CustomClipper
+ClipPath with a CustomClipper cuts a widget to any path, for example a wave header.
+
+```dart
+import 'package:flutter/material.dart';
+
+class WaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size s) => Path()
+    ..lineTo(0, s.height - 30)
+    ..quadraticBezierTo(s.width / 2, s.height, s.width, s.height - 30)
+    ..lineTo(s.width, 0)
+    ..close();
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> old) => false;
+}
+```
+
+## Summary
+- ClipPath + CustomClipper for custom shapes.
+
+@lesson flutter-m13-l03 | Custom widgets | 8
+## Learning objectives
+- Design reusable widget APIs
+
+## Custom widgets
+Good custom widgets have clear, named parameters, sensible defaults, const constructors and pull styles from the theme.
+
+```dart
+import 'package:flutter/material.dart';
+
+class StatTile extends StatelessWidget {
+  const StatTile({super.key, required this.label, required this.value, this.icon = Icons.star});
+  final String label;
+  final String value;
+  final IconData icon;
+  @override
+  Widget build(BuildContext context) => ListTile(leading: Icon(icon), title: Text(value), subtitle: Text(label));
+}
+```
+
+## Summary
+- Small, themed, const-friendly widgets.
+
+@lesson flutter-m13-l04 | Responsive dashboards | 8
+## Learning objectives
+- Lay out dashboards for any width
+
+## Responsive dashboards
+Combine LayoutBuilder with grids and Wrap so dashboard cards reflow from one column on phones to several on desktop.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget dashboard(List<Widget> cards) => LayoutBuilder(builder: (_, c) {
+      final columns = (c.maxWidth / 320).floor().clamp(1, 4);
+      return GridView.count(crossAxisCount: columns, children: cards);
+    });
+```
+
+## Summary
+- Derive columns from available width.
+
+@lesson flutter-m13-l05 | Adaptive interfaces | 8
+## Learning objectives
+- Adapt to platform conventions
+
+## Adaptive interfaces
+Adaptive UIs follow each platform's conventions: `Switch.adaptive`, Cupertino dialogs on iOS, keyboard/mouse support on desktop.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget toggle(bool v, ValueChanged<bool> f) => Switch.adaptive(value: v, onChanged: f);
+```
+
+## Summary
+- Use .adaptive constructors where available.
+
+@lesson flutter-m13-l06 | Complex scrolling | 8
+## Learning objectives
+- Coordinate nested scroll effects
+
+## Complex scrolling
+NestedScrollView coordinates a collapsing header with inner tab lists; ScrollController reads offsets for effects like hiding a FAB.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget nested() => NestedScrollView(
+      headerSliverBuilder: (_, __) => const [SliverAppBar(pinned: true, expandedHeight: 120, title: Text('Course'))],
+      body: ListView.builder(itemCount: 30, itemBuilder: (_, i) => ListTile(title: Text('Item $i'))),
+    );
+```
+
+## Summary
+- Use slivers and NestedScrollView instead of nesting lists.
+
+@lesson flutter-m13-l07 | Gesture detection | 8
+## Learning objectives
+- Respond to taps, drags and long presses
+
+## Gesture detection
+GestureDetector recognises taps, double taps, long presses, pans and scales. InkWell adds Material ripples.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget card() => GestureDetector(
+      onDoubleTap: () => debugPrint('liked'),
+      onLongPress: () => debugPrint('menu'),
+      child: const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('Double tap me'))),
+    );
+```
+
+## Summary
+- Prefer InkWell for Material tap feedback.
+
+@lesson flutter-m13-l08 | Drag and drop | 8
+## Learning objectives
+- Move items between targets
+
+## Drag and drop
+Draggable and DragTarget implement drag and drop; ReorderableListView reorders list items.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget reorder(List<String> items, void Function(int, int) onReorder) => ReorderableListView(
+      onReorder: onReorder,
+      children: [for (final i in items) ListTile(key: ValueKey(i), title: Text(i))],
+    );
+```
+
+## Summary
+- Reorderable items need keys.
+
+@lesson flutter-m13-l09 | Advanced theming | 8
+## Learning objectives
+- Extend the theme with your own tokens
+
+## Advanced theming
+ThemeExtension adds custom design tokens (brand gradients, spacing) to ThemeData with lerp support for animated theme changes.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Brand extends ThemeExtension<Brand> {
+  const Brand(this.accent);
+  final Color accent;
+  @override
+  Brand copyWith({Color? accent}) => Brand(accent ?? this.accent);
+  @override
+  Brand lerp(Brand? other, double t) => Brand(Color.lerp(accent, other?.accent, t)!);
+}
+```
+
+## Summary
+- Read with Theme.of(context).extension<Brand>().
+
+@lesson flutter-m13-l10 | Accessibility | 8
+## Learning objectives
+- Build for screen readers and large text
+
+## Accessibility
+Use Semantics, labels on icons, logical focus order, contrast ≥ 4.5:1 and test with TalkBack, VoiceOver and 200% text size.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget avatar() => Semantics(label: 'Profile picture of Ada', image: true, child: const CircleAvatar(child: Text('A')));
+```
+
+## Summary
+- Every interactive element needs a label.
+
+@lesson flutter-m13-l11 | Internationalization | 8
+## Learning objectives
+- Translate your app
+
+## Internationalization
+Use `flutter_localizations` and ARB files with `flutter gen-l10n` to generate a typed `AppLocalizations` class; format dates/numbers with intl.
+
+```dart
+import 'package:flutter/material.dart';
+
+// l10n.yaml: arb-dir: lib/l10n, template-arb-file: app_en.arb
+// Text(AppLocalizations.of(context)!.helloWorld)
+void main() {}
+```
+
+## Summary
+- Never hard-code user-facing strings.

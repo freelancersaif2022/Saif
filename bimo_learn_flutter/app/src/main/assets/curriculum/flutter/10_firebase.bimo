@@ -1,0 +1,176 @@
+@module flutter-m10 | Firebase
+@summary Add authentication, Firestore, storage, messaging, Crashlytics and analytics with Firebase.
+
+@lesson flutter-m10-l01 | Firebase setup | 8
+## Learning objectives
+- Connect a Flutter app to Firebase
+
+## Firebase setup
+Install the Firebase CLI and FlutterFire CLI, run `flutterfire configure` to generate `firebase_options.dart`, then initialise Firebase before runApp.
+
+```dart
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+// import 'firebase_options.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(/* options: DefaultFirebaseOptions.currentPlatform */);
+  runApp(const MaterialApp(home: Text('Ready')));
+}
+```
+
+## Summary
+- flutterfire configure generates platform options.
+
+@lesson flutter-m10-l02 | Firebase Authentication | 8
+## Learning objectives
+- Sign users in with email and providers
+
+## Firebase Authentication
+`firebase_auth` supports email/password, Google, Apple, phone and anonymous sign-in. Listen to `authStateChanges()` to react to login and logout.
+
+```dart
+import 'package:firebase_auth/firebase_auth.dart';
+
+Future<UserCredential> signIn(String email, String password) =>
+    FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+```
+
+## Summary
+- Drive navigation from authStateChanges().
+
+@lesson flutter-m10-l03 | Firestore | 8
+## Learning objectives
+- Store and sync documents
+
+## Firestore
+Cloud Firestore stores JSON-like documents in collections, syncs in real time and works offline. Use `snapshots()` streams with StreamBuilder.
+
+```dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+Stream<List<String>> noteTitles(String uid) => FirebaseFirestore.instance
+    .collection('users/$uid/notes')
+    .orderBy('createdAt', descending: true)
+    .snapshots()
+    .map((s) => s.docs.map((d) => d['title'] as String).toList());
+```
+
+## Summary
+- Model data around your queries.
+
+@lesson flutter-m10-l04 | Firebase Storage | 8
+## Learning objectives
+- Upload and download files
+
+## Firebase Storage
+Cloud Storage holds images and files. Upload with `putFile` and save the download URL in Firestore.
+
+```dart
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+
+Future<String> uploadAvatar(String uid, File file) async {
+  final ref = FirebaseStorage.instance.ref('avatars/$uid.jpg');
+  await ref.putFile(file);
+  return ref.getDownloadURL();
+}
+```
+
+## Summary
+- Store URLs, not files, in Firestore.
+
+@lesson flutter-m10-l05 | Cloud Messaging | 8
+## Learning objectives
+- Send push notifications
+
+## Cloud Messaging
+Firebase Cloud Messaging (FCM) delivers push notifications. Request permission, get the device token, and handle messages in foreground and background.
+
+```dart
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+Future<String?> setupPush() async {
+  await FirebaseMessaging.instance.requestPermission();
+  return FirebaseMessaging.instance.getToken();
+}
+```
+
+## Summary
+- Ask permission before expecting notifications.
+
+@lesson flutter-m10-l06 | Crashlytics | 8
+## Learning objectives
+- Report crashes from production
+
+## Crashlytics
+Crashlytics collects crash reports with stack traces. Forward Flutter and async errors to it.
+
+```dart
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
+
+void setupCrashlytics() {
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+}
+```
+
+## Summary
+- Catch both framework and async errors.
+
+@lesson flutter-m10-l07 | Analytics | 8
+## Learning objectives
+- Measure how features are used
+
+## Analytics
+Firebase Analytics logs events such as `lesson_completed`. Track a few meaningful events, respect consent, and never log personal data.
+
+```dart
+import 'package:firebase_analytics/firebase_analytics.dart';
+
+Future<void> lessonDone(String id) =>
+    FirebaseAnalytics.instance.logEvent(name: 'lesson_completed', parameters: {'lesson_id': id});
+```
+
+## Summary
+- Log meaningful events, no personal data.
+
+@lesson flutter-m10-l08 | Security rules | 8
+## Learning objectives
+- Protect Firestore and Storage data
+
+## Security rules
+Security rules run on Google's servers and decide who can read or write each document. Never ship test-mode rules.
+
+```dart
+// firestore.rules
+// match /users/{uid}/notes/{noteId} {
+//   allow read, write: if request.auth != null && request.auth.uid == uid;
+// }
+void main() {}
+```
+
+## Summary
+- Rules, not client code, enforce access.
+
+@lesson flutter-m10-l09 | Firebase integration patterns | 8
+## Learning objectives
+- Keep Firebase behind repositories
+
+## Firebase integration patterns
+Wrap Firebase calls in repository classes so the UI and business logic don't depend on Firebase directly. That makes testing easier and switching backends possible.
+
+```dart
+abstract interface class NotesRepository {
+  Stream<List<String>> watchTitles(String uid);
+  Future<void> add(String uid, String title);
+}
+```
+
+## Summary
+- Depend on interfaces, implement them with Firebase.

@@ -1,0 +1,202 @@
+@module flutter-m05 | Navigation
+@summary Move between screens with Navigator, named routes and go_router.
+
+@lesson flutter-m05-l01 | Navigation basics | 8
+## Learning objectives
+- Push and pop screens with Navigator
+
+## Navigation basics
+Flutter keeps screens (routes) in a stack. `Navigator.push` adds a route on top; `Navigator.pop` removes it and returns to the previous screen. `MaterialPageRoute` provides platform-appropriate transitions.
+
+```dart
+import 'package:flutter/material.dart';
+
+void openDetails(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const Scaffold(body: Center(child: Text('Details')))),
+  );
+}
+```
+
+## Summary
+- push adds a screen, pop removes it.
+- Routes form a stack.
+
+@lesson flutter-m05-l02 | Named routes | 8
+## Learning objectives
+- Declare routes by name in MaterialApp
+
+## Named routes
+Named routes map strings to builders in `MaterialApp.routes`. Navigate with `Navigator.pushNamed(context, '/settings')`. They are simple but limited for deep links and arguments; most larger apps prefer go_router.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget app() => MaterialApp(
+      initialRoute: '/',
+      routes: {
+        '/': (_) => const Scaffold(body: Center(child: Text('Home'))),
+        '/settings': (_) => const Scaffold(body: Center(child: Text('Settings'))),
+      },
+    );
+```
+
+## Summary
+- routes maps names to builders.
+- Use pushNamed to navigate.
+
+@lesson flutter-m05-l03 | Navigator in depth | 8
+## Learning objectives
+- Use pushReplacement, pushAndRemoveUntil and maybePop
+
+## Navigator in depth
+Beyond push/pop: `pushReplacement` swaps the current screen (e.g. after login), `pushAndRemoveUntil` clears the stack (e.g. logout), and `maybePop` pops only if possible. `PopScope` lets you intercept back navigation, for example to confirm leaving a form.
+
+```dart
+import 'package:flutter/material.dart';
+
+void afterLogin(BuildContext context) {
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const Scaffold(body: Text('Home'))),
+    (route) => false,
+  );
+}
+```
+
+## Summary
+- Replace screens after login/onboarding.
+- PopScope guards back navigation.
+
+@lesson flutter-m05-l04 | Navigation stacks | 8
+## Learning objectives
+- Reason about the back stack
+
+## Navigation stacks
+Every push grows the stack; users expect Back to retrace their steps. Avoid pushing the same screen repeatedly, and clear the stack when entering a new flow (after onboarding or sign-out). Dialogs and bottom sheets are routes too, so `Navigator.pop` closes them.
+
+```dart
+import 'package:flutter/material.dart';
+
+bool canGoBack(BuildContext context) => Navigator.of(context).canPop();
+```
+
+## Summary
+- Dialogs are routes on the same stack.
+- Clear the stack when a flow ends.
+
+@lesson flutter-m05-l05 | go_router | 8
+## Learning objectives
+- Configure declarative routing with go_router
+
+## go_router
+`go_router` is the Flutter team's recommended routing package. Routes are URL paths, which makes deep links and web URLs work naturally. Use `MaterialApp.router` with a `GoRouter` and navigate with `context.go('/path')` or `context.push('/path')`.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+final router = GoRouter(routes: [
+  GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('Home'))),
+  GoRoute(path: '/lesson/:id', builder: (_, state) => Scaffold(body: Text('Lesson ${state.pathParameters['id']}'))),
+]);
+
+Widget app() => MaterialApp.router(routerConfig: router);
+```
+
+## Summary
+- go_router uses URL paths.
+- context.go replaces, context.push stacks.
+
+@lesson flutter-m05-l06 | Deep linking | 8
+## Learning objectives
+- Open specific screens from links
+
+## Deep linking
+Deep links open a screen from a URL, e.g. `https://bimo.app/lesson/42`. With go_router, the path is matched automatically. On Android you declare intent filters (App Links) in AndroidManifest.xml; on iOS, Associated Domains (Universal Links).
+
+```dart
+// AndroidManifest.xml intent filter (inside <activity>):
+// <intent-filter android:autoVerify="true">
+//   <action android:name="android.intent.action.VIEW" />
+//   <category android:name="android.intent.category.DEFAULT" />
+//   <category android:name="android.intent.category.BROWSABLE" />
+//   <data android:scheme="https" android:host="bimo.app" />
+// </intent-filter>
+void main() {}
+```
+
+## Summary
+- Paths map links to screens.
+- Configure App Links / Universal Links natively.
+
+@lesson flutter-m05-l07 | Nested navigation | 8
+## Learning objectives
+- Keep separate stacks per tab
+
+## Nested navigation
+Apps with bottom tabs often keep a separate navigation stack per tab so switching tabs preserves each tab's history. go_router's `StatefulShellRoute.indexedStack` implements this pattern.
+
+```dart
+import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+
+final router = GoRouter(routes: [
+  StatefulShellRoute.indexedStack(
+    builder: (context, state, shell) => Scaffold(body: shell),
+    branches: [
+      StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, __) => const Text('Home'))]),
+      StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (_, __) => const Text('Profile'))]),
+    ],
+  ),
+], initialLocation: '/home');
+```
+
+## Summary
+- Each tab keeps its own stack.
+- Use StatefulShellRoute in go_router.
+
+@lesson flutter-m05-l08 | Route guards | 8
+## Learning objectives
+- Redirect unauthenticated users
+
+## Route guards
+A guard decides whether a route may be shown. go_router's `redirect` callback returns a new location (or null to continue), e.g. send signed-out users to /login. Pass `refreshListenable` so redirects re-run when auth state changes.
+
+```dart
+import 'package:go_router/go_router.dart';
+
+bool signedIn = false;
+
+final router = GoRouter(
+  redirect: (context, state) => !signedIn && state.matchedLocation != '/login' ? '/login' : null,
+  routes: [],
+);
+```
+
+## Summary
+- redirect returns a new path or null.
+- Re-evaluate on auth changes.
+
+@lesson flutter-m05-l09 | Passing arguments | 8
+## Learning objectives
+- Send data to and from screens
+
+## Passing arguments
+Pass data forward through constructor parameters (or path/query parameters with go_router). Return data by popping with a value and awaiting the push.
+
+```dart
+import 'package:flutter/material.dart';
+
+Future<void> pickColor(BuildContext context) async {
+  final color = await Navigator.of(context).push<Color>(
+    MaterialPageRoute(builder: (ctx) => Scaffold(
+      body: Center(child: FilledButton(onPressed: () => Navigator.pop(ctx, Colors.teal), child: const Text('Teal'))),
+    )),
+  );
+  debugPrint('Picked $color');
+}
+```
+
+## Summary
+- Pass data via constructors or URL parameters.
+- Await push to receive a result.

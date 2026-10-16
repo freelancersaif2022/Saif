@@ -1,0 +1,96 @@
+@challenge ch-fizzbuzz | FizzBuzz | Easy | false
+Print numbers 1 to 30. For multiples of 3 print "Fizz", of 5 "Buzz", of both "FizzBuzz".
+:::solution
+```dart
+void main() {
+  for (var i = 1; i <= 30; i++) {
+    print(switch ((i % 3, i % 5)) {
+      (0, 0) => 'FizzBuzz',
+      (0, _) => 'Fizz',
+      (_, 0) => 'Buzz',
+      _ => '$i',
+    });
+  }
+}
+```
+:::
+@challenge ch-palindrome | Palindrome checker | Easy | false
+Write `bool isPalindrome(String s)` that ignores case, spaces and punctuation.
+:::solution
+```dart
+bool isPalindrome(String s) {
+  final clean = s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return clean == clean.split('').reversed.join();
+}
+void main() => print(isPalindrome('A man, a plan, a canal: Panama'));
+```
+:::
+@challenge ch-wordcount | Word frequency | Medium | false
+Count how often each word appears in a sentence and print the three most common.
+:::solution
+```dart
+void main() {
+  const text = 'the cat and the hat and the bat';
+  final counts = <String, int>{};
+  for (final w in text.split(' ')) {
+    counts[w] = (counts[w] ?? 0) + 1;
+  }
+  final top = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  print(top.take(3).map((e) => '${e.key}: ${e.value}').join(', '));
+}
+```
+:::
+@challenge ch-debounce | Debounced search | Medium | false
+Implement a `Debouncer` class that runs an action only after 300 ms without new calls.
+:::solution
+```dart
+import 'dart:async';
+class Debouncer {
+  Timer? _t;
+  void run(void Function() action) {
+    _t?.cancel();
+    _t = Timer(const Duration(milliseconds: 300), action);
+  }
+}
+void main() {
+  final d = Debouncer();
+  for (final q in ['f', 'fl', 'flu']) {
+    d.run(() => print('search $q'));
+  }
+}
+```
+:::
+@challenge ch-result | Result type with sealed classes | Hard | true
+Create a sealed `Result<T>` with `Ok` and `Err` and a `parsePercent(String)` that returns Err for invalid or out-of-range input.
+:::solution
+```dart
+sealed class Result<T> {}
+class Ok<T> extends Result<T> { Ok(this.value); final T value; }
+class Err<T> extends Result<T> { Err(this.message); final String message; }
+Result<int> parsePercent(String s) {
+  final n = int.tryParse(s);
+  if (n == null) return Err('Not a number');
+  if (n < 0 || n > 100) return Err('Out of range');
+  return Ok(n);
+}
+void main() {
+  for (final s in ['42', '120', 'x']) {
+    print(switch (parsePercent(s)) { Ok(:final value) => 'ok $value', Err(:final message) => 'error $message' });
+  }
+}
+```
+:::
+@challenge ch-lru | LRU cache | Hard | true
+Implement a generic LRU cache with a fixed capacity using a LinkedHashMap.
+:::solution
+```dart
+class Lru<K, V> {
+  Lru(this.capacity);
+  final int capacity;
+  final _m = <K, V>{};
+  V? get(K k) { final v = _m.remove(k); if (v != null) _m[k] = v; return v; }
+  void put(K k, V v) { _m.remove(k); _m[k] = v; if (_m.length > capacity) _m.remove(_m.keys.first); }
+}
+void main() { final c = Lru<String, int>(2)..put('a', 1)..put('b', 2)..get('a')..put('c', 3); print(c.get('b')); }
+```
+:::

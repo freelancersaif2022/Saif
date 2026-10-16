@@ -1,0 +1,139 @@
+@module flutter-m18 | Security
+@summary Protect secrets, users and data with secure storage, HTTPS, validation and good practices.
+
+@lesson flutter-m18-l01 | Secure storage | 8
+## Learning objectives
+- Store credentials safely
+
+## Secure storage
+Keep tokens in flutter_secure_storage (Keystore/Keychain), never in plain preferences or files.
+
+```dart
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+Future<String?> token() => const FlutterSecureStorage().read(key: 'token');
+```
+
+## Summary
+- Secrets go in secure storage only.
+
+@lesson flutter-m18-l02 | API key protection | 8
+## Learning objectives
+- Avoid leaking keys in the app
+
+## API key protection
+Anything shipped in the app can be extracted. Keep secret keys on your server, restrict public keys (by package name/SHA-1) and use `--dart-define` for config.
+
+```dart
+const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://api.example.com');
+void main() => print(apiBase);
+```
+
+## Summary
+- Client apps can't hide secrets; use a backend.
+
+@lesson flutter-m18-l03 | Authentication | 8
+## Learning objectives
+- Authenticate users safely
+
+## Authentication
+Use proven providers (Firebase Auth, OAuth 2/OpenID Connect with PKCE). Never store passwords locally; store short-lived tokens and refresh them.
+
+```dart
+// Prefer OAuth with PKCE via a well-reviewed package
+void main() {}
+```
+
+## Summary
+- Don't roll your own auth crypto.
+
+@lesson flutter-m18-l04 | Authorization | 8
+## Learning objectives
+- Enforce access on the server
+
+## Authorization
+The server (or security rules) must check what each user may access. Client-side checks only improve UX.
+
+```dart
+bool canEdit(String ownerId, String userId) => ownerId == userId; // UX only – enforce server-side too
+void main() => print(canEdit('a', 'a'));
+```
+
+## Summary
+- Authorization belongs on the server.
+
+@lesson flutter-m18-l05 | HTTPS | 8
+## Learning objectives
+- Encrypt traffic
+
+## HTTPS
+Always use HTTPS. Android blocks cleartext HTTP by default on modern versions; certificate pinning adds protection for high-risk apps.
+
+```dart
+Uri api(String path) => Uri.https('api.example.com', path);
+void main() => print(api('/lessons'));
+```
+
+## Summary
+- Never send data over plain HTTP.
+
+@lesson flutter-m18-l06 | Input validation | 8
+## Learning objectives
+- Validate and sanitise input
+
+## Input validation
+Validate on the client for UX and on the server for security. Use parameterised SQL queries and never build queries by concatenating user input.
+
+```dart
+// db.query('notes', where: 'title = ?', whereArgs: [userInput]); // safe
+void main() {}
+```
+
+## Summary
+- Parameterise queries; validate everywhere.
+
+@lesson flutter-m18-l07 | Data privacy | 8
+## Learning objectives
+- Collect less, protect more
+
+## Data privacy
+Collect only necessary data, explain it in a privacy policy, offer data export and deletion, and respect consent for analytics and ads.
+
+```dart
+// Minimise personal data; never log emails or tokens
+void main() {}
+```
+
+## Summary
+- Privacy by design and by default.
+
+@lesson flutter-m18-l08 | Secure networking | 8
+## Learning objectives
+- Harden network communication
+
+## Secure networking
+Use TLS, validate certificates, set timeouts, avoid logging sensitive headers and consider pinning for banking-grade apps.
+
+```dart
+import 'package:dio/dio.dart';
+
+final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 15)));
+```
+
+## Summary
+- Timeouts and TLS everywhere.
+
+@lesson flutter-m18-l09 | Common vulnerabilities | 8
+## Learning objectives
+- Recognise frequent mobile security mistakes
+
+## Common vulnerabilities
+OWASP Mobile Top 10 includes insecure storage, weak authentication, insufficient cryptography, insecure communication and code tampering. Obfuscate release builds and keep dependencies updated.
+
+```dart
+// flutter build apk --obfuscate --split-debug-info=build/symbols
+void main() {}
+```
+
+## Summary
+- Know the OWASP Mobile Top 10.

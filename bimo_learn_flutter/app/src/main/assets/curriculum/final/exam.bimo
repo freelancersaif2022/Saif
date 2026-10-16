@@ -1,0 +1,135 @@
+@exam final-exam | Final Assessment
+? mcq: Which keyword declares a compile-time constant in Dart?
+- final
++ const
+- var
+- late
+> const values are fixed at compile time.
+? tf: In Dart 3, a variable of type String can hold null.
+= false
+> Only String? can hold null.
+? mcq: What does the ?? operator do?
++ Returns the right side when the left side is null
+- Throws if the value is null
+- Compares two values
+- Declares a nullable type
+> ?? supplies a fallback for null.
+? output: What does this print?
+```dart
+void main() {
+  print([1, 2, 3].map((n) => n * 2).toList());
+}
+```
++ [2, 4, 6]
+- [1, 2, 3]
+- 12
+- [2, 3, 4]
+> map doubles each element.
+? mcq: Which construct makes switches over a closed set of subtypes exhaustive?
+- abstract class
++ sealed class
+- mixin
+- typedef
+> Sealed hierarchies are checked for exhaustiveness.
+? fill: An async function that returns an int has the return type Future<___>.
+= int
+> async functions wrap results in a Future.
+? mcq: What is the best tool for CPU-heavy work that would freeze the UI?
++ An isolate (Isolate.run or compute)
+- More await keywords
+- A Timer
+- setState
+> Isolates run work in parallel without blocking the UI isolate.
+? mcq: Which widget arranges children vertically?
+- Row
++ Column
+- Stack
+- Wrap
+> Column lays out vertically.
+? tf: setState should be called inside build to refresh the UI.
+= false
+> Calling setState during build causes errors.
+? mcq: Where should you dispose a TextEditingController?
++ In State.dispose()
+- In build()
+- In initState()
+- Never
+> Controllers must be disposed.
+? mcq: What does Expanded do inside a Row?
++ Makes the child fill the remaining horizontal space
+- Centres the child
+- Adds padding
+- Makes the row scroll
+> Expanded fills the remaining main-axis space.
+? mcq: Which list constructor builds items lazily?
+- ListView(children: ...)
++ ListView.builder
+- Column
+- Wrap
+> builder creates only visible items.
+? fill: To read the screen width efficiently, call MediaQuery.___(context).width.
+= sizeOf
+> sizeOf only rebuilds when the size changes.
+? mcq: Which package is the Flutter team's recommended router?
++ go_router
+- http
+- provider
+- sqflite
+> go_router supports declarative, URL-based routing.
+? mcq: In Provider, which call should be used inside button callbacks?
+- context.watch
++ context.read
+- context.listen
+- context.build
+> read gets the object without subscribing to changes.
+? tf: Secrets such as auth tokens should be stored in SharedPreferences.
+= false
+> Use secure storage for secrets.
+? mcq: Which HTTP status code range indicates server errors?
+- 2xx
+- 3xx
+- 4xx
++ 5xx
+> 5xx codes are server errors.
+? scenario: A screen shows stale search results from an older query. What is the best fix?
++ Ignore responses that don't match the latest query
+- Increase the timeout
+- Remove async code
+- Use a const widget
+> Discard stale responses.
+? mcq: Which file format must you upload to Google Play?
+- .apk only
++ .aab (Android App Bundle)
+- .ipa
+- .zip
+> Play requires App Bundles for new apps.
+? mcq: Which widget test function finds widgets by text?
++ find.text
+- find.widget
+- search.text
+- expect.text
+> find.text locates Text widgets.
+? tf: Hot reload preserves the current app state.
+= true
+> Hot reload keeps state; hot restart resets it.
+? mcq: What decides whether Flutter reuses an element when rebuilding?
++ The widget's runtimeType and key
+- The widget's colour
+- The build method's length
+- The number of children only
+> Widget.canUpdate compares type and key.
+? mcq: Which Firebase feature enforces who can read and write data?
+- Analytics
++ Security rules
+- Crashlytics
+- Remote Config
+> Rules run on the server and enforce access.
+? fill: The keyword used to emit values from an async* function is ___.
+= yield
+> yield adds values to the stream.
+? mcq: How should you roll out a risky release on Google Play?
++ A staged rollout to a percentage of users
+- Release to 100% immediately
+- Skip testing tracks
+- Upload an APK by email
+> Staged rollouts limit the impact of problems.

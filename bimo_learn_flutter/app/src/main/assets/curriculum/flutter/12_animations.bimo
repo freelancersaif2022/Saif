@@ -1,0 +1,213 @@
+@module flutter-m12 | Animations
+@summary Bring UIs to life with implicit and explicit animations, Hero, transitions, Rive and Lottie.
+
+@lesson flutter-m12-l01 | Implicit animations | 8
+## Learning objectives
+- Animate by changing properties
+
+## Implicit animations
+Implicitly animated widgets (`AnimatedOpacity`, `AnimatedContainer`, `AnimatedPadding`...) animate automatically when their properties change.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget fade(bool visible) => AnimatedOpacity(
+      opacity: visible ? 1 : 0,
+      duration: const Duration(milliseconds: 300),
+      child: const Text('Hello'),
+    );
+```
+
+## Summary
+- Change a value, Flutter animates it.
+
+@lesson flutter-m12-l02 | Explicit animations | 8
+## Learning objectives
+- Control animations precisely
+
+## Explicit animations
+Explicit animations use an `AnimationController` you start, stop, repeat or reverse. Use them for looping or interactive animations.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Pulse extends StatefulWidget {
+  const Pulse({super.key});
+  @override
+  State<Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<Pulse> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+  @override
+  void dispose() { _c.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => ScaleTransition(scale: Tween(begin: 0.9, end: 1.1).animate(_c), child: const Icon(Icons.favorite));
+}
+```
+
+## Summary
+- Explicit = you own the controller.
+
+@lesson flutter-m12-l03 | AnimationController | 8
+## Learning objectives
+- Drive animations over time
+
+## AnimationController
+AnimationController produces values 0.0→1.0 synced to the screen refresh via a `TickerProvider`. Always dispose it.
+
+```dart
+import 'package:flutter/material.dart';
+
+// inside a State with SingleTickerProviderStateMixin:
+// late final controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+// controller.forward(); controller.reverse();
+void main() {}
+```
+
+## Summary
+- Needs vsync and dispose.
+
+@lesson flutter-m12-l04 | Tween | 8
+## Learning objectives
+- Map 0–1 to any range
+
+## Tween
+A `Tween` maps the controller's progress to colours, sizes or offsets; `CurvedAnimation` adds easing.
+
+```dart
+import 'package:flutter/material.dart';
+
+Animation<double> grow(AnimationController c) =>
+    Tween<double>(begin: 0, end: 200).animate(CurvedAnimation(parent: c, curve: Curves.easeOutBack));
+```
+
+## Summary
+- Tweens map progress to values.
+
+@lesson flutter-m12-l05 | Hero animations | 8
+## Learning objectives
+- Fly widgets between screens
+
+## Hero animations
+Wrap matching widgets on two routes in `Hero` with the same tag; Flutter animates between them during navigation.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget thumb(String id) => Hero(tag: 'img-$id', child: const Icon(Icons.image, size: 48));
+```
+
+## Summary
+- Tags must match and be unique per screen.
+
+@lesson flutter-m12-l06 | AnimatedContainer | 8
+## Learning objectives
+- Animate size, colour and shape together
+
+## AnimatedContainer
+AnimatedContainer animates any changed Container property.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget box(bool selected) => AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      width: selected ? 120 : 80,
+      height: 80,
+      decoration: BoxDecoration(color: selected ? Colors.indigo : Colors.grey, borderRadius: BorderRadius.circular(selected ? 24 : 8)),
+    );
+```
+
+## Summary
+- Great for selection states.
+
+@lesson flutter-m12-l07 | AnimatedSwitcher | 8
+## Learning objectives
+- Animate between different widgets
+
+## AnimatedSwitcher
+AnimatedSwitcher cross-fades (or custom-transitions) when its child changes. Give children different keys.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget counter(int n) => AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: Text('$n', key: ValueKey(n)),
+    );
+```
+
+## Summary
+- Different keys trigger the switch.
+
+@lesson flutter-m12-l08 | AnimatedBuilder | 8
+## Learning objectives
+- Rebuild only the animated part
+
+## AnimatedBuilder
+AnimatedBuilder listens to an animation and rebuilds only its builder, passing a pre-built child for efficiency.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget spin(Animation<double> a) => AnimatedBuilder(
+      animation: a,
+      child: const Icon(Icons.refresh),
+      builder: (_, child) => Transform.rotate(angle: a.value * 6.28, child: child),
+    );
+```
+
+## Summary
+- Pass static subtrees as child.
+
+@lesson flutter-m12-l09 | Custom transitions | 8
+## Learning objectives
+- Customise page transitions
+
+## Custom transitions
+`PageRouteBuilder` lets you define custom route transitions such as fade or slide.
+
+```dart
+import 'package:flutter/material.dart';
+
+Route<void> fadeRoute(Widget page) => PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+    );
+```
+
+## Summary
+- PageRouteBuilder customises transitions.
+
+@lesson flutter-m12-l10 | Rive integration | 8
+## Learning objectives
+- Use interactive vector animations
+
+## Rive integration
+Rive animations are designed in the Rive editor and support state machines that react to input. Add the `rive` package and load a `.riv` asset.
+
+```dart
+// RiveAnimation.asset('assets/bimo.riv', stateMachines: const ['Main'])
+void main() {}
+```
+
+## Summary
+- Rive suits interactive, stateful animations.
+
+@lesson flutter-m12-l11 | Lottie integration | 8
+## Learning objectives
+- Play After Effects animations
+
+## Lottie integration
+Lottie plays JSON animations exported from After Effects. Great for empty states and celebrations.
+
+```dart
+import 'package:lottie/lottie.dart';
+import 'package:flutter/material.dart';
+
+Widget celebrate() => Lottie.asset('assets/confetti.json', repeat: false, width: 200);
+```
+
+## Summary
+- Use Lottie for designer-made animations.

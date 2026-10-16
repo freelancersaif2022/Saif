@@ -1,0 +1,147 @@
+@module flutter-m17 | Performance
+@summary Understand the rendering pipeline and optimise rebuilds, images, lists, memory and startup.
+
+@lesson flutter-m17-l01 | Rendering pipeline | 8
+## Learning objectives
+- Know where frame time goes
+
+## Rendering pipeline
+Each frame: build → layout → paint on the UI thread, then rasterisation on the raster thread. You have ~16 ms (60 Hz) or ~8 ms (120 Hz) per frame.
+
+```dart
+// UI thread: build, layout, paint. Raster thread: GPU work.
+void main() {}
+```
+
+## Summary
+- Both threads must finish within the frame budget.
+
+@lesson flutter-m17-l02 | Widget rebuild optimization | 8
+## Learning objectives
+- Rebuild less
+
+## Widget rebuild optimization
+Use const widgets, split large widgets, push state down so only small subtrees rebuild, and use selectors (`context.select`, `ref.watch(provider.select(...))`).
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget header() => const Padding(padding: EdgeInsets.all(16), child: Text('Static header'));
+```
+
+## Summary
+- const and smaller widgets reduce rebuild work.
+
+@lesson flutter-m17-l03 | Image optimization | 8
+## Learning objectives
+- Load images efficiently
+
+## Image optimization
+Resize images to display size (`cacheWidth`), use compressed formats (WebP), cache network images and precache important ones.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget thumb(String url) => Image.network(url, width: 96, cacheWidth: 192, fit: BoxFit.cover);
+```
+
+## Summary
+- Decode images at the size you display.
+
+@lesson flutter-m17-l04 | List optimization | 8
+## Learning objectives
+- Scroll long lists smoothly
+
+## List optimization
+Use builder constructors, `itemExtent`/`prototypeItem` for fixed heights, keys for stable items and avoid heavy work in itemBuilder.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget list(List<String> items) => ListView.builder(itemCount: items.length, itemExtent: 56, itemBuilder: (_, i) => ListTile(title: Text(items[i])));
+```
+
+## Summary
+- Builders + fixed extents scale to huge lists.
+
+@lesson flutter-m17-l05 | Memory usage | 8
+## Learning objectives
+- Keep memory low
+
+## Memory usage
+Limit image cache size, release large objects, paginate data and watch the Memory view for growth.
+
+```dart
+import 'package:flutter/painting.dart';
+
+void limitCache() => PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20;
+```
+
+## Summary
+- Bound caches and paginate.
+
+@lesson flutter-m17-l06 | Async performance | 8
+## Learning objectives
+- Keep heavy work off the UI isolate
+
+## Async performance
+Move CPU-heavy parsing to `compute`/`Isolate.run` and avoid awaiting in sequence when work can run concurrently.
+
+```dart
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
+Future<Object?> parse(String json) => compute(jsonDecode, json);
+```
+
+## Summary
+- Use isolates for heavy CPU work.
+
+@lesson flutter-m17-l07 | App startup performance | 8
+## Learning objectives
+- Start fast
+
+## App startup performance
+Do minimal work before the first frame: defer initialisation, load lazily, avoid big synchronous reads in main, and keep the splash short.
+
+```dart
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MaterialApp(home: Text('First frame fast')));
+  // initialise analytics etc. after the first frame
+}
+```
+
+## Summary
+- Show UI first, initialise the rest later.
+
+@lesson flutter-m17-l08 | Profiling | 8
+## Learning objectives
+- Use DevTools to find bottlenecks
+
+## Profiling
+Record a timeline in profile mode, find slow frames, inspect the CPU flame chart and enable 'track widget rebuilds'.
+
+```dart
+// flutter run --profile → DevTools → Performance → Record
+void main() {}
+```
+
+## Summary
+- Measure before optimising.
+
+@lesson flutter-m17-l09 | Release performance | 8
+## Learning objectives
+- Ship optimised builds
+
+## Release performance
+Release builds are AOT-compiled and tree-shaken. Use `--split-debug-info` and `--obfuscate`, and test release builds on low-end devices.
+
+```dart
+// flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
+void main() {}
+```
+
+## Summary
+- Test performance on real, low-end hardware.

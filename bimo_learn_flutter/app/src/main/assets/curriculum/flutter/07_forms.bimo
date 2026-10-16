@@ -1,0 +1,244 @@
+@module flutter-m07 | Forms and User Input
+@summary Collect and validate input with controllers, focus, pickers and selection controls.
+
+@lesson flutter-m07-l01 | TextEditingController | 8
+## Learning objectives
+- Read and set text field values
+
+## TextEditingController
+A `TextEditingController` gives you the current text, selection and a way to set or clear text. Create it in initState and dispose it in dispose.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Search extends StatefulWidget {
+  const Search({super.key});
+  @override
+  State<Search> createState() => _SearchState();
+}
+
+class _SearchState extends State<Search> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: _controller,
+        decoration: InputDecoration(suffixIcon: IconButton(icon: const Icon(Icons.clear), onPressed: _controller.clear)),
+      );
+}
+```
+
+## Summary
+- Controllers read/write field text.
+- Always dispose them.
+
+@lesson flutter-m07-l02 | Form widgets | 8
+## Learning objectives
+- Group fields with Form and TextFormField
+
+## Form widgets
+`Form` coordinates validation, saving and resetting of its `FormField` descendants such as `TextFormField`.
+
+```dart
+import 'package:flutter/material.dart';
+
+final key = GlobalKey<FormState>();
+String? name;
+
+Widget form() => Form(
+      key: key,
+      child: TextFormField(onSaved: (v) => name = v, decoration: const InputDecoration(labelText: 'Name')),
+    );
+
+void submit() { if (key.currentState!.validate()) key.currentState!.save(); }
+```
+
+## Summary
+- Form groups fields.
+- validate() then save().
+
+@lesson flutter-m07-l03 | Validators | 8
+## Learning objectives
+- Write reusable validation functions
+
+## Validators
+Validators are functions returning an error message or null. Compose them for reuse and show messages as soon as useful with `autovalidateMode: AutovalidateMode.onUserInteraction`.
+
+```dart
+String? requiredField(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
+
+String? email(String? v) {
+  final e = requiredField(v);
+  if (e != null) return e;
+  return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v!) ? null : 'Enter a valid email';
+}
+```
+
+## Summary
+- Return null for valid input.
+- Validate on user interaction for fast feedback.
+
+@lesson flutter-m07-l04 | Focus management | 8
+## Learning objectives
+- Move focus between fields
+
+## Focus management
+`FocusNode` controls keyboard focus. With `textInputAction: TextInputAction.next`, fields move focus automatically; call `FocusScope.of(context).unfocus()` to hide the keyboard.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget fields() => const Column(children: [
+      TextField(textInputAction: TextInputAction.next, decoration: InputDecoration(labelText: 'Email')),
+      TextField(textInputAction: TextInputAction.done, obscureText: true, decoration: InputDecoration(labelText: 'Password')),
+    ]);
+```
+
+## Summary
+- TextInputAction.next moves focus.
+- Dispose FocusNodes you create.
+
+@lesson flutter-m07-l05 | Keyboard handling | 8
+## Learning objectives
+- Keep fields visible when the keyboard opens
+
+## Keyboard handling
+Scaffold resizes when the keyboard appears. Put forms in a scroll view so fields can scroll into view, and dismiss the keyboard when tapping outside.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget page(Widget form) => Scaffold(
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: form),
+      ),
+    );
+```
+
+## Summary
+- Wrap forms in a scroll view.
+- Tap outside to unfocus.
+
+@lesson flutter-m07-l06 | Checkboxes | 8
+## Learning objectives
+- Toggle boolean options
+
+## Checkboxes
+`Checkbox` and `CheckboxListTile` toggle a bool. ListTile variants make the whole row tappable and accessible.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget terms(bool value, ValueChanged<bool?> onChanged) => CheckboxListTile(
+      value: value,
+      onChanged: onChanged,
+      title: const Text('I accept the terms'),
+    );
+```
+
+## Summary
+- Prefer CheckboxListTile for labelled options.
+
+@lesson flutter-m07-l07 | Radio buttons | 8
+## Learning objectives
+- Choose one option from a set
+
+## Radio buttons
+Radio buttons select exactly one option. `RadioListTile<T>` shows a labelled choice; all tiles share a `groupValue`.
+
+```dart
+import 'package:flutter/material.dart';
+
+enum Level { beginner, advanced }
+
+Widget levels(Level group, ValueChanged<Level?> onChanged) => Column(children: [
+      for (final l in Level.values)
+        RadioListTile<Level>(value: l, groupValue: group, onChanged: onChanged, title: Text(l.name)),
+    ]);
+```
+
+## Summary
+- Use radios for a single choice among few options.
+
+@lesson flutter-m07-l08 | Switches | 8
+## Learning objectives
+- Turn settings on and off
+
+## Switches
+Switches toggle settings that take effect immediately. Use `SwitchListTile` with a title and optional subtitle.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget darkMode(bool on, ValueChanged<bool> onChanged) =>
+    SwitchListTile(value: on, onChanged: onChanged, title: const Text('Dark mode'));
+```
+
+## Summary
+- Switches apply immediately; checkboxes often need a submit.
+
+@lesson flutter-m07-l09 | Sliders | 8
+## Learning objectives
+- Pick a value from a range
+
+## Sliders
+`Slider` selects a value within min/max; `divisions` makes it discrete and `label` shows the current value.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget fontSize(double value, ValueChanged<double> onChanged) => Slider(
+      value: value, min: 12, max: 24, divisions: 6, label: value.round().toString(), onChanged: onChanged,
+    );
+```
+
+## Summary
+- Use divisions for discrete steps.
+- RangeSlider selects a range.
+
+@lesson flutter-m07-l10 | Dropdowns | 8
+## Learning objectives
+- Pick from a list of options
+
+## Dropdowns
+`DropdownMenu<T>` (Material 3) shows a text field with a menu of entries; `DropdownButtonFormField` integrates with forms.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget country(ValueChanged<String?> onSelected) => DropdownMenu<String>(
+      label: const Text('Country'),
+      onSelected: onSelected,
+      dropdownMenuEntries: const [
+        DropdownMenuEntry(value: 'PT', label: 'Portugal'),
+        DropdownMenuEntry(value: 'IN', label: 'India'),
+      ],
+    );
+```
+
+## Summary
+- DropdownMenu is the M3 dropdown.
+
+@lesson flutter-m07-l11 | Date and time pickers | 8
+## Learning objectives
+- Let users pick dates and times
+
+## Date and time pickers
+`showDatePicker` and `showTimePicker` open Material dialogs and return the selection (or null if cancelled).
+
+```dart
+import 'package:flutter/material.dart';
+
+Future<void> pick(BuildContext context) async {
+  final date = await showDatePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime(2030), initialDate: DateTime.now());
+  if (date == null || !context.mounted) return;
+  final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+  debugPrint('$date $time');
+}
+```
+
+## Summary
+- Pickers return null when cancelled.
+- Check context.mounted after await.

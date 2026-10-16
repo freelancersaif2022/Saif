@@ -1,0 +1,257 @@
+@module flutter-m08 | Networking
+@summary Talk to REST APIs with http and Dio, parse JSON and handle failures.
+
+@lesson flutter-m08-l01 | HTTP fundamentals | 8
+## Learning objectives
+- Understand requests, responses and status codes
+
+## HTTP fundamentals
+HTTP is request/response: a method (GET, POST...), a URL, headers and an optional body go out; a status code, headers and a body come back. 2xx means success, 4xx a client error (401 unauthorised, 404 not found), 5xx a server error. Android needs the INTERNET permission in the manifest.
+
+```dart
+import 'package:http/http.dart' as http;
+
+Future<void> main() async {
+  final res = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/todos/1'));
+  print('${res.statusCode} ${res.body}');
+}
+```
+
+## Summary
+- Check status codes before using the body.
+
+@lesson flutter-m08-l02 | REST APIs | 8
+## Learning objectives
+- Map resources to endpoints
+
+## REST APIs
+REST APIs expose resources at URLs: `GET /lessons` lists, `GET /lessons/42` fetches one, `POST /lessons` creates, `PUT/PATCH /lessons/42` updates and `DELETE /lessons/42` removes. Wrap them in a repository class so widgets never build URLs.
+
+```dart
+import 'package:http/http.dart' as http;
+
+class LessonApi {
+  LessonApi(this.client, {this.base = 'https://api.example.com'});
+  final http.Client client;
+  final String base;
+  Future<http.Response> list() => client.get(Uri.parse('$base/lessons'));
+}
+```
+
+## Summary
+- Keep endpoints inside an API/repository class.
+
+@lesson flutter-m08-l03 | GET and POST | 8
+## Learning objectives
+- Fetch and create data
+
+## GET and POST
+GET reads data; POST sends a JSON body to create something. Set `Content-Type: application/json` and encode the body with `jsonEncode`.
+
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+Future<int> createNote(String title) async {
+  final res = await http.post(
+    Uri.parse('https://jsonplaceholder.typicode.com/posts'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'title': title}),
+  );
+  return res.statusCode; // 201 Created
+}
+```
+
+## Summary
+- POST bodies are usually JSON-encoded maps.
+
+@lesson flutter-m08-l04 | PUT, PATCH and DELETE | 8
+## Learning objectives
+- Update and remove resources
+
+## PUT, PATCH and DELETE
+PUT replaces a resource, PATCH updates selected fields and DELETE removes it. Treat 200/204 as success.
+
+```dart
+import 'package:http/http.dart' as http;
+
+Future<bool> deleteNote(int id) async {
+  final res = await http.delete(Uri.parse('https://jsonplaceholder.typicode.com/posts/$id'));
+  return res.statusCode == 200 || res.statusCode == 204;
+}
+```
+
+## Summary
+- PATCH for partial updates, PUT for full replacement.
+
+@lesson flutter-m08-l05 | JSON parsing | 8
+## Learning objectives
+- Decode JSON into Dart maps and lists
+
+## JSON parsing
+`jsonDecode` turns a JSON string into `Map<String, dynamic>`/`List<dynamic>`. Convert those into typed models immediately.
+
+```dart
+import 'dart:convert';
+
+void main() {
+  final map = jsonDecode('{"id": 1, "title": "Learn"}') as Map<String, dynamic>;
+  print(map['title']);
+}
+```
+
+## Summary
+- Decode once, convert to typed models right away.
+
+@lesson flutter-m08-l06 | Serialization | 8
+## Learning objectives
+- Write fromJson/toJson model classes
+
+## Serialization
+Model classes with `fromJson` and `toJson` keep JSON handling in one place. For many models, generate them with `json_serializable` or `freezed`.
+
+```dart
+class Todo {
+  Todo({required this.id, required this.title, required this.done});
+  factory Todo.fromJson(Map<String, dynamic> j) => Todo(id: j['id'] as int, title: j['title'] as String, done: j['completed'] as bool);
+  final int id;
+  final String title;
+  final bool done;
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'completed': done};
+}
+```
+
+## Summary
+- Code generation removes JSON boilerplate.
+
+@lesson flutter-m08-l07 | Error handling | 8
+## Learning objectives
+- Handle network and server failures
+
+## Error handling
+Network calls fail: no connection (`SocketException`), timeouts, 4xx/5xx responses and malformed JSON. Catch them in the repository and return a typed error the UI can show.
+
+```dart
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+Future<String> load() async {
+  try {
+    final res = await http.get(Uri.parse('https://example.com/data'));
+    if (res.statusCode != 200) return 'Server error ${res.statusCode}';
+    return res.body;
+  } on SocketException {
+    return 'You are offline';
+  }
+}
+```
+
+## Summary
+- Translate failures into user-friendly messages.
+
+@lesson flutter-m08-l08 | Timeouts | 8
+## Learning objectives
+- Avoid waiting forever
+
+## Timeouts
+Always set a timeout on requests so the UI can recover.
+
+```dart
+import 'dart:async';
+import 'package:http/http.dart' as http;
+
+Future<http.Response> fetch(Uri url) => http.get(url).timeout(const Duration(seconds: 10));
+```
+
+## Summary
+- Use .timeout and catch TimeoutException.
+
+@lesson flutter-m08-l09 | Dio | 8
+## Learning objectives
+- Use Dio for interceptors and advanced features
+
+## Dio
+`dio` adds interceptors, base options, cancellation, form data and progress callbacks, and decodes JSON automatically.
+
+```dart
+import 'package:dio/dio.dart';
+
+final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com', connectTimeout: const Duration(seconds: 10)));
+
+Future<List<dynamic>> lessons() async => (await dio.get<List<dynamic>>('/lessons')).data ?? [];
+```
+
+## Summary
+- Dio suits apps with many endpoints and cross-cutting logic.
+
+@lesson flutter-m08-l10 | Authentication tokens | 8
+## Learning objectives
+- Send bearer tokens with requests
+
+## Authentication tokens
+APIs often require `Authorization: Bearer <token>`. Add it in one place (a Dio interceptor) and store tokens in secure storage.
+
+```dart
+import 'package:dio/dio.dart';
+
+void addAuth(Dio dio, String Function() token) {
+  dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+    options.headers['Authorization'] = 'Bearer ${token()}';
+    handler.next(options);
+  }));
+}
+```
+
+## Summary
+- Attach tokens centrally; refresh them on 401.
+
+@lesson flutter-m08-l11 | Pagination | 8
+## Learning objectives
+- Load long lists page by page
+
+## Pagination
+APIs return data in pages (`?page=2` or a cursor). Load the next page when the user scrolls near the end and stop when a page is empty.
+
+```dart
+class Pager<T> {
+  Pager(this.fetch);
+  final Future<List<T>> Function(int page) fetch;
+  final items = <T>[];
+  int _page = 1;
+  bool hasMore = true;
+  Future<void> next() async {
+    if (!hasMore) return;
+    final batch = await fetch(_page++);
+    hasMore = batch.isNotEmpty;
+    items.addAll(batch);
+  }
+}
+```
+
+## Summary
+- Track page and hasMore; avoid duplicate loads.
+
+@lesson flutter-m08-l12 | Retry strategies | 8
+## Learning objectives
+- Retry transient failures with backoff
+
+## Retry strategies
+Retry only idempotent requests and transient errors (timeouts, 5xx), with exponential backoff: wait 1 s, 2 s, 4 s...
+
+```dart
+Future<T> retry<T>(Future<T> Function() task, {int attempts = 3}) async {
+  var delay = const Duration(seconds: 1);
+  for (var i = 1; ; i++) {
+    try {
+      return await task();
+    } catch (_) {
+      if (i >= attempts) rethrow;
+      await Future.delayed(delay);
+      delay *= 2;
+    }
+  }
+}
+```
+
+## Summary
+- Back off exponentially and cap attempts.

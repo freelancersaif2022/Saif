@@ -121,13 +121,12 @@ object CurriculumParser {
                 i++
             }
             val body = lines.subList(bodyStart, i)
-            if (i >= lines.size || lines[i].trim() != "@quiz") {
-                throw CurriculumFormatException("$source: lesson '$lessonId' has no @quiz section")
-            }
-            i++ // skip @quiz
+            // The quiz is optional: lessons without one are completed with "Mark as complete".
+            val hasQuiz = i < lines.size && lines[i].trim() == "@quiz"
+            if (hasQuiz) i++ // skip @quiz
             val quizStart = i
             inFence = false
-            while (i < lines.size) {
+            while (hasQuiz && i < lines.size) {
                 val l = lines[i]
                 if (l.trimStart().startsWith("```")) inFence = !inFence
                 if (!inFence && l.startsWith("@lesson ")) break

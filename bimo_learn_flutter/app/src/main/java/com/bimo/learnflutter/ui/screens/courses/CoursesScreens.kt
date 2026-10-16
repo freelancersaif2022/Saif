@@ -474,7 +474,7 @@ private fun LessonRow(number: Int, state: LessonState, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "${state.lesson.minutes} min • ${state.lesson.quiz.questions.size} quiz questions" +
+                "${state.lesson.minutes} min" + (if (state.lesson.quiz.questions.isEmpty()) "" else " • ${state.lesson.quiz.questions.size} quiz questions") +
                     if (state.status == LessonStatus.IN_PROGRESS) " • In progress" else "",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

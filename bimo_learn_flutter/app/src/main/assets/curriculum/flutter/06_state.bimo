@@ -1,0 +1,264 @@
+@module flutter-m06 | State Management
+@summary Manage app state from setState to Provider, Riverpod and Bloc.
+
+@lesson flutter-m06-l01 | setState | 8
+## Learning objectives
+- Use setState for local, ephemeral state
+
+## setState
+`setState` is perfect for state owned by one widget: a toggle, a selected tab, an expanded panel. It rebuilds that widget's subtree. When many widgets need the same data, move it out of the widget.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Toggle extends StatefulWidget {
+  const Toggle({super.key});
+  @override
+  State<Toggle> createState() => _ToggleState();
+}
+
+class _ToggleState extends State<Toggle> {
+  bool on = false;
+  @override
+  Widget build(BuildContext context) => Switch(value: on, onChanged: (v) => setState(() => on = v));
+}
+```
+
+## Summary
+- setState is for local state.
+- Shared state belongs elsewhere.
+
+@lesson flutter-m06-l02 | ValueNotifier | 8
+## Learning objectives
+- Hold a single observable value
+
+## ValueNotifier
+`ValueNotifier<T>` stores one value and notifies listeners when it changes. `ValueListenableBuilder` rebuilds only the part of the UI that depends on it.
+
+```dart
+import 'package:flutter/material.dart';
+
+final counter = ValueNotifier<int>(0);
+
+Widget view() => ValueListenableBuilder<int>(
+      valueListenable: counter,
+      builder: (_, value, __) => Text('Count: $value'),
+    );
+
+void increment() => counter.value++;
+```
+
+## Summary
+- ValueNotifier is a lightweight observable.
+- Dispose notifiers you create.
+
+@lesson flutter-m06-l03 | ChangeNotifier | 8
+## Learning objectives
+- Model state with methods and notifyListeners
+
+## ChangeNotifier
+`ChangeNotifier` lets a class hold several fields and call `notifyListeners()` after changes. Widgets listen with `ListenableBuilder` (or Provider).
+
+```dart
+import 'package:flutter/material.dart';
+
+class Cart extends ChangeNotifier {
+  final _items = <String>[];
+  List<String> get items => List.unmodifiable(_items);
+  void add(String item) {
+    _items.add(item);
+    notifyListeners();
+  }
+}
+
+Widget badge(Cart cart) => ListenableBuilder(
+      listenable: cart,
+      builder: (_, __) => Text('${cart.items.length} items'),
+    );
+```
+
+## Summary
+- Call notifyListeners after mutations.
+- Expose read-only views of state.
+
+@lesson flutter-m06-l04 | Provider | 8
+## Learning objectives
+- Share objects down the tree with Provider
+
+## Provider
+The `provider` package injects objects (often ChangeNotifiers) into the tree. `context.watch<T>()` rebuilds when T changes; `context.read<T>()` gets it without listening (use in callbacks).
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class Counter extends ChangeNotifier {
+  int value = 0;
+  void inc() { value++; notifyListeners(); }
+}
+
+Widget app() => ChangeNotifierProvider(
+      create: (_) => Counter(),
+      child: MaterialApp(home: Builder(builder: (context) => Scaffold(
+        body: Center(child: Text('${context.watch<Counter>().value}')),
+        floatingActionButton: FloatingActionButton(onPressed: () => context.read<Counter>().inc(), child: const Icon(Icons.add)),
+      ))),
+    );
+```
+
+## Summary
+- watch in build, read in callbacks.
+- Provider handles disposal of created objects.
+
+@lesson flutter-m06-l05 | Riverpod | 8
+## Learning objectives
+- Declare providers outside the widget tree
+
+## Riverpod
+Riverpod is a compile-safe successor to Provider. Providers are global declarations; widgets read them with `ref.watch`. It doesn't depend on BuildContext lookups and is easy to test by overriding providers.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class CounterNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void inc() => state++;
+}
+
+final counterProvider = NotifierProvider<CounterNotifier, int>(CounterNotifier.new);
+
+class CounterText extends ConsumerWidget {
+  const CounterText({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Text('${ref.watch(counterProvider)}');
+}
+
+void main() => runApp(const ProviderScope(child: MaterialApp(home: CounterText())));
+```
+
+## Summary
+- Wrap the app in ProviderScope.
+- ref.watch rebuilds; ref.read for actions.
+
+@lesson flutter-m06-l06 | Bloc | 8
+## Learning objectives
+- Model state as events in, states out
+
+## Bloc
+With `flutter_bloc`, a Bloc receives events and emits states. It enforces a clear, testable flow and suits larger teams. `BlocBuilder` rebuilds on new states.
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+sealed class CounterEvent {}
+class Increment extends CounterEvent {}
+
+class CounterBloc extends Bloc<CounterEvent, int> {
+  CounterBloc() : super(0) {
+    on<Increment>((event, emit) => emit(state + 1));
+  }
+}
+```
+
+## Summary
+- Events go in, states come out.
+- Use BlocBuilder/BlocListener in the UI.
+
+@lesson flutter-m06-l07 | Cubit | 8
+## Learning objectives
+- Use a simpler Bloc with methods
+
+## Cubit
+A Cubit is a Bloc without events: you call methods that `emit` new states. Start with Cubit; switch to Bloc when you need event transformations such as debouncing.
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+class ThemeCubit extends Cubit<bool> {
+  ThemeCubit() : super(false);
+  void toggle() => emit(!state);
+}
+```
+
+## Summary
+- Cubit = methods that emit states.
+- Simpler than Bloc for most features.
+
+@lesson flutter-m06-l08 | State management patterns | 8
+## Learning objectives
+- Choose an approach that fits the app
+
+## State management patterns
+Separate **ephemeral** state (UI-only) from **app** state (shared, persisted). Keep a single source of truth, make state immutable, and derive UI from it. Any of Provider, Riverpod or Bloc works; consistency across the codebase matters more than the choice.
+
+```dart
+// Immutable state with copyWith
+class TodoState {
+  const TodoState({this.items = const [], this.loading = false});
+  final List<String> items;
+  final bool loading;
+  TodoState copyWith({List<String>? items, bool? loading}) =>
+      TodoState(items: items ?? this.items, loading: loading ?? this.loading);
+}
+```
+
+## Summary
+- Single source of truth, immutable state.
+- Pick one approach and use it consistently.
+
+@lesson flutter-m06-l09 | Reactive UI | 8
+## Learning objectives
+- Rebuild UI from streams and futures
+
+## Reactive UI
+`FutureBuilder` and `StreamBuilder` rebuild when async data arrives, giving you loading, data and error states. Create the future once (e.g. in initState), not inside build.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget userName(Future<String> future) => FutureBuilder<String>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.hasError) return const Text('Error');
+        if (!snap.hasData) return const CircularProgressIndicator();
+        return Text(snap.data!);
+      },
+    );
+```
+
+## Summary
+- Handle loading, error and data states.
+- Don't create the future in build.
+
+@lesson flutter-m06-l10 | State restoration | 8
+## Learning objectives
+- Survive process death on mobile
+
+## State restoration
+Android may kill your app in the background. State restoration (`restorationScopeId` + `RestorationMixin`) saves small UI state like the current tab or text so it comes back. Persist important data in storage instead.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Tabs extends StatefulWidget {
+  const Tabs({super.key});
+  @override
+  State<Tabs> createState() => _TabsState();
+}
+
+class _TabsState extends State<Tabs> with RestorationMixin {
+  final _index = RestorableInt(0);
+  @override
+  String get restorationId => 'tabs';
+  @override
+  void restoreState(RestorationBucket? old, bool initial) => registerForRestoration(_index, 'index');
+  @override
+  Widget build(BuildContext context) => Text('Tab ${_index.value}');
+}
+```
+
+## Summary
+- Set restorationScopeId on MaterialApp.
+- Use Restorable* properties for UI state.

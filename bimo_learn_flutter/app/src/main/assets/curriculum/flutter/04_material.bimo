@@ -1,0 +1,520 @@
+@module flutter-m04 | Material Design
+@summary Build polished Material 3 interfaces with themes, components, forms and accessibility.
+
+@lesson flutter-m04-l01 | Material 3 fundamentals | 8
+## Learning objectives
+- Understand Material 3 principles
+- Enable Material 3 in ThemeData
+
+## Material 3 fundamentals
+Material 3 (Material You) is Google's latest design system: tonal colour palettes generated from a seed, larger rounded shapes, new components such as NavigationBar and FilledButton, and dynamic colour. Since Flutter 3.16 it is on by default, so new apps get M3 styling automatically. Design with *roles* (primary, surface, onSurface) rather than raw colours so light and dark themes both work.
+
+```dart
+import 'package:flutter/material.dart';
+
+final theme = ThemeData(
+  useMaterial3: true,
+  colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750F5)),
+);
+```
+
+## Summary
+- Material 3 is the default design system in modern Flutter.
+- Use colour roles from the ColorScheme instead of hard-coded colours.
+
+@lesson flutter-m04-l02 | ColorScheme | 8
+## Learning objectives
+- Generate and use a ColorScheme
+- Pick the right role for each element
+
+## ColorScheme
+A `ColorScheme` holds about 30 colour roles. `primary` is for key actions, `secondary`/`tertiary` for accents, `surface` variants for backgrounds and cards, `error` for problems, and every role has an `on...` counterpart for content placed on it, guaranteeing contrast.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget chip(BuildContext context) {
+  final c = Theme.of(context).colorScheme;
+  return Container(
+    color: c.primaryContainer,
+    padding: const EdgeInsets.all(8),
+    child: Text('Pro', style: TextStyle(color: c.onPrimaryContainer)),
+  );
+}
+```
+
+## Summary
+- ColorScheme.fromSeed builds an accessible palette.
+- Pair each background role with its on-role for text and icons.
+
+@lesson flutter-m04-l03 | ThemeData | 8
+## Learning objectives
+- Centralise styling in ThemeData
+- Customise component themes
+
+## ThemeData
+`ThemeData` configures colours, typography and default styles for every Material component. Customise component themes (`appBarTheme`, `cardTheme`, `filledButtonTheme`, `inputDecorationTheme`) once instead of styling each widget.
+
+```dart
+import 'package:flutter/material.dart';
+
+final theme = ThemeData(
+  colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+  cardTheme: const CardTheme(margin: EdgeInsets.all(8)),
+  inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
+);
+```
+
+## Summary
+- Style once in ThemeData; widgets inherit it.
+- Read it with Theme.of(context).
+
+@lesson flutter-m04-l04 | Typography | 8
+## Learning objectives
+- Use the Material type scale
+- Customise fonts
+
+## Typography
+Material 3 defines a type scale: display, headline, title, body and label, each in large/medium/small. Use `Theme.of(context).textTheme.titleLarge` instead of raw font sizes so text stays consistent and respects user scaling. Custom fonts are declared in pubspec.yaml and set with `fontFamily` in ThemeData.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget heading(BuildContext context) => Text(
+      'Welcome',
+      style: Theme.of(context).textTheme.headlineMedium,
+    );
+```
+
+## Summary
+- Use textTheme styles rather than fixed sizes.
+- Use copyWith to tweak a style.
+
+@lesson flutter-m04-l05 | AppBar | 8
+## Learning objectives
+- Configure titles, actions and scrolling behaviour
+
+## AppBar
+`AppBar` shows the screen title, a leading back/menu button and actions. In Material 3 it changes colour slightly when content scrolls under it. Use `SliverAppBar.medium` or `.large` for collapsing titles.
+
+```dart
+import 'package:flutter/material.dart';
+
+PreferredSizeWidget bar() => AppBar(
+      title: const Text('Courses'),
+      actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.search), tooltip: 'Search')],
+    );
+```
+
+## Summary
+- AppBar holds title, leading and actions.
+- Always give icon buttons a tooltip for accessibility.
+
+@lesson flutter-m04-l06 | NavigationBar | 8
+## Learning objectives
+- Switch between top-level destinations
+
+## NavigationBar
+`NavigationBar` is the Material 3 bottom navigation for 3 to 5 top-level destinations. Keep the selected index in state and switch the body accordingly.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Shell extends StatefulWidget {
+  const Shell({super.key});
+  @override
+  State<Shell> createState() => _ShellState();
+}
+
+class _ShellState extends State<Shell> {
+  int _index = 0;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(child: Text('Tab $_index')),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+            NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      );
+}
+```
+
+## Summary
+- Use NavigationBar for 3–5 destinations.
+- Use NavigationRail on wide screens.
+
+@lesson flutter-m04-l07 | NavigationDrawer | 8
+## Learning objectives
+- Provide many destinations in a side drawer
+
+## NavigationDrawer
+`NavigationDrawer` lists destinations in a panel that slides in from the side. Use it when you have more destinations than a bottom bar can hold.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget drawer() => NavigationDrawer(
+      selectedIndex: 0,
+      children: const [
+        Padding(padding: EdgeInsets.all(16), child: Text('Bimo')),
+        NavigationDrawerDestination(icon: Icon(Icons.home), label: Text('Home')),
+        NavigationDrawerDestination(icon: Icon(Icons.settings), label: Text('Settings')),
+      ],
+    );
+```
+
+## Summary
+- Put it in Scaffold.drawer.
+- Good for apps with many sections.
+
+@lesson flutter-m04-l08 | Buttons | 8
+## Learning objectives
+- Choose the right button for emphasis
+
+## Buttons
+Material 3 buttons by emphasis: `FilledButton` (highest), `FilledButton.tonal`, `ElevatedButton`, `OutlinedButton`, `TextButton` (lowest). Passing `onPressed: null` disables a button.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget actions() => Row(children: [
+      FilledButton(onPressed: () {}, child: const Text('Save')),
+      const SizedBox(width: 8),
+      OutlinedButton(onPressed: () {}, child: const Text('Cancel')),
+    ]);
+```
+
+## Summary
+- One primary (filled) action per screen.
+- onPressed: null disables the button.
+
+@lesson flutter-m04-l09 | Cards | 8
+## Learning objectives
+- Group related content in cards
+
+## Cards
+`Card` is a surface with rounded corners. Material 3 has filled, elevated and outlined variants. Wrap content in `InkWell` inside the card to make it tappable with a ripple.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget lessonCard() => Card.outlined(
+      child: InkWell(
+        onTap: () {},
+        child: const ListTile(title: Text('Variables'), subtitle: Text('8 min')),
+      ),
+    );
+```
+
+## Summary
+- Cards group related content.
+- Use InkWell for tap feedback.
+
+@lesson flutter-m04-l10 | Dialogs | 8
+## Learning objectives
+- Show confirmations with showDialog
+
+## Dialogs
+Dialogs interrupt the user for important decisions. `showDialog` returns a Future with the value passed to `Navigator.pop`.
+
+```dart
+import 'package:flutter/material.dart';
+
+Future<bool> confirmDelete(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete note?'),
+      content: const Text('This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+```
+
+## Summary
+- Await showDialog for the result.
+- Use dialogs sparingly for important choices.
+
+@lesson flutter-m04-l11 | Snackbars | 8
+## Learning objectives
+- Give brief feedback with SnackBar
+
+## Snackbars
+A SnackBar shows a short message at the bottom, optionally with one action such as Undo. Show it with `ScaffoldMessenger.of(context)`.
+
+```dart
+import 'package:flutter/material.dart';
+
+void saved(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: const Text('Saved'), action: SnackBarAction(label: 'Undo', onPressed: () {})),
+    );
+```
+
+## Summary
+- SnackBars are brief and non-blocking.
+- Offer Undo for destructive actions.
+
+@lesson flutter-m04-l12 | Bottom sheets | 8
+## Learning objectives
+- Present options with modal bottom sheets
+
+## Bottom sheets
+`showModalBottomSheet` slides a panel up from the bottom for contextual options. Use `isScrollControlled: true` for tall content and `showDragHandle: true` for a grabber.
+
+```dart
+import 'package:flutter/material.dart';
+
+Future<void> sheet(BuildContext context) => showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const ListTile(leading: Icon(Icons.share), title: Text('Share')),
+    );
+```
+
+## Summary
+- Bottom sheets show contextual actions.
+- They return a Future like dialogs.
+
+@lesson flutter-m04-l13 | FloatingActionButton | 8
+## Learning objectives
+- Highlight the main action of a screen
+
+## FloatingActionButton
+A FAB represents the primary action on a screen, such as creating a note. Variants: `FloatingActionButton.small`, `.large` and `.extended` with a label.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget fab() => FloatingActionButton.extended(
+      onPressed: () {},
+      icon: const Icon(Icons.add),
+      label: const Text('New note'),
+    );
+```
+
+## Summary
+- Use at most one FAB per screen.
+- Extended FABs add a label for clarity.
+
+@lesson flutter-m04-l14 | Tabs | 8
+## Learning objectives
+- Organise content into tabs
+
+## Tabs
+`DefaultTabController` + `TabBar` + `TabBarView` give swipeable tabs without manual controllers.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget tabs() => const DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: TabBarWidget(),
+        body: TabBarView(children: [Center(child: Text('Lessons')), Center(child: Text('Quizzes'))]),
+      ),
+    );
+
+class TabBarWidget extends StatelessWidget implements PreferredSizeWidget {
+  const TabBarWidget({super.key});
+  @override
+  Size get preferredSize => const Size.fromHeight(104);
+  @override
+  Widget build(BuildContext context) => AppBar(
+        title: const Text('Course'),
+        bottom: const TabBar(tabs: [Tab(text: 'Lessons'), Tab(text: 'Quizzes')]),
+      );
+}
+```
+
+## Summary
+- DefaultTabController wires TabBar and TabBarView.
+- Tabs suit sibling views of similar importance.
+
+@lesson flutter-m04-l15 | Chips | 8
+## Learning objectives
+- Use chips for filters, choices and tags
+
+## Chips
+Chips are compact elements: `FilterChip` for toggling filters, `ChoiceChip` for single choice, `InputChip` for user-entered items and `ActionChip` for actions.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget filters(Set<String> selected, void Function(String) toggle) => Wrap(spacing: 8, children: [
+      for (final f in ['Dart', 'Flutter', 'Projects'])
+        FilterChip(label: Text(f), selected: selected.contains(f), onSelected: (_) => toggle(f)),
+    ]);
+```
+
+## Summary
+- Pick the chip type by purpose.
+- Place many chips in a Wrap.
+
+@lesson flutter-m04-l16 | Menus | 8
+## Learning objectives
+- Show overflow and dropdown menus
+
+## Menus
+`MenuAnchor` and `PopupMenuButton` show lists of actions; `DropdownMenu` lets users pick a value.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget overflow() => PopupMenuButton<String>(
+      onSelected: (v) {},
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'rename', child: Text('Rename')),
+        PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    );
+```
+
+## Summary
+- Overflow menus hide secondary actions.
+- DropdownMenu picks a value from a list.
+
+@lesson flutter-m04-l17 | Text fields | 8
+## Learning objectives
+- Collect text input with TextField
+
+## Text fields
+`TextField` handles keyboard input. Set `keyboardType`, `textInputAction` and `obscureText` for passwords, and read the value through `onChanged` or a controller.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget email() => const TextField(
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      decoration: InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email)),
+    );
+```
+
+## Summary
+- Choose the right keyboardType.
+- Use obscureText for passwords.
+
+@lesson flutter-m04-l18 | Input decoration | 8
+## Learning objectives
+- Style fields with labels, hints, icons and errors
+
+## Input decoration
+`InputDecoration` adds a label, hint, helper/error text, prefix/suffix icons and borders. Setting `errorText` shows the field in an error state.
+
+```dart
+import 'package:flutter/material.dart';
+
+InputDecoration deco(String? error) => InputDecoration(
+      labelText: 'Password',
+      helperText: 'At least 8 characters',
+      errorText: error,
+      border: const OutlineInputBorder(),
+      suffixIcon: const Icon(Icons.visibility),
+    );
+```
+
+## Summary
+- Labels stay visible, unlike hints.
+- errorText shows validation messages.
+
+@lesson flutter-m04-l19 | Form validation | 8
+## Learning objectives
+- Validate fields with Form and TextFormField
+
+## Form validation
+Wrap fields in a `Form` with a `GlobalKey<FormState>`. Each `TextFormField` has a `validator` returning an error string or null; call `formKey.currentState!.validate()` on submit.
+
+```dart
+import 'package:flutter/material.dart';
+
+final formKey = GlobalKey<FormState>();
+
+Widget form(VoidCallback onValid) => Form(
+      key: formKey,
+      child: Column(children: [
+        TextFormField(
+          decoration: const InputDecoration(labelText: 'Name'),
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+        ),
+        FilledButton(
+          onPressed: () { if (formKey.currentState!.validate()) onValid(); },
+          child: const Text('Submit'),
+        ),
+      ]),
+    );
+```
+
+## Summary
+- validator returns an error message or null.
+- validate() checks every field at once.
+
+@lesson flutter-m04-l20 | Light and dark themes | 8
+## Learning objectives
+- Support light, dark and system themes
+
+## Light and dark themes
+Provide `theme` and `darkTheme` to MaterialApp and choose with `themeMode`. Using colour roles means most widgets adapt automatically.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget app(ThemeMode mode) => MaterialApp(
+      theme: ThemeData(colorSchemeSeed: Colors.indigo),
+      darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, brightness: Brightness.dark),
+      themeMode: mode,
+      home: const Scaffold(body: Center(child: Text('Hello'))),
+    );
+```
+
+## Summary
+- theme + darkTheme + themeMode.
+- Never hard-code white/black text.
+
+@lesson flutter-m04-l21 | Dynamic colors | 8
+## Learning objectives
+- Use the user's wallpaper colours on Android 12+
+
+## Dynamic colors
+On Android 12+, Material You can derive colours from the wallpaper. The `dynamic_color` package provides `DynamicColorBuilder`, which gives you light and dark schemes or null (fall back to your seed scheme).
+
+```dart
+import 'package:flutter/material.dart';
+
+ColorScheme pick(ColorScheme? dynamic) =>
+    dynamic ?? ColorScheme.fromSeed(seedColor: const Color(0xFF6750F5));
+```
+
+## Summary
+- Dynamic colour personalises the app.
+- Always provide a fallback scheme.
+
+@lesson flutter-m04-l22 | Accessibility | 8
+## Learning objectives
+- Make Material UIs usable for everyone
+
+## Accessibility
+Use semantic labels (`tooltip`, `semanticLabel`, `Semantics`), touch targets of at least 48x48 dp, sufficient contrast, and support text scaling. Test with TalkBack/VoiceOver.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget icon() => const Icon(Icons.delete, semanticLabel: 'Delete lesson');
+
+Widget labelled() => Semantics(
+      label: 'Progress 40 percent',
+      child: const LinearProgressIndicator(value: 0.4),
+    );
+```
+
+## Summary
+- Label icons and custom widgets.
+- Respect 48 dp targets and text scaling.

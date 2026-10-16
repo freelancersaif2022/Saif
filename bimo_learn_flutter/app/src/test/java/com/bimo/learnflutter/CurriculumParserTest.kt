@@ -99,13 +99,10 @@ class CurriculumParserTest {
     }
 
     @Test
-    fun rejectsLessonWithoutQuiz() {
-        try {
-            CurriculumParser.parseModule("c", 1, "@module m | M\n@lesson l | L | 3\nText only\n", "test")
-            fail("expected exception")
-        } catch (e: CurriculumFormatException) {
-            assertTrue(e.message!!.contains("no @quiz"))
-        }
+    fun lessonsWithoutQuizAreAllowed() {
+        val m = CurriculumParser.parseModule("c", 1, "@module m | M\n@lesson l | L | 3\nText only\n@lesson l2 | L2 | 3\nMore\n", "test")
+        assertEquals(2, m.lessons.size)
+        assertTrue(m.lessons.all { it.quiz.questions.isEmpty() })
     }
 
     @Test

@@ -1,0 +1,175 @@
+@module flutter-m11 | Packages and Dependencies
+@summary Find, add, constrain, maintain and create packages and plugins.
+
+@lesson flutter-m11-l01 | pubspec.yaml | 8
+## Learning objectives
+- Read and edit the project manifest
+
+## pubspec.yaml
+pubspec.yaml declares the app name, version (`1.2.0+5`: version name + build number), SDK constraint, dependencies, assets and fonts.
+
+```dart
+// version: 1.2.0+5   → versionName 1.2.0, versionCode 5
+// environment:
+//   sdk: ^3.7.0
+void main() {}
+```
+
+## Summary
+- version holds name+build number.
+
+@lesson flutter-m11-l02 | pub.dev | 8
+## Learning objectives
+- Evaluate packages before adding them
+
+## pub.dev
+On pub.dev check likes, pub points, popularity, the publisher (verified badge), platform support, last update and open issues before depending on a package.
+
+```dart
+// Prefer packages from verified publishers such as dart.dev, flutter.dev, google.dev
+void main() {}
+```
+
+## Summary
+- Evaluate quality and maintenance first.
+
+@lesson flutter-m11-l03 | Installing packages | 8
+## Learning objectives
+- Add dependencies with flutter pub add
+
+## Installing packages
+`flutter pub add http` adds the latest compatible version to pubspec.yaml and runs pub get. Import it with `package:http/http.dart`.
+
+```dart
+import 'package:http/http.dart' as http;
+
+Future<int> ping() async => (await http.get(Uri.parse('https://example.com'))).statusCode;
+```
+
+## Summary
+- Use flutter pub add; avoid hand-editing versions.
+
+@lesson flutter-m11-l04 | Dependency constraints | 8
+## Learning objectives
+- Write sensible version constraints
+
+## Dependency constraints
+Use caret constraints (`^1.2.0`). Avoid `any`. Use `dependency_overrides` only temporarily to resolve conflicts.
+
+```dart
+// dependencies:
+//   http: ^1.2.0      # >=1.2.0 <2.0.0
+void main() {}
+```
+
+## Summary
+- Caret constraints allow compatible updates.
+
+@lesson flutter-m11-l05 | Semantic versioning | 8
+## Learning objectives
+- Interpret version numbers
+
+## Semantic versioning
+MAJOR.MINOR.PATCH: breaking changes bump MAJOR, features bump MINOR, fixes bump PATCH. Read the CHANGELOG before major upgrades.
+
+```dart
+bool isBreaking(String from, String to) => from.split('.').first != to.split('.').first;
+void main() => print(isBreaking('1.4.0', '2.0.0'));
+```
+
+## Summary
+- Major bumps may break your code.
+
+@lesson flutter-m11-l06 | Dependency conflicts | 8
+## Learning objectives
+- Resolve version solving failures
+
+## Dependency conflicts
+If two packages need incompatible versions of a third, pub fails. Upgrade both, check `flutter pub deps`, or temporarily override.
+
+```dart
+// flutter pub outdated
+// flutter pub deps --style=compact
+void main() {}
+```
+
+## Summary
+- Inspect the graph, then upgrade.
+
+@lesson flutter-m11-l07 | Flutter plugins | 8
+## Learning objectives
+- Understand packages with native code
+
+## Flutter plugins
+Plugins contain Dart plus Kotlin/Swift code (camera, location). They require a full rebuild and sometimes native configuration such as permissions.
+
+```dart
+import 'package:url_launcher/url_launcher.dart';
+
+Future<bool> openDocs() => launchUrl(Uri.parse('https://docs.flutter.dev'));
+```
+
+## Summary
+- Plugins need a full rebuild after adding.
+
+@lesson flutter-m11-l08 | Platform packages | 8
+## Learning objectives
+- Handle platform-specific support
+
+## Platform packages
+Check each package's supported platforms. Use `kIsWeb` and `defaultTargetPlatform` to branch when a feature isn't available everywhere.
+
+```dart
+import 'package:flutter/foundation.dart';
+
+bool get supportsFiles => !kIsWeb;
+```
+
+## Summary
+- Guard features per platform.
+
+@lesson flutter-m11-l09 | Creating packages | 8
+## Learning objectives
+- Share code as a package
+
+## Creating packages
+`flutter create --template=package my_widgets` creates a reusable package; `--template=plugin` creates a plugin with native code.
+
+```dart
+// flutter create --template=package bimo_widgets
+void main() {}
+```
+
+## Summary
+- Packages share Dart code; plugins add native code.
+
+@lesson flutter-m11-l10 | Maintaining dependencies | 8
+## Learning objectives
+- Keep dependencies healthy
+
+## Maintaining dependencies
+Run `flutter pub outdated` regularly, upgrade in small steps, run tests after each upgrade and remove unused packages.
+
+```dart
+// flutter pub upgrade --major-versions (review changes!)
+void main() {}
+```
+
+## Summary
+- Small, frequent upgrades are safest.
+
+@lesson flutter-m11-l11 | Common useful packages | 8
+## Learning objectives
+- Know the popular essentials
+
+## Common useful packages
+Frequently used: go_router (navigation), provider/flutter_riverpod/flutter_bloc (state), http/dio (network), shared_preferences, sqflite/drift (storage), intl (formatting), cached_network_image, url_launcher, path_provider.
+
+```dart
+import 'package:intl/intl.dart';
+
+String price(double v) => NumberFormat.currency(symbol: '\$').format(v);
+```
+
+## Summary
+- Lean on well-maintained packages.

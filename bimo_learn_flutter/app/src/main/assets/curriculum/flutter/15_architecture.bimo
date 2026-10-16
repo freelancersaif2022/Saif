@@ -1,0 +1,169 @@
+@module flutter-m15 | Architecture
+@summary Structure apps with MVC, MVVM, Clean Architecture, repositories, DI and SOLID.
+
+@lesson flutter-m15-l01 | MVC | 8
+## Learning objectives
+- Understand Model-View-Controller
+
+## MVC
+MVC separates data (Model), UI (View) and input handling (Controller). In Flutter, widgets are the View; controllers or state objects handle actions.
+
+```dart
+class CounterModel { int value = 0; }
+class CounterController {
+  CounterController(this.model);
+  final CounterModel model;
+  void increment() => model.value++;
+}
+```
+
+## Summary
+- Separate data, UI and actions.
+
+@lesson flutter-m15-l02 | MVVM | 8
+## Learning objectives
+- Use ViewModels to expose UI state
+
+## MVVM
+In MVVM the View observes a ViewModel that exposes ready-to-display state and commands; the ViewModel talks to repositories. The Flutter team's architecture guide recommends this pattern.
+
+```dart
+import 'package:flutter/foundation.dart';
+
+class LessonsViewModel extends ChangeNotifier {
+  List<String> lessons = [];
+  bool loading = false;
+  Future<void> load(Future<List<String>> Function() repo) async {
+    loading = true; notifyListeners();
+    lessons = await repo();
+    loading = false; notifyListeners();
+  }
+}
+```
+
+## Summary
+- Views observe ViewModels; ViewModels call repositories.
+
+@lesson flutter-m15-l03 | Clean Architecture | 8
+## Learning objectives
+- Separate presentation, domain and data layers
+
+## Clean Architecture
+Clean Architecture splits code into presentation (UI, ViewModels), domain (entities, use cases, repository interfaces) and data (API/DB implementations). Dependencies point inward to the domain.
+
+```dart
+// domain
+abstract interface class ProgressRepository { Future<Set<String>> completed(); }
+class GetNextLesson {
+  GetNextLesson(this.repo);
+  final ProgressRepository repo;
+  Future<String> call(List<String> order) async {
+    final done = await repo.completed();
+    return order.firstWhere((id) => !done.contains(id), orElse: () => order.last);
+  }
+}
+```
+
+## Summary
+- Domain has no Flutter or database imports.
+
+@lesson flutter-m15-l04 | Repository pattern | 8
+## Learning objectives
+- Hide data sources behind repositories
+
+## Repository pattern
+A repository offers domain-friendly methods and decides whether data comes from cache, database or network.
+
+```dart
+abstract interface class WeatherRepository { Future<double> temperature(String city); }
+
+class CachedWeatherRepository implements WeatherRepository {
+  CachedWeatherRepository(this.remote);
+  final Future<double> Function(String) remote;
+  final _cache = <String, double>{};
+  @override
+  Future<double> temperature(String city) async => _cache[city] ??= await remote(city);
+}
+```
+
+## Summary
+- UI never talks to APIs directly.
+
+@lesson flutter-m15-l05 | Dependency injection | 8
+## Learning objectives
+- Provide dependencies from outside
+
+## Dependency injection
+Pass dependencies into constructors instead of creating them inside classes. Provide them with Provider/Riverpod or a service locator like get_it, and swap fakes in tests.
+
+```dart
+class AuthService { AuthService(this.api); final Object api; }
+final auth = AuthService(Object()); // composed at app start
+```
+
+## Summary
+- Constructor injection makes code testable.
+
+@lesson flutter-m15-l06 | SOLID principles | 8
+## Learning objectives
+- Apply SOLID to Dart code
+
+## SOLID principles
+Single responsibility, Open/closed, Liskov substitution, Interface segregation, Dependency inversion. They lead to small classes that depend on abstractions.
+
+```dart
+abstract interface class Logger { void log(String m); }
+class ConsoleLogger implements Logger { @override void log(String m) => print(m); }
+class Checkout { Checkout(this.logger); final Logger logger; }
+```
+
+## Summary
+- Depend on abstractions, keep classes focused.
+
+@lesson flutter-m15-l07 | Feature-based architecture | 8
+## Learning objectives
+- Organise code by feature
+
+## Feature-based architecture
+Group code by feature (auth, lessons, profile), each with its own data/domain/presentation folders, plus a shared core.
+
+```dart
+// lib/features/lessons/{data,domain,presentation}/
+// lib/core/{theme,network,utils}/
+void main() {}
+```
+
+## Summary
+- Feature folders scale better than type folders.
+
+@lesson flutter-m15-l08 | Error handling architecture | 8
+## Learning objectives
+- Handle errors consistently across layers
+
+## Error handling architecture
+Data layers catch exceptions and convert them into typed failures (sealed classes or Result types); ViewModels map failures to UI states; a global handler reports unexpected errors.
+
+```dart
+sealed class Failure { const Failure(this.message); final String message; }
+class NetworkFailure extends Failure { const NetworkFailure() : super('Check your connection'); }
+class ServerFailure extends Failure { const ServerFailure() : super('Something went wrong'); }
+```
+
+## Summary
+- Typed failures make UI error states exhaustive.
+
+@lesson flutter-m15-l09 | Maintainable project organization | 8
+## Learning objectives
+- Keep a growing codebase healthy
+
+## Maintainable project organization
+Use lints, consistent naming, small files, documented public APIs, CI checks and code review. Refactor continuously instead of in big rewrites.
+
+```dart
+// analysis_options.yaml
+// include: package:flutter_lints/flutter.yaml
+void main() {}
+```
+
+## Summary
+- Automate quality checks in CI.

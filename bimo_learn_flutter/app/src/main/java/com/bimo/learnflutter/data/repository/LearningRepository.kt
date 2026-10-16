@@ -251,6 +251,41 @@ class LearningRepository @Inject constructor(
         return outcome.copy(newAchievements = evaluateAchievements())
     }
 
+    /** Completes a lesson that has no quiz (requires that the content was read). */
+    suspend fun completeLessonWithoutQuiz(lesson: Lesson): LessonQuizOutcome? {
+        if (lesson.quiz.questions.isNotEmpty()) return null
+        val curriculum = curriculumRepository.curriculum()
+        val now = time.nowMillis()
+        val outcome = db.withTransaction {
+            val existing = progressDao.get(lesson.id)
+                ?: LessonProgressEntity(lesson.id, lesson.courseId, lesson.moduleId, startedAt = now)
+            val firstCompletion = existing.completedAt == null
+            progressDao.upsert(existing.copy(readAt = existing.readAt ?: now, completedAt = existing.completedAt ?: now, bestScore = 100))
+            touchActivity(lessons = if (firstCompletion) 1 else 0, quizzes = 0)
+            val completed = progressDao.completedIds().toSet()
+            val module = curriculum.module(lesson.moduleId)
+            val moduleDone = module != null && firstCompletion && ProgressionEngine.moduleProgress(module, completed).isComplete
+            val course = curriculum.course(lesson.courseId)
+            val awards = buildList {
+                add(XpAward(XpRules.lessonKey(lesson.id), XpRules.LESSON_COMPLETE, "Completed “${lesson.title}”"))
+                if (lesson.isProject) add(XpAward(XpRules.projectKey(lesson.id), XpRules.PROJECT_COMPLETE, "Project completed"))
+                if (moduleDone) add(XpAward(XpRules.moduleKey(module!!.id), XpRules.MODULE_COMPLETE, "Module completed: ${module.title}"))
+                add(XpAward(XpRules.dailyKey(time.todayEpochDay()), XpRules.DAILY_ACTIVITY, "Daily learning activity"))
+            }
+            LessonQuizOutcome(
+                result = QuizResult(lesson.quiz.id, 0, 0, QuizGrader.DEFAULT_PASS_PERCENT, emptyList()),
+                attemptId = -1,
+                firstCompletion = firstCompletion,
+                awarded = grant(awards, now),
+                newAchievements = emptyList(),
+                nextLessonId = ProgressionEngine.lessonAfter(lesson.id, curriculum)?.id,
+                completedModuleTitle = if (moduleDone) module!!.title else null,
+                courseCompleted = course != null && firstCompletion && ProgressionEngine.isCourseComplete(course, completed),
+            )
+        }
+        return outcome.copy(newAchievements = evaluateAchievements())
+    }
+
     /** Practice re-take of an already completed lesson's quiz: recorded in history, no completion logic. */
     suspend fun submitPracticeQuiz(lesson: Lesson, answers: Map<String, QuizAnswer>, durationSeconds: Int): Pair<QuizResult, Long> {
         val result = QuizGrader.grade(lesson.quiz, answers)

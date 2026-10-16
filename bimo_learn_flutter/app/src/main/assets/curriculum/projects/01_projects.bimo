@@ -1,0 +1,519 @@
+@module projects-m01 | Real-World Projects
+@summary Fifteen guided apps from a counter to a production-style application.
+
+@lesson projects-m01-l01 | Counter Application | 45
+## Learning objectives
+- Build a complete counter application
+- Practise architecture, state and testing
+
+## Counter Application
+Build the classic counter with increment, decrement and reset, using setState.
+
+## Dependencies
+- Flutter SDK only
+
+## Steps
+1. Create the project
+2. Add a StatefulWidget holding the count
+3. Add three buttons
+4. Prevent negative values
+
+```dart
+import 'package:flutter/material.dart';
+
+class CounterApp extends StatefulWidget {
+  const CounterApp({super.key});
+  @override
+  State<CounterApp> createState() => _CounterAppState();
+}
+
+class _CounterAppState extends State<CounterApp> {
+  int count = 0;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(child: Text('$count', style: Theme.of(context).textTheme.displayLarge)),
+        floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          FloatingActionButton(onPressed: count > 0 ? () => setState(() => count--) : null, child: const Icon(Icons.remove)),
+          const SizedBox(width: 8),
+          FloatingActionButton(onPressed: () => setState(() => count++), child: const Icon(Icons.add)),
+        ]),
+      );
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working counter application.
+- Extend it with your own features.
+
+@lesson projects-m01-l02 | Calculator Application | 45
+## Learning objectives
+- Build a complete calculator application
+- Practise architecture, state and testing
+
+## Calculator Application
+Build a calculator with a grid of buttons and correct operator handling.
+
+## Dependencies
+- Flutter SDK only
+
+## Steps
+1. Lay out a GridView of buttons
+2. Store the expression in state
+3. Evaluate left to right with + − × ÷
+4. Handle division by zero
+
+```dart
+double calculate(double a, String op, double b) => switch (op) {
+      '+' => a + b,
+      '-' => a - b,
+      '×' => a * b,
+      '÷' => b == 0 ? double.nan : a / b,
+      _ => throw ArgumentError(op),
+    };
+void main() => print(calculate(6, '÷', 3));
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working calculator application.
+- Extend it with your own features.
+
+@lesson projects-m01-l03 | Todo Application | 45
+## Learning objectives
+- Build a complete todo application
+- Practise architecture, state and testing
+
+## Todo Application
+Build a todo list with add, complete, delete and persistence.
+
+## Dependencies
+- shared_preferences
+
+## Steps
+1. Create a Todo model
+2. Show todos in ListView.builder
+3. Add with a TextField
+4. Toggle with a Checkbox and delete with swipe
+5. Persist as JSON
+
+```dart
+class Todo {
+  Todo(this.title, {this.done = false});
+  final String title;
+  bool done;
+  Map<String, Object> toJson() => {'title': title, 'done': done};
+  factory Todo.fromJson(Map<String, dynamic> j) => Todo(j['title'] as String, done: j['done'] as bool);
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working todo application.
+- Extend it with your own features.
+
+@lesson projects-m01-l04 | Notes Application | 45
+## Learning objectives
+- Build a complete notes application
+- Practise architecture, state and testing
+
+## Notes Application
+Build a notes app with SQLite storage, search and editing.
+
+## Dependencies
+- sqflite
+- path
+
+## Steps
+1. Design the notes table
+2. Write a NotesRepository
+3. List notes ordered by date
+4. Edit screen with title and body
+5. Search by title
+
+```dart
+import 'package:sqflite/sqflite.dart';
+
+class NotesRepository {
+  NotesRepository(this.db);
+  final Database db;
+  Future<List<Map<String, Object?>>> search(String q) =>
+      db.query('notes', where: 'title LIKE ?', whereArgs: ['%$q%'], orderBy: 'updated_at DESC');
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working notes application.
+- Extend it with your own features.
+
+@lesson projects-m01-l05 | Weather Application | 45
+## Learning objectives
+- Build a complete weather application
+- Practise architecture, state and testing
+
+## Weather Application
+Fetch weather from a public API and show current conditions and a forecast.
+
+## Dependencies
+- http
+
+## Steps
+1. Pick an API (e.g. Open-Meteo, no key needed)
+2. Create models with fromJson
+3. Repository with error handling
+4. Loading, error and data states
+5. Pull to refresh
+
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+Future<double> currentTemp(double lat, double lon) async {
+  final res = await http.get(Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m'));
+  return (jsonDecode(res.body)['current']['temperature_2m'] as num).toDouble();
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working weather application.
+- Extend it with your own features.
+
+@lesson projects-m01-l06 | Quiz Application | 45
+## Learning objectives
+- Build a complete quiz application
+- Practise architecture, state and testing
+
+## Quiz Application
+Build a quiz with questions, scoring and a results screen.
+
+## Dependencies
+- Flutter SDK only
+
+## Steps
+1. Model questions with options and answer index
+2. Show one question at a time
+3. Track score
+4. Results screen with retry
+
+```dart
+class Question {
+  const Question(this.text, this.options, this.answer);
+  final String text;
+  final List<String> options;
+  final int answer;
+}
+int score(List<Question> qs, List<int> picks) => [for (var i = 0; i < qs.length; i++) if (qs[i].answer == picks[i]) 1].length;
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working quiz application.
+- Extend it with your own features.
+
+@lesson projects-m01-l07 | Expense Tracker | 45
+## Learning objectives
+- Build a complete expense tracker
+- Practise architecture, state and testing
+
+## Expense Tracker
+Track expenses by category with totals and a simple chart.
+
+## Dependencies
+- intl
+- sqflite
+
+## Steps
+1. Expense model in cents
+2. Add expense form with validation
+3. Group totals by category
+4. Show a bar chart with CustomPainter
+
+```dart
+class Expense { Expense(this.cents, this.category); final int cents; final String category; }
+Map<String, int> totals(List<Expense> list) {
+  final m = <String, int>{};
+  for (final e in list) { m[e.category] = (m[e.category] ?? 0) + e.cents; }
+  return m;
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working expense tracker.
+- Extend it with your own features.
+
+@lesson projects-m01-l08 | Authentication Application | 45
+## Learning objectives
+- Build a complete authentication application
+- Practise architecture, state and testing
+
+## Authentication Application
+Build sign-up, sign-in and sign-out flows with guarded routes.
+
+## Dependencies
+- firebase_auth
+- go_router
+
+## Steps
+1. Configure Firebase
+2. Sign-in and sign-up forms with validation
+3. Auth repository
+4. Redirect with go_router based on auth state
+
+```dart
+import 'package:firebase_auth/firebase_auth.dart';
+
+class AuthRepository {
+  Stream<User?> get changes => FirebaseAuth.instance.authStateChanges();
+  Future<void> signOut() => FirebaseAuth.instance.signOut();
+}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working authentication application.
+- Extend it with your own features.
+
+@lesson projects-m01-l09 | News Reader | 45
+## Learning objectives
+- Build a complete news reader
+- Practise architecture, state and testing
+
+## News Reader
+Show headlines from an API with pagination, caching and an article detail view.
+
+## Dependencies
+- dio
+- cached_network_image
+- url_launcher
+
+## Steps
+1. Article model
+2. Paginated list with infinite scroll
+3. Cache the first page
+4. Open articles in the browser
+
+```dart
+class Article { Article(this.title, this.url); final String title; final String url; }
+bool shouldLoadMore(double pixels, double max) => pixels > max - 300;
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working news reader.
+- Extend it with your own features.
+
+@lesson projects-m01-l10 | Chat Application | 45
+## Learning objectives
+- Build a complete chat application
+- Practise architecture, state and testing
+
+## Chat Application
+Build a real-time chat with Firestore streams.
+
+## Dependencies
+- cloud_firestore
+- firebase_auth
+
+## Steps
+1. Messages collection per room
+2. StreamBuilder for messages
+3. Send with a TextField
+4. Show own messages on the right
+
+```dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+Stream<QuerySnapshot<Map<String, dynamic>>> messages(String room) => FirebaseFirestore.instance
+    .collection('rooms/$room/messages').orderBy('sentAt').snapshots();
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working chat application.
+- Extend it with your own features.
+
+@lesson projects-m01-l11 | E-Commerce Application | 45
+## Learning objectives
+- Build a complete e-commerce application
+- Practise architecture, state and testing
+
+## E-Commerce Application
+Build a shop with a product grid, details, cart and checkout summary.
+
+## Dependencies
+- provider or flutter_riverpod
+
+## Steps
+1. Product model and grid
+2. Cart state with quantities
+3. Cart badge
+4. Checkout summary with totals
+
+```dart
+class CartLine { CartLine(this.priceCents, this.qty); final int priceCents; int qty; }
+int totalCents(List<CartLine> lines) => lines.fold(0, (sum, l) => sum + l.priceCents * l.qty);
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working e-commerce application.
+- Extend it with your own features.
+
+@lesson projects-m01-l12 | Social Media UI | 45
+## Learning objectives
+- Build a complete social media ui
+- Practise architecture, state and testing
+
+## Social Media UI
+Recreate a feed with stories, posts, likes and a profile screen.
+
+## Dependencies
+- cached_network_image
+
+## Steps
+1. Stories row with horizontal ListView
+2. Post card with image and actions
+3. Like animation
+4. Profile grid
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget storyRow(List<String> names) => SizedBox(
+      height: 96,
+      child: ListView(scrollDirection: Axis.horizontal, children: [
+        for (final n in names) Padding(padding: const EdgeInsets.all(8), child: CircleAvatar(radius: 30, child: Text(n[0]))),
+      ]),
+    );
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working social media ui.
+- Extend it with your own features.
+
+@lesson projects-m01-l13 | Task Management Application | 45
+## Learning objectives
+- Build a complete task management application
+- Practise architecture, state and testing
+
+## Task Management Application
+Build a kanban-style task manager with drag and drop between columns.
+
+## Dependencies
+- flutter_bloc
+
+## Steps
+1. Task model with status
+2. Columns for each status
+3. Drag tasks between columns
+4. Persist and filter
+
+```dart
+enum Status { todo, doing, done }
+class Task { Task(this.title, this.status); final String title; Status status; }
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working task management application.
+- Extend it with your own features.
+
+@lesson projects-m01-l14 | Firebase Application | 45
+## Learning objectives
+- Build a complete firebase application
+- Practise architecture, state and testing
+
+## Firebase Application
+Build a cloud-synced notes app with auth, Firestore and security rules.
+
+## Dependencies
+- firebase_core
+- firebase_auth
+- cloud_firestore
+
+## Steps
+1. Configure FlutterFire
+2. Auth flow
+3. Per-user notes collection
+4. Write security rules
+5. Offline persistence
+
+```dart
+// match /users/{uid}/notes/{id} { allow read, write: if request.auth.uid == uid; }
+void main() {}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working firebase application.
+- Extend it with your own features.
+
+@lesson projects-m01-l15 | Complete Production-Style Flutter Application | 45
+## Learning objectives
+- Build a complete complete production-style flutter application
+- Practise architecture, state and testing
+
+## Complete Production-Style Flutter Application
+Combine everything: feature-based architecture, routing, state management, networking, local cache, theming, tests, CI and a release build.
+
+## Dependencies
+- go_router
+- flutter_riverpod
+- dio
+- drift
+- flutter_test
+
+## Steps
+1. Define features and layers
+2. Set up routing and DI
+3. Implement data layer with cache
+4. Build screens with loading/error states
+5. Add tests and CI
+6. Build and sign a release
+
+```dart
+// lib/
+//   app/ (router, theme)
+//   core/ (network, storage, errors)
+//   features/<feature>/{data,domain,presentation}
+void main() {}
+```
+
+## Testing
+Write a unit test for the core logic and a widget test that taps the main action and checks the result.
+
+## Summary
+- You built a working complete production-style flutter application.
+- Extend it with your own features.

@@ -1,0 +1,173 @@
+@module flutter-m20 | Advanced Professional Development
+@summary Flutter internals, native interop, background work, sync, modular and large-scale design, multi-platform delivery.
+
+@lesson flutter-m20-l01 | Advanced Dart patterns | 8
+## Learning objectives
+- Use modern Dart idioms in large codebases
+
+## Advanced Dart patterns
+Sealed classes for states, records for lightweight results, extension types for IDs, and pattern matching for exhaustive UI logic.
+
+```dart
+extension type LessonId(String value) {}
+sealed class Load<T> {}
+class Ready<T> extends Load<T> { Ready(this.data); final T data; }
+class Failed<T> extends Load<T> {}
+```
+
+## Summary
+- Let the type system prevent bugs.
+
+@lesson flutter-m20-l02 | Flutter internals | 8
+## Learning objectives
+- Understand elements and render objects
+
+## Flutter internals
+Widgets configure Elements, which manage RenderObjects. `canUpdate` (same runtimeType and key) decides whether an element is reused; keys control identity.
+
+```dart
+import 'package:flutter/widgets.dart';
+
+bool reusable(Widget a, Widget b) => Widget.canUpdate(a, b);
+```
+
+## Summary
+- Keys and types decide element reuse.
+
+@lesson flutter-m20-l03 | Native interoperability | 8
+## Learning objectives
+- Go beyond platform channels
+
+## Native interoperability
+Pigeon generates type-safe channel code; dart:ffi calls C libraries directly; jnigen and ffigen generate bindings for Java/Kotlin and Objective-C/Swift.
+
+```dart
+// dart run pigeon --input pigeons/messages.dart
+void main() {}
+```
+
+## Summary
+- Prefer generated, type-safe bindings.
+
+@lesson flutter-m20-l04 | Background tasks | 8
+## Learning objectives
+- Run work when the app isn't open
+
+## Background tasks
+Use `workmanager` for deferrable periodic tasks on Android/iOS, and respect OS limits on background execution.
+
+```dart
+// Workmanager().registerPeriodicTask('sync', 'syncTask', frequency: const Duration(hours: 6));
+void main() {}
+```
+
+## Summary
+- Background work is limited by the OS.
+
+@lesson flutter-m20-l05 | Offline synchronization | 8
+## Learning objectives
+- Sync local changes reliably
+
+## Offline synchronization
+Queue offline changes with IDs and timestamps, sync when online, and resolve conflicts (last-write-wins or merge).
+
+```dart
+class PendingChange { PendingChange(this.id, this.payload, this.updatedAt); final String id; final Map<String, Object?> payload; final DateTime updatedAt; }
+```
+
+## Summary
+- Queue, retry and resolve conflicts.
+
+@lesson flutter-m20-l06 | Modular architecture | 8
+## Learning objectives
+- Split large apps into packages
+
+## Modular architecture
+Use a monorepo with local packages per feature and tools such as Melos or Dart pub workspaces to manage them.
+
+```dart
+// pubspec.yaml (workspace root)
+// workspace:
+//   - packages/core
+//   - packages/feature_lessons
+void main() {}
+```
+
+## Summary
+- Packages enforce boundaries.
+
+@lesson flutter-m20-l07 | Large-scale application design | 8
+## Learning objectives
+- Keep big apps coherent
+
+## Large-scale application design
+Define layers, shared design systems, coding standards, ownership and ADRs (architecture decision records).
+
+```dart
+// docs/adr/0001-state-management.md
+void main() {}
+```
+
+## Summary
+- Write down decisions.
+
+@lesson flutter-m20-l08 | Desktop and web deployment | 8
+## Learning objectives
+- Ship to more platforms
+
+## Desktop and web deployment
+Build with `flutter build web`, `flutter build windows/macos/linux`. Adapt input (mouse, keyboard), window sizes and platform conventions.
+
+```dart
+// flutter build web --release
+void main() {}
+```
+
+## Summary
+- Adapt UX per platform.
+
+@lesson flutter-m20-l09 | Advanced testing | 8
+## Learning objectives
+- Test like a professional team
+
+## Advanced testing
+Use golden tests for visuals, contract tests for APIs, test coverage reports and device farms (Firebase Test Lab) for integration tests.
+
+```dart
+// flutter test --coverage
+// matchesGoldenFile('goldens/home.png')
+void main() {}
+```
+
+## Summary
+- Combine test types for confidence.
+
+@lesson flutter-m20-l10 | Production monitoring | 8
+## Learning objectives
+- Observe apps in production
+
+## Production monitoring
+Track crashes, performance traces, key business events and user feedback; set alerts for regressions.
+
+```dart
+// Firebase Performance traces, Crashlytics alerts, Play vitals
+void main() {}
+```
+
+## Summary
+- Monitor, alert, act.
+
+@lesson flutter-m20-l11 | Technical debt management | 8
+## Learning objectives
+- Keep debt under control
+
+## Technical debt management
+Track debt explicitly, budget time for refactoring, upgrade dependencies regularly and remove dead code.
+
+```dart
+// Track debt items with owners and deadlines
+void main() {}
+```
+
+## Summary
+- Pay debt down continuously.

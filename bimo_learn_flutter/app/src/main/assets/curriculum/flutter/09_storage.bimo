@@ -1,0 +1,179 @@
+@module flutter-m09 | Local Storage
+@summary Persist data on the device with preferences, secure storage, SQLite, Drift and files.
+
+@lesson flutter-m09-l01 | SharedPreferences | 8
+## Learning objectives
+- Store small key-value settings
+
+## SharedPreferences
+`shared_preferences` stores simple values (bool, int, double, String, List<String>) for settings and flags. Not for large or sensitive data.
+
+```dart
+import 'package:shared_preferences/shared_preferences.dart';
+
+Future<void> saveTheme(bool dark) async {
+  final prefs = SharedPreferencesAsync();
+  await prefs.setBool('darkMode', dark);
+}
+```
+
+## Summary
+- Use it for small preferences only.
+
+@lesson flutter-m09-l02 | Secure storage | 8
+## Learning objectives
+- Store secrets safely
+
+## Secure storage
+`flutter_secure_storage` uses the Android Keystore and iOS Keychain. Store tokens and keys there, never in SharedPreferences.
+
+```dart
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+const storage = FlutterSecureStorage();
+Future<void> saveToken(String t) => storage.write(key: 'token', value: t);
+```
+
+## Summary
+- Secrets belong in secure storage.
+
+@lesson flutter-m09-l03 | SQLite | 8
+## Learning objectives
+- Understand relational local storage
+
+## SQLite
+SQLite is an embedded relational database: tables, rows, SQL queries, indexes and transactions. Use it for structured data that you query and filter, such as notes or lesson progress.
+
+```dart
+const createNotes = '''
+CREATE TABLE notes(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+)''';
+void main() => print(createNotes);
+```
+
+## Summary
+- Use SQLite for structured, queryable data.
+
+@lesson flutter-m09-l04 | sqflite | 8
+## Learning objectives
+- Use SQLite from Flutter
+
+## sqflite
+`sqflite` opens a database file and runs SQL. Keep access in a repository class.
+
+```dart
+import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+
+Future<Database> open() async => openDatabase(
+      join(await getDatabasesPath(), 'notes.db'),
+      version: 1,
+      onCreate: (db, v) => db.execute('CREATE TABLE notes(id INTEGER PRIMARY KEY, title TEXT)'),
+    );
+```
+
+## Summary
+- Use parameterised queries (whereArgs) to avoid SQL injection.
+
+@lesson flutter-m09-l05 | Drift | 8
+## Learning objectives
+- Use a type-safe database layer
+
+## Drift
+Drift (formerly Moor) generates type-safe Dart APIs from table definitions, supports reactive queries (streams) and migrations. Run build_runner to generate code.
+
+```dart
+// Table definition (generated code via build_runner)
+// class Notes extends Table {
+//   IntColumn get id => integer().autoIncrement()();
+//   TextColumn get title => text()();
+// }
+void main() {}
+```
+
+## Summary
+- Drift gives typed queries and streams.
+
+@lesson flutter-m09-l06 | Local caching | 8
+## Learning objectives
+- Serve data instantly and refresh in the background
+
+## Local caching
+Cache API responses locally so screens load instantly and work offline; then refresh from the network and update the cache (stale-while-revalidate).
+
+```dart
+Future<List<String>> lessons(Future<List<String>> Function() network, List<String>? cache, void Function(List<String>) save) async {
+  try {
+    final fresh = await network();
+    save(fresh);
+    return fresh;
+  } catch (_) {
+    return cache ?? [];
+  }
+}
+```
+
+## Summary
+- Show cached data first, then refresh.
+
+@lesson flutter-m09-l07 | File storage | 8
+## Learning objectives
+- Read and write files
+
+## File storage
+`path_provider` gives app directories; `dart:io` File reads and writes them. Use the documents directory for user data and the temporary directory for caches.
+
+```dart
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+
+Future<File> saveText(String name, String text) async {
+  final dir = await getApplicationDocumentsDirectory();
+  return File('${dir.path}/$name').writeAsString(text);
+}
+```
+
+## Summary
+- Pick the right directory for each kind of file.
+
+@lesson flutter-m09-l08 | Offline-first architecture | 8
+## Learning objectives
+- Make the local database the source of truth
+
+## Offline-first architecture
+In offline-first apps the UI reads from local storage only; a sync layer pulls from and pushes to the server when online, queuing changes made offline.
+
+```dart
+enum SyncStatus { synced, pending }
+
+class LocalNote {
+  LocalNote(this.id, this.title, this.status);
+  final String id;
+  final String title;
+  final SyncStatus status;
+}
+```
+
+## Summary
+- UI reads local data; sync runs in the background.
+
+@lesson flutter-m09-l09 | Database migrations | 8
+## Learning objectives
+- Change schemas without losing data
+
+## Database migrations
+When you add columns or tables, bump the database version and migrate in `onUpgrade`. Never drop users' data.
+
+```dart
+import 'package:sqflite/sqflite.dart';
+
+Future<void> onUpgrade(Database db, int oldV, int newV) async {
+  if (oldV < 2) await db.execute('ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
+}
+```
+
+## Summary
+- Migrate step by step for each version.

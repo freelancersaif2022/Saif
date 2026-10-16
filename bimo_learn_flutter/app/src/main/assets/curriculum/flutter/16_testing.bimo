@@ -1,0 +1,170 @@
+@module flutter-m16 | Testing and Debugging
+@summary Unit, widget and integration tests, mocking, DevTools, debugging and profiling.
+
+@lesson flutter-m16-l01 | Unit testing | 8
+## Learning objectives
+- Test pure Dart logic
+
+## Unit testing
+Unit tests check functions and classes in isolation with `flutter_test`/`test`. They are fast and should cover your business logic.
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+
+int add(int a, int b) => a + b;
+
+void main() {
+  test('adds numbers', () => expect(add(2, 3), 5));
+}
+```
+
+## Summary
+- Most tests should be fast unit tests.
+
+@lesson flutter-m16-l02 | Widget testing | 8
+## Learning objectives
+- Test widgets without a device
+
+## Widget testing
+`testWidgets` pumps a widget in a test environment; find widgets with `find` and interact with `tester.tap`.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('shows greeting', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Text('Hello')));
+    expect(find.text('Hello'), findsOneWidget);
+  });
+}
+```
+
+## Summary
+- pumpWidget, find, tap, pump.
+
+@lesson flutter-m16-l03 | Integration testing | 8
+## Learning objectives
+- Test full flows on a device
+
+## Integration testing
+The `integration_test` package runs your real app on a device or emulator and drives it like a user.
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('app starts', (tester) async {
+    // await tester.pumpWidget(const MyApp());
+  });
+}
+```
+
+## Summary
+- Run with flutter test integration_test.
+
+@lesson flutter-m16-l04 | Mocking | 8
+## Learning objectives
+- Replace dependencies with fakes and mocks
+
+## Mocking
+Use fakes or `mocktail` mocks to control dependencies such as APIs and clocks.
+
+```dart
+import 'package:mocktail/mocktail.dart';
+
+abstract class Api { Future<String> name(); }
+class MockApi extends Mock implements Api {}
+
+void setup() {
+  final api = MockApi();
+  when(() => api.name()).thenAnswer((_) async => 'Ada');
+}
+```
+
+## Summary
+- Mock only what you don't own or can't control.
+
+@lesson flutter-m16-l05 | Flutter DevTools | 8
+## Learning objectives
+- Inspect widgets, performance and memory
+
+## Flutter DevTools
+DevTools offers the Inspector, Performance view (frame timings), CPU profiler, Memory view and Network view. Open it from your IDE while the app runs.
+
+```dart
+// flutter run, then press 'v' or use your IDE's Open DevTools command
+void main() {}
+```
+
+## Summary
+- Use the right DevTools tab for each problem.
+
+@lesson flutter-m16-l06 | Debugging | 8
+## Learning objectives
+- Find bugs with breakpoints and logging
+
+## Debugging
+Use breakpoints, step through code, inspect variables, and `debugPrint` for logs. Read the full stack trace: the first frame from your code is usually the culprit.
+
+```dart
+import 'package:flutter/foundation.dart';
+
+void log(Object o) { if (kDebugMode) debugPrint('[bimo] $o'); }
+```
+
+## Summary
+- Read stack traces from your own frames.
+
+@lesson flutter-m16-l07 | Performance profiling | 8
+## Learning objectives
+- Measure jank in profile mode
+
+## Performance profiling
+Profile in `--profile` mode on a real device. Look for frames over 16 ms in the Performance view and use the CPU profiler to find hot spots.
+
+```dart
+// flutter run --profile
+void main() {}
+```
+
+## Summary
+- Never profile in debug mode.
+
+@lesson flutter-m16-l08 | Memory leak prevention | 8
+## Learning objectives
+- Avoid leaks in Flutter apps
+
+## Memory leak prevention
+Dispose controllers, cancel subscriptions and timers, and avoid holding BuildContext or State in long-lived objects. Use DevTools Memory to verify.
+
+```dart
+import 'dart:async';
+
+class Poller { Timer? t; void start() => t = Timer.periodic(const Duration(seconds: 5), (_) {}); void dispose() => t?.cancel(); }
+```
+
+## Summary
+- Every listener needs a matching cancel.
+
+@lesson flutter-m16-l09 | Error reporting | 8
+## Learning objectives
+- Capture errors from users
+
+## Error reporting
+Set `FlutterError.onError` and `PlatformDispatcher.instance.onError` to send errors to a service such as Crashlytics or Sentry.
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+void setup() {
+  FlutterError.onError = (d) => debugPrint('report: ${d.exception}');
+  PlatformDispatcher.instance.onError = (e, s) { debugPrint('report: $e'); return true; };
+}
+```
+
+## Summary
+- Report both framework and async errors.

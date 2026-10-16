@@ -1,0 +1,210 @@
+@module flutter-m14 | Device Features
+@summary Use the camera, gallery, permissions, location, maps, sensors, notifications, files, sharing, URLs and platform channels.
+
+@lesson flutter-m14-l01 | Camera | 8
+## Learning objectives
+- Capture photos
+
+## Camera
+`image_picker` can open the camera; the `camera` package gives a full custom camera preview. Both need camera permission descriptions.
+
+```dart
+import 'package:image_picker/image_picker.dart';
+
+Future<XFile?> takePhoto() => ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600);
+```
+
+## Summary
+- Limit image size to save memory.
+
+@lesson flutter-m14-l02 | Gallery picker | 8
+## Learning objectives
+- Pick photos from the gallery
+
+## Gallery picker
+On modern Android, image_picker uses the system Photo Picker, which needs no storage permission.
+
+```dart
+import 'package:image_picker/image_picker.dart';
+
+Future<List<XFile>> pickPhotos() => ImagePicker().pickMultiImage(limit: 5);
+```
+
+## Summary
+- The Photo Picker avoids broad storage access.
+
+@lesson flutter-m14-l03 | Permissions | 8
+## Learning objectives
+- Request runtime permissions correctly
+
+## Permissions
+Request permissions only when needed and explain why. `permission_handler` checks and requests, and can open app settings if permanently denied.
+
+```dart
+import 'package:permission_handler/permission_handler.dart';
+
+Future<bool> ensureCamera() async {
+  final status = await Permission.camera.request();
+  if (status.isPermanentlyDenied) await openAppSettings();
+  return status.isGranted;
+}
+```
+
+## Summary
+- Ask in context, handle denial gracefully.
+
+@lesson flutter-m14-l04 | Location | 8
+## Learning objectives
+- Get the device position
+
+## Location
+`geolocator` checks services and permissions, then returns the position.
+
+```dart
+import 'package:geolocator/geolocator.dart';
+
+Future<Position> here() async {
+  var p = await Geolocator.checkPermission();
+  if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
+  return Geolocator.getCurrentPosition();
+}
+```
+
+## Summary
+- Prefer coarse location when precise isn't needed.
+
+@lesson flutter-m14-l05 | Maps | 8
+## Learning objectives
+- Show interactive maps
+
+## Maps
+`google_maps_flutter` embeds Google Maps (needs an API key); `flutter_map` uses OpenStreetMap tiles.
+
+```dart
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+const lisbon = CameraPosition(target: LatLng(38.72, -9.14), zoom: 12);
+// GoogleMap(initialCameraPosition: lisbon)
+void main() {}
+```
+
+## Summary
+- Restrict API keys in the cloud console.
+
+@lesson flutter-m14-l06 | Sensors | 8
+## Learning objectives
+- Read accelerometer and gyroscope
+
+## Sensors
+`sensors_plus` exposes sensor streams. Cancel subscriptions to save battery.
+
+```dart
+import 'package:sensors_plus/sensors_plus.dart';
+
+void listen() {
+  final sub = accelerometerEventStream().listen((e) => print('${e.x} ${e.y} ${e.z}'));
+  Future.delayed(const Duration(seconds: 5), sub.cancel);
+}
+```
+
+## Summary
+- Sensor streams must be cancelled.
+
+@lesson flutter-m14-l07 | Notifications | 8
+## Learning objectives
+- Show local notifications
+
+## Notifications
+`flutter_local_notifications` shows and schedules notifications. On Android 13+ request POST_NOTIFICATIONS permission first.
+
+```dart
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+final plugin = FlutterLocalNotificationsPlugin();
+Future<void> show() => plugin.show(1, 'Keep your streak!', 'One lesson today', const NotificationDetails(android: AndroidNotificationDetails('reminders', 'Reminders')));
+```
+
+## Summary
+- Use channels and ask permission on Android 13+.
+
+@lesson flutter-m14-l08 | File picker | 8
+## Learning objectives
+- Let users choose files
+
+## File picker
+`file_picker` opens the system file chooser for any file type.
+
+```dart
+import 'package:file_picker/file_picker.dart';
+
+Future<String?> pickPdf() async => (await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']))?.files.single.path;
+```
+
+## Summary
+- Filter by extension when possible.
+
+@lesson flutter-m14-l09 | File downloads | 8
+## Learning objectives
+- Download and save files
+
+## File downloads
+Download with http/dio and write to an app directory; show progress with Dio's onReceiveProgress.
+
+```dart
+import 'package:dio/dio.dart';
+
+Future<void> download(String url, String path) =>
+    Dio().download(url, path, onReceiveProgress: (r, t) => print('${(r / t * 100).round()}%'));
+```
+
+## Summary
+- Show progress for large downloads.
+
+@lesson flutter-m14-l10 | Sharing | 8
+## Learning objectives
+- Share text and files
+
+## Sharing
+`share_plus` opens the system share sheet.
+
+```dart
+import 'package:share_plus/share_plus.dart';
+
+Future<void> shareCert(String path) => Share.shareXFiles([XFile(path)], text: 'I finished my Flutter course!');
+```
+
+## Summary
+- Use the native share sheet.
+
+@lesson flutter-m14-l11 | URL launching | 8
+## Learning objectives
+- Open links, email and phone
+
+## URL launching
+`url_launcher` opens URLs in the browser or other apps (mailto:, tel:).
+
+```dart
+import 'package:url_launcher/url_launcher.dart';
+
+Future<void> email() => launchUrl(Uri.parse('mailto:support@bimo.app?subject=Help'));
+```
+
+## Summary
+- Check the return value; the app may be missing.
+
+@lesson flutter-m14-l12 | Platform channels | 8
+## Learning objectives
+- Call native Kotlin or Swift code
+
+## Platform channels
+MethodChannel sends method calls to native code and receives results; implement the handler in MainActivity (Kotlin) or AppDelegate (Swift).
+
+```dart
+import 'package:flutter/services.dart';
+
+const channel = MethodChannel('bimo/battery');
+Future<int?> battery() => channel.invokeMethod<int>('level');
+```
+
+## Summary
+- Channel names must match on both sides.

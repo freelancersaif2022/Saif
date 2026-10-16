@@ -1,0 +1,219 @@
+@module flutter-m19 | Production and Publishing
+@summary Prepare, sign, build and ship apps to Google Play and keep them healthy.
+
+@lesson flutter-m19-l01 | App icons | 8
+## Learning objectives
+- Generate adaptive icons
+
+## App icons
+Use `flutter_launcher_icons` to generate Android adaptive icons and iOS icons from one source image.
+
+```dart
+// flutter_launcher_icons:
+//   android: true
+//   ios: true
+//   image_path: assets/icon.png
+void main() {}
+```
+
+## Summary
+- Provide adaptive and monochrome icons.
+
+@lesson flutter-m19-l02 | Splash screens | 8
+## Learning objectives
+- Configure launch screens
+
+## Splash screens
+Android 12+ uses the system SplashScreen API. `flutter_native_splash` generates native splash resources for all platforms.
+
+```dart
+// flutter_native_splash:
+//   color: '#6750F5'
+//   image: assets/splash.png
+void main() {}
+```
+
+## Summary
+- Keep splash screens brief.
+
+@lesson flutter-m19-l03 | Android signing | 8
+## Learning objectives
+- Sign release builds
+
+## Android signing
+Create an upload keystore with keytool, reference it from `key.properties`, configure `signingConfigs` in Gradle, and never commit the keystore.
+
+```dart
+// keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+void main() {}
+```
+
+## Summary
+- Back up your upload key securely.
+
+@lesson flutter-m19-l04 | App bundles | 8
+## Learning objectives
+- Build Android App Bundles
+
+## App bundles
+Google Play requires `.aab` bundles; Play generates optimised APKs per device.
+
+```dart
+// flutter build appbundle --release
+void main() {}
+```
+
+## Summary
+- Upload AAB files to Play.
+
+@lesson flutter-m19-l05 | APK generation | 8
+## Learning objectives
+- Build APKs for testing
+
+## APK generation
+APKs are useful for direct installs and testers. `--split-per-abi` makes smaller APKs.
+
+```dart
+// flutter build apk --release --split-per-abi
+void main() {}
+```
+
+## Summary
+- Use APKs for side-loading and testing.
+
+@lesson flutter-m19-l06 | Google Play Console | 8
+## Learning objectives
+- Create and configure your app
+
+## Google Play Console
+In Play Console you create the app, complete the content rating, data safety form, target audience and app access, then upload releases.
+
+```dart
+// Play Console → Create app → Dashboard tasks
+void main() {}
+```
+
+## Summary
+- Complete all policy declarations.
+
+@lesson flutter-m19-l07 | Store listing | 8
+## Learning objectives
+- Write a listing that converts
+
+## Store listing
+Provide a clear title, short and full description, high-quality screenshots, a feature graphic and an accurate category.
+
+```dart
+// Title ≤ 30 chars, short description ≤ 80 chars
+void main() {}
+```
+
+## Summary
+- Screenshots sell the app.
+
+@lesson flutter-m19-l08 | Privacy policy | 8
+## Learning objectives
+- Publish a privacy policy
+
+## Privacy policy
+Play requires a privacy policy URL describing data collection, use, sharing and deletion, consistent with the Data safety form.
+
+```dart
+// Host the policy on a public URL and link it in the app
+void main() {}
+```
+
+## Summary
+- Keep the policy accurate and accessible.
+
+@lesson flutter-m19-l09 | App permissions | 8
+## Learning objectives
+- Request only what you need
+
+## App permissions
+Declare minimal permissions; sensitive ones (location in background, SMS) need justification and review.
+
+```dart
+// <uses-permission android:name="android.permission.CAMERA" />
+void main() {}
+```
+
+## Summary
+- Fewer permissions, more trust.
+
+@lesson flutter-m19-l10 | Version management | 8
+## Learning objectives
+- Version every release
+
+## Version management
+Increase the build number for every upload (`version: 1.3.0+14`) and follow semantic versioning for the name.
+
+```dart
+// version: 1.3.0+14
+void main() {}
+```
+
+## Summary
+- Build numbers must always increase.
+
+@lesson flutter-m19-l11 | Release channels | 8
+## Learning objectives
+- Roll out safely
+
+## Release channels
+Use internal, closed and open testing tracks, then staged rollouts to production (e.g. 10% → 50% → 100%).
+
+```dart
+// Internal → Closed → Open → Production (staged)
+void main() {}
+```
+
+## Summary
+- Staged rollouts limit risk.
+
+@lesson flutter-m19-l12 | Crash monitoring | 8
+## Learning objectives
+- Watch app health after release
+
+## Crash monitoring
+Monitor Crashlytics and Play Console Android vitals (crash and ANR rates) and halt rollouts if they spike.
+
+```dart
+// Halt a staged rollout from Play Console if crash rate rises
+void main() {}
+```
+
+## Summary
+- Act quickly on vitals.
+
+@lesson flutter-m19-l13 | CI/CD | 8
+## Learning objectives
+- Automate builds and releases
+
+## CI/CD
+Use GitHub Actions, Codemagic or Bitrise to run analyze, tests and builds on every push, and fastlane or Play APIs to upload releases.
+
+```dart
+// - run: flutter analyze
+// - run: flutter test
+// - run: flutter build appbundle
+void main() {}
+```
+
+## Summary
+- Automate checks on every change.
+
+@lesson flutter-m19-l14 | Updates and maintenance | 8
+## Learning objectives
+- Keep the app current
+
+## Updates and maintenance
+Update Flutter and dependencies regularly, meet Play's target API deadlines, and use in-app update prompts for critical fixes.
+
+```dart
+// flutter upgrade && flutter pub upgrade
+void main() {}
+```
+
+## Summary
+- Plan regular maintenance releases.

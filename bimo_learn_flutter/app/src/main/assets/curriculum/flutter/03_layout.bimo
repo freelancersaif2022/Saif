@@ -1,0 +1,462 @@
+@module flutter-m03 | Layout and UI
+@summary Arrange widgets with containers, rows, columns, stacks, lists, grids, slivers and responsive layouts.
+
+@lesson flutter-m03-l01 | Container | 8
+## Learning objectives
+- Use Container for padding, colour, size and decoration
+- Know when a lighter widget is better
+
+## The Swiss-army box
+`Container` combines padding, margin, size constraints, alignment and decoration in one widget. It is convenient for cards, badges and coloured boxes.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Badge2 extends StatelessWidget {
+  const Badge2({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.indigo,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(blurRadius: 6, color: Colors.black26)],
+      ),
+      child: const Text('NEW', style: TextStyle(color: Colors.white)),
+    );
+  }
+}
+```
+
+`color` and `decoration` cannot be used together; put the colour inside `BoxDecoration` when you need both. If you only need spacing, prefer `Padding` or `SizedBox`: they are lighter and can be `const`.
+
+## Summary
+- Container = padding + margin + constraints + decoration + alignment.
+- Use `BoxDecoration` for rounded corners, borders, gradients and shadows.
+- Prefer simpler widgets when you need only one feature.
+
+@lesson flutter-m03-l02 | Padding | 6
+## Learning objectives
+- Add space inside widgets with Padding and EdgeInsets
+
+## Space around content
+`Padding` insets its child. `EdgeInsets` describes the amounts:
+
+```dart
+import 'package:flutter/material.dart';
+
+const p1 = EdgeInsets.all(16);
+const p2 = EdgeInsets.symmetric(horizontal: 24, vertical: 8);
+const p3 = EdgeInsets.only(left: 12, top: 4);
+
+Widget padded() => const Padding(padding: p2, child: Text('Hello'));
+```
+
+Use multiples of 4 or 8 (4, 8, 12, 16, 24) for a consistent rhythm. For right-to-left languages use `EdgeInsetsDirectional.only(start: 12)` so spacing flips automatically.
+
+## Summary
+- `Padding` adds inner space; `EdgeInsets.all/symmetric/only` define it.
+- Use a spacing scale and `EdgeInsetsDirectional` for RTL support.
+
+@lesson flutter-m03-l03 | SizedBox | 6
+## Learning objectives
+- Give widgets fixed sizes and add gaps with SizedBox
+
+## Fixed sizes and gaps
+`SizedBox` forces a width and/or height. Empty SizedBoxes are the standard way to add a gap in a Row or Column.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget form() => const Column(children: [
+      TextField(decoration: InputDecoration(labelText: 'Email')),
+      SizedBox(height: 16),
+      SizedBox(width: double.infinity, child: FilledButton(onPressed: null, child: Text('Sign in'))),
+    ]);
+```
+
+`SizedBox.expand()` fills all available space and `SizedBox.shrink()` takes no space, which is useful as an "empty" widget.
+
+## Summary
+- `SizedBox(height: 16)` is the idiomatic gap.
+- `width: double.infinity` makes a child as wide as its parent allows.
+
+@lesson flutter-m03-l04 | Row | 8
+## Learning objectives
+- Lay out children horizontally
+- Control alignment on the main and cross axes
+
+## Horizontal layout
+`Row` places children left to right (right to left in RTL locales).
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget header() => const Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Icons.menu),
+        Text('Bimo'),
+        Icon(Icons.notifications_none),
+      ],
+    );
+```
+
+- **Main axis** (horizontal for Row): `start`, `center`, `end`, `spaceBetween`, `spaceAround`, `spaceEvenly`.
+- **Cross axis** (vertical): `start`, `center`, `end`, `stretch`.
+
+A Row does not scroll. If children are too wide you get the yellow-and-black overflow stripe; fix it with `Expanded`, `Flexible`, `Wrap` or a scroll view.
+
+## Summary
+- Row lays out horizontally; align with `mainAxisAlignment` and `crossAxisAlignment`.
+- Overflow means children are wider than the space; use Expanded or Wrap.
+
+@lesson flutter-m03-l05 | Column | 8
+## Learning objectives
+- Stack children vertically and control their size
+
+## Vertical layout
+`Column` is the vertical twin of Row.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget profile() => const Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Ada Lovelace', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        SizedBox(height: 4),
+        Text('Level 7'),
+      ],
+    );
+```
+
+`mainAxisSize: MainAxisSize.min` makes the Column only as tall as its children (useful inside dialogs and cards). A Column inside a scrollable needs this or a bounded height. For long content, use `ListView` or wrap the Column in `SingleChildScrollView`.
+
+## Summary
+- Column lays out vertically; `mainAxisSize.min` shrink-wraps it.
+- Use scroll views when content may be taller than the screen.
+
+@lesson flutter-m03-l06 | Stack | 8
+## Learning objectives
+- Overlap widgets and position them with Positioned
+
+## Layers
+`Stack` paints children on top of each other: the first child at the bottom.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget avatarWithBadge() => const Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CircleAvatar(radius: 32, child: Icon(Icons.person)),
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: CircleAvatar(radius: 10, backgroundColor: Colors.green),
+        ),
+      ],
+    );
+```
+
+Non-positioned children are aligned with `alignment` (top-left by default). `Positioned` places a child relative to the Stack's edges. Use Stack for badges, image overlays, gradients over photos and floating controls.
+
+## Summary
+- Stack overlaps children; later children paint on top.
+- `Positioned` sets offsets; `Positioned.fill` covers the whole Stack.
+
+@lesson flutter-m03-l07 | Expanded | 6
+## Learning objectives
+- Share remaining space between Row/Column children
+
+## Fill the remaining space
+`Expanded` makes a child of a Row, Column or Flex take the remaining space along the main axis. With several Expanded children, `flex` sets the ratio.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget splitBar() => Row(children: [
+      Expanded(flex: 2, child: Container(height: 8, color: Colors.green)),
+      Expanded(flex: 1, child: Container(height: 8, color: Colors.grey)),
+    ]);
+```
+
+A common fix for overflow: wrap a long `Text` in a Row with `Expanded` so it wraps or ellipsizes instead of overflowing.
+
+## Summary
+- Expanded fills remaining main-axis space; `flex` controls ratios.
+- It must be a direct child of Row, Column or Flex.
+
+@lesson flutter-m03-l08 | Flexible | 6
+## Learning objectives
+- Let children grow up to their share without forcing them to fill it
+
+## Flexible vs Expanded
+`Flexible` gives a child *up to* its share of space; the child may be smaller. `Expanded` is simply `Flexible(fit: FlexFit.tight)`.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget chipRow() => const Row(children: [
+      Flexible(child: Text('A short label', overflow: TextOverflow.ellipsis)),
+      SizedBox(width: 8),
+      Icon(Icons.chevron_right),
+    ]);
+```
+
+Here the text only takes what it needs but ellipsizes if the row is too narrow.
+
+## Summary
+- Flexible = may be smaller than its share; Expanded = must fill it.
+
+@lesson flutter-m03-l09 | Wrap | 6
+## Learning objectives
+- Flow children onto new lines when space runs out
+
+## Wrapping content
+`Wrap` is like a Row that continues on the next line, perfect for tags and chips.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget tags(List<String> items) => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [for (final t in items) Chip(label: Text(t))],
+    );
+```
+
+`spacing` is the gap between items, `runSpacing` the gap between lines.
+
+## Summary
+- Wrap avoids overflow by flowing children onto new runs.
+
+@lesson flutter-m03-l10 | Align | 6
+## Learning objectives
+- Position a child inside its parent with Alignment
+
+## Alignment
+`Align` positions its child using `Alignment(x, y)` where -1 is start and 1 is end.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget corner() => const SizedBox(
+      height: 120,
+      child: Align(alignment: Alignment.bottomRight, child: Icon(Icons.star)),
+    );
+```
+
+Named constants include `topLeft`, `center`, `bottomRight`; `AlignmentDirectional.centerStart` respects RTL.
+
+## Summary
+- Align places a child within the available space using Alignment values.
+
+@lesson flutter-m03-l11 | Center | 4
+## Learning objectives
+- Centre a child horizontally and vertically
+
+## Centring
+`Center` is `Align(alignment: Alignment.center)`. It expands to fill its parent (when constraints allow) and centres its child.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget loading() => const Center(child: CircularProgressIndicator());
+```
+
+Use `widthFactor`/`heightFactor` to make Center size itself relative to its child instead of expanding.
+
+## Summary
+- Center centres its child; it is a shortcut for Align with Alignment.center.
+
+@lesson flutter-m03-l12 | ListView | 10
+## Learning objectives
+- Build scrolling lists efficiently with ListView.builder
+
+## Scrolling lists
+For a few fixed items use `ListView(children: [...])`. For long or dynamic lists use `ListView.builder`, which only builds the items currently visible.
+
+```dart
+import 'package:flutter/material.dart';
+
+class LessonList extends StatelessWidget {
+  const LessonList({super.key, required this.titles});
+  final List<String> titles;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      itemCount: titles.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, i) => ListTile(
+        leading: CircleAvatar(child: Text('${i + 1}')),
+        title: Text(titles[i]),
+      ),
+    );
+  }
+}
+```
+
+Give items stable keys (`ValueKey(item.id)`) when the list can reorder. `ListView` inside a Column must be wrapped in `Expanded` so it has a bounded height.
+
+## Summary
+- `ListView.builder`/`separated` build lazily and scale to thousands of items.
+- Unbounded height errors mean the ListView needs Expanded or a fixed height.
+
+@lesson flutter-m03-l13 | GridView | 8
+## Learning objectives
+- Display items in a responsive grid
+
+## Grids
+`GridView.builder` lays items out in a lazy grid. `SliverGridDelegateWithMaxCrossAxisExtent` adapts the column count to the screen width.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget courseGrid(List<String> names) => GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1,
+      ),
+      itemCount: names.length,
+      itemBuilder: (_, i) => Card(child: Center(child: Text(names[i]))),
+    );
+```
+
+Use `WithFixedCrossAxisCount` when you always want, say, two columns.
+
+## Summary
+- GridView.builder is lazy; MaxCrossAxisExtent makes grids responsive.
+
+@lesson flutter-m03-l14 | CustomScrollView | 8
+## Learning objectives
+- Combine several scrollable sections into one scroll
+
+## One scroll, many sections
+`CustomScrollView` scrolls a list of **slivers** together, for example a collapsing header, a grid and a list.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget page() => CustomScrollView(slivers: [
+      const SliverAppBar.large(title: Text('Courses')),
+      SliverList.builder(
+        itemCount: 20,
+        itemBuilder: (_, i) => ListTile(title: Text('Lesson ${i + 1}')),
+      ),
+    ]);
+```
+
+Nesting a ListView inside another ListView is a common mistake; use a CustomScrollView with slivers instead.
+
+## Summary
+- CustomScrollView scrolls multiple slivers as one surface.
+
+@lesson flutter-m03-l15 | Slivers | 8
+## Learning objectives
+- Use common slivers: SliverAppBar, SliverList, SliverGrid, SliverToBoxAdapter
+
+## Scrollable building blocks
+Slivers are pieces of a scroll view that lay themselves out lazily.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget dashboard() => CustomScrollView(slivers: [
+      const SliverAppBar(pinned: true, expandedHeight: 160, flexibleSpace: FlexibleSpaceBar(title: Text('Home'))),
+      const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(16), child: Text('Recommended'))),
+      SliverGrid.count(crossAxisCount: 2, children: [for (var i = 0; i < 4; i++) Card(child: Center(child: Text('Card $i')))]),
+      const SliverFillRemaining(hasScrollBody: false, child: Center(child: Text('The end'))),
+    ]);
+```
+
+`SliverToBoxAdapter` puts a normal widget into a sliver list; `pinned` keeps the app bar visible.
+
+## Summary
+- Slivers enable collapsing headers and mixed lazy content.
+
+@lesson flutter-m03-l16 | Responsive layout | 8
+## Learning objectives
+- Adapt layouts to phones, tablets and desktops
+
+## Breakpoints
+Responsive apps change layout by available width. Material guidance uses window size classes: compact (< 600 dp), medium (600–839), expanded (≥ 840).
+
+```dart
+import 'package:flutter/material.dart';
+
+class AdaptiveHome extends StatelessWidget {
+  const AdaptiveHome({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 840) {
+      return const Row(children: [NavigationRail(destinations: [
+        NavigationRailDestination(icon: Icon(Icons.home), label: Text('Home')),
+        NavigationRailDestination(icon: Icon(Icons.book), label: Text('Courses')),
+      ], selectedIndex: 0), Expanded(child: Center(child: Text('Content')))]);
+    }
+    return const Center(child: Text('Phone layout'));
+  }
+}
+```
+
+Avoid hard-coded pixel sizes; let `Expanded`, `Flexible`, `Wrap` and grids adapt.
+
+## Summary
+- Pick layouts by width classes; use NavigationRail on wide screens.
+
+@lesson flutter-m03-l17 | MediaQuery | 6
+## Learning objectives
+- Read screen size, padding and text scale
+
+## Device metrics
+`MediaQuery` exposes information about the screen. Use the specific accessors so widgets rebuild only when needed.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget info(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  final insets = MediaQuery.paddingOf(context);   // status bar, notch
+  final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+  return Text('${size.width.round()}x${size.height.round()} • top ${insets.top} • keyboard $keyboard');
+}
+```
+
+Respect the user's text scaling (`MediaQuery.textScalerOf`) instead of fixing font sizes.
+
+## Summary
+- `sizeOf`, `paddingOf`, `viewInsetsOf` read screen metrics efficiently.
+
+@lesson flutter-m03-l18 | LayoutBuilder | 6
+## Learning objectives
+- Build based on the parent's constraints rather than the screen size
+
+## Constraint-aware widgets
+`LayoutBuilder` gives you the parent's `BoxConstraints`. This is better than MediaQuery for reusable components, which may be placed in a narrow sidebar on a wide screen.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget card() => LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth > 400;
+      return wide
+          ? const Row(children: [Icon(Icons.school, size: 48), SizedBox(width: 16), Text('Wide card')])
+          : const Column(children: [Icon(Icons.school, size: 48), Text('Narrow card')]);
+    });
+```
+
+Remember Flutter's rule: constraints go down, sizes go up, parent sets position.
+
+## Summary
+- LayoutBuilder adapts a widget to the space it is actually given.
