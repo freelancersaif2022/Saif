@@ -1,0 +1,2197 @@
+@module dart-m07 | Advanced Dart
+@summary Records, sealed classes, async programming, streams, isolates, testing and Effective Dart.
+
+@lesson dart-m07-l01 | Records | 12
+## Learning objectives
+- Create positional and named records
+- Return multiple values from functions
+- Understand record equality and typing
+
+## Lightweight, anonymous data
+A **record** (Dart 3) groups several values into one immutable object without declaring a class:
+
+```dart
+void main() {
+  final point = (3, 4);                      // positional
+  final user = (name: 'Ada', age: 36);       // named
+  final mixed = ('id-7', score: 98, passed: true);
+
+  print(point.$1);       // 3
+  print(user.name);      // Ada
+  print(mixed.$1);       // id-7
+  print(mixed.score);    // 98
+}
+```
+
+- Positional fields are accessed with `$1`, `$2`, ...
+- Named fields are accessed by name.
+- Records are **immutable**: there are no setters.
+
+## Record types
+Record types are written in parentheses and are **structural**: any record with the same shape has the same type.
+
+```dart
+(double lat, double lng) home = (38.72, -9.14);
+({String title, int minutes}) lesson = (title: 'Records', minutes: 12);
+```
+
+The names in positional type annotations (`lat`, `lng`) are documentation only.
+
+## Returning multiple values
+Before records you needed a class or a `List<dynamic>` to return several values. Now:
+
+```dart
+(int min, int max) range(List<int> values) {
+  var lo = values.first, hi = values.first;
+  for (final v in values) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  return (lo, hi);
+}
+
+void main() {
+  final (min, max) = range([7, 2, 9, 4]); // destructuring
+  print('min $min, max $max');            // min 2, max 9
+}
+```
+
+## Value equality
+Records compare by **value**, and `hashCode` is consistent with `==`:
+
+```dart
+void main() {
+  print((1, 'a') == (1, 'a'));                 // true
+  print((x: 1, y: 2) == (y: 2, x: 1));         // true – named order doesn't matter
+  print({(1, 2), (1, 2)}.length);              // 1
+}
+```
+
+This makes records perfect as composite map keys, for example `Map<(int, int), Tile>` for a grid.
+
+## Records vs classes
+Use a record for small, local groupings (function results, tuples, map keys). Use a class when the data has behaviour, needs documentation, is part of a public API, or is used in many places.
+
+> TIP: Combine records with patterns in `for` loops: `for (final (index, item) in list.indexed)`.
+
+:::check Are records mutable?
+No. Record fields cannot be reassigned.
+:::
+
+## Common mistakes
+- Using records for large, widely shared data structures; a named class is clearer.
+- Forgetting that `$1` is the first positional field (there is no `$0`).
+
+## Summary
+- Records group values: `(1, 2)`, `(name: 'Ada')`, or a mix.
+- Access with `$1`... and names; they're immutable and compare by value.
+- Ideal for returning multiple values and destructuring.
+
+## Further learning
+- dart.dev ▸ Language ▸ Records
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final r = ('a', 'b', count: 3);
+  print('${r.$2} ${r.count}');
+}
+```
++ b 3
+- a 3
+- b count
+- A compile error
+> $2 is the second positional field; count is a named field.
+? tf: `(1, 2) == (1, 2)` evaluates to true.
+= true
+> Records have value equality.
+? mcq: How do you access the first positional field of a record r?
+- r[0]
+- r.$0
++ r.$1
+- r.first
+> Positional fields start at $1.
+? fill: A function returning two ints as a record has the return type `(int, ___)`.
+= int
+> Record types list the field types in parentheses.
+? scenario: A function must return both a parsed value and an error message, used only by one caller. What is the lightest option?
++ Return a record like (int? value, String? error)
+- Create a public class with getters and setters
+- Return List<dynamic>
+- Use global variables
+> Records are ideal for small, local multi-value results.
+? output: What does this print?
+```dart
+void main() {
+  print({(1, 2), (1, 2), (2, 1)}.length);
+}
+```
++ 2
+- 3
+- 1
+- 0
+> (1, 2) appears twice with equal value; (2, 1) is different.
+
+@lesson dart-m07-l02 | Advanced patterns | 14
+## Learning objectives
+- Distinguish refutable and irrefutable patterns
+- Use null-check, null-assert, cast and nested patterns
+- Apply patterns in loops and to validate complex data
+
+## Refutable vs irrefutable
+- **Irrefutable** contexts (variable declarations, assignments, `for-in` destructuring) assume the pattern always matches. If it doesn't, you get a compile-time error (or a runtime error for casts).
+- **Refutable** contexts (`switch`, `if-case`) test whether the value matches and simply try the next case if not.
+
+```dart
+void main() {
+  final (a, b) = (1, 2);            // irrefutable: a record of two always matches
+  final json = <String, Object?>{'id': 7};
+  if (json case {'id': int id}) {   // refutable: may not match
+    print('id $id');
+  }
+}
+```
+
+## Null patterns
+- `final x?` (**null-check**) matches only non-null values and binds them with a non-nullable type.
+- `final x!` (**null-assert**) throws if the value is null.
+
+```dart
+String greet(String? nickname) => switch (nickname) {
+  final n? when n.isNotEmpty => 'Hey $n',
+  _ => 'Hello there',
+};
+```
+
+## Nested patterns
+Patterns compose. Here's a pattern matching a list of maps inside a map:
+
+```dart
+void printOrder(Object? data) {
+  switch (data) {
+    case {'customer': String name, 'items': [{'sku': String firstSku}, ...]}:
+      print('$name ordered $firstSku and maybe more');
+    case {'customer': String name, 'items': []}:
+      print('$name has an empty order');
+    default:
+      print('Unrecognised order');
+  }
+}
+
+void main() {
+  printOrder({'customer': 'Ada', 'items': [{'sku': 'BK-1'}, {'sku': 'PN-2'}]});
+  printOrder({'customer': 'Bo', 'items': []});
+  printOrder(42);
+}
+```
+
+## Patterns in loops
+```dart
+void main() {
+  final scores = {'Ada': 92, 'Bo': 68};
+  for (final MapEntry(key: name, value: score) in scores.entries) {
+    print('$name: ${score >= 70 ? 'pass' : 'retry'}');
+  }
+
+  final points = [(x: 1, y: 2), (x: -3, y: 4)];
+  for (final (:x, :y) in points) {
+    print('x=$x y=$y');
+  }
+}
+```
+
+## Guarding with when
+Guards let a case match only when an extra condition holds, while still binding variables from the pattern:
+
+```dart
+String classify((int, int) size) => switch (size) {
+  (final w, final h) when w == h => 'square',
+  (final w, final h) when w > h => 'landscape',
+  _ => 'portrait',
+};
+```
+
+## Exhaustiveness
+In a switch, Dart checks exhaustiveness across patterns: for `bool`, enums, sealed types and records of them. For example, a switch on `(bool, bool)` with four cases covering all combinations needs no default.
+
+> TIP: For untrusted JSON, patterns with typed sub-patterns are safer than casts: a mismatch just fails to match instead of throwing.
+
+:::check Which pattern binds a value only when it's not null?
+The null-check pattern, `final x?`.
+:::
+
+## Common mistakes
+- Using `!` patterns on data that might really be null.
+- Writing irrefutable destructuring for data whose shape isn't guaranteed.
+
+## Summary
+- Irrefutable contexts must always match; refutable contexts test and fall through.
+- `x?` matches non-null, `x!` asserts non-null, `as` casts.
+- Patterns nest arbitrarily and work in for loops; `when` adds guards.
+
+## Further learning
+- dart.dev ▸ Language ▸ Patterns ▸ Pattern types
+@quiz
+? output: What does this print?
+```dart
+String f(String? s) => switch (s) {
+  final v? => 'got $v',
+  null => 'none',
+};
+
+void main() {
+  print(f(null));
+}
+```
++ none
+- got null
+- A runtime error
+- got
+> The null-check pattern doesn't match null, so the null case applies.
+? tf: A variable declaration like `final (a, b) = value;` is a refutable pattern context.
+= false
+> Declarations are irrefutable: the pattern must always match.
+? mcq: Which pattern throws if the matched value is null?
+- final x?
++ final x!
+- _
+- final x when x != null
+> The null-assert pattern throws on null.
+? fill: Extra conditions on a switch case are added with the keyword ___.
+= when
+> when guards refine a case after the pattern matches.
+? output: What does this print?
+```dart
+void main() {
+  final data = <Object>[1, [2, 3]];
+  if (data case [int a, [int b, int c]]) {
+    print(a + b + c);
+  }
+}
+```
++ 6
+- 1
+- 5
+- Nothing
+> The nested list pattern binds 1, 2 and 3.
+? scenario: Your API sometimes returns `{'items': []}` and sometimes `{'items': [{'id': ...}]}`. How do you handle both cleanly?
++ A switch with map/list patterns for the empty and non-empty shapes
+- Cast with as and catch exceptions
+- Convert to a string and search
+- Assume items is never empty
+> Patterns describe each shape and bind the values safely.
+
+@lesson dart-m07-l03 | Sealed classes | 14
+## Learning objectives
+- Model closed type hierarchies with `sealed`
+- Get exhaustive switches over subtypes
+- Represent UI states and results safely
+
+## A closed family of types
+A `sealed` class is abstract and can only be **extended or implemented in the same library**. Because the compiler knows every subtype, switches over a sealed type are checked for exhaustiveness, just like enums, but each subtype can carry different data.
+
+```dart
+sealed class LoadState {}
+
+class Loading extends LoadState {}
+
+class Loaded extends LoadState {
+  Loaded(this.lessons);
+  final List<String> lessons;
+}
+
+class Failed extends LoadState {
+  Failed(this.message);
+  final String message;
+}
+
+String render(LoadState state) => switch (state) {
+  Loading() => 'Spinner…',
+  Loaded(:final lessons) when lessons.isEmpty => 'No lessons yet',
+  Loaded(:final lessons) => '${lessons.length} lessons',
+  Failed(:final message) => 'Error: $message',
+};
+
+void main() {
+  print(render(Loading()));
+  print(render(Loaded(['Records', 'Patterns'])));
+  print(render(Failed('offline')));
+}
+```
+
+If you add `class Refreshing extends LoadState {}`, every switch that doesn't handle it becomes a compile error.
+
+## Sealed vs enum vs abstract
+- **enum**: fixed set of *values*, all with the same fields.
+- **sealed class**: fixed set of *types*, each with its own fields.
+- **abstract class**: open set of types; no exhaustiveness.
+
+## Modelling results and events
+```dart
+sealed class AuthEvent {}
+class SignedIn extends AuthEvent {
+  SignedIn(this.userId);
+  final String userId;
+}
+class SignedOut extends AuthEvent {}
+class SessionExpired extends AuthEvent {
+  SessionExpired(this.at);
+  final DateTime at;
+}
+
+void handle(AuthEvent e) {
+  switch (e) {
+    case SignedIn(:final userId):
+      print('Welcome $userId');
+    case SignedOut():
+      print('Bye');
+    case SessionExpired(:final at):
+      print('Session expired at $at');
+  }
+}
+```
+
+State-management libraries like Bloc lean heavily on sealed classes for states and events.
+
+## Rules
+- A sealed class is implicitly abstract (it can't be instantiated).
+- Direct subtypes must be in the same library (file, or `part` files).
+- Subtypes themselves can be open, `final` or `sealed`.
+
+> TIP: Make subclasses `final class` when you don't want anyone to extend them further. That keeps the hierarchy exactly as designed.
+
+:::check What happens when you add a new subtype to a sealed class?
+Every non-exhaustive switch over that sealed type fails to compile until it handles the new subtype.
+:::
+
+## Common mistakes
+- Adding a `default`/`_` case to sealed switches, losing exhaustiveness checks.
+- Trying to extend a sealed class from another file.
+
+## Summary
+- `sealed` creates a closed family of subtypes in one library.
+- Switches over sealed types are exhaustive and can destructure each subtype.
+- Ideal for UI states, results, events and other "one of these" data.
+
+## Further learning
+- dart.dev ▸ Language ▸ Class modifiers ▸ sealed
+@quiz
+? tf: You can create an instance of a sealed class directly.
+= false
+> Sealed classes are implicitly abstract.
+? mcq: Where must direct subtypes of a sealed class be declared?
++ In the same library as the sealed class
+- In any file of the same package
+- Anywhere in the app
+- In a separate package
+> The closed hierarchy lets the compiler know every subtype.
+? fill: To declare a closed type hierarchy, mark the base class ___.
+= sealed
+> sealed enables exhaustiveness checking over subtypes.
+? scenario: A screen can be Loading, Loaded with data, or Failed with an error. Which modelling gives compile-time safety when adding states later?
++ A sealed class with one subclass per state and an exhaustive switch
+- A String field like 'loading'
+- Three nullable fields and many if checks
+- An int status code
+> Sealed hierarchies make every state explicit and checked.
+? mcq: What is the main difference between an enum and a sealed class?
++ Sealed subtypes can carry different fields; enum values share the same fields
+- Enums can't be used in switches
+- Sealed classes are faster
+- Enums can't have methods
+> Each sealed subtype is its own class with its own data.
+
+@lesson dart-m07-l04 | Class modifiers | 12
+## Learning objectives
+- Use `base`, `interface`, `final`, `sealed` and `mixin class`
+- Control how classes can be extended or implemented across libraries
+- Design stable public APIs
+
+## Why modifiers?
+By default, any class can be extended, implemented and instantiated from anywhere. That's flexible, but it makes it hard for library authors to evolve classes safely: adding a method could break someone who `implements` it. Dart 3 adds **class modifiers** to state intent:
+
+What each modifier allows **outside** its own library:
+- *(no modifier)*: construct, extend and implement
+- `base`: construct and extend, but not implement
+- `interface`: construct and implement, but not extend
+- `final`: construct only (no extend, no implement)
+- `sealed`: nothing (implicitly abstract, closed hierarchy)
+- `abstract`: extend and implement, but not construct
+
+Inside the same library, the restrictions don't apply.
+
+```dart
+// A contract other packages may implement but not inherit from
+abstract interface class StorageDriver {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+}
+
+// Implementation detail: nobody outside may subclass or implement it
+final class FileStorageDriver implements StorageDriver {
+  @override
+  Future<String?> read(String key) async => null;
+  @override
+  Future<void> write(String key, String value) async {}
+}
+
+// Must be extended (to keep invariants in the base constructor), never implemented
+base class Entity {
+  Entity(this.id) : assert(id.isNotEmpty);
+  final String id;
+}
+
+void main() {
+  print(FileStorageDriver() is StorageDriver); // true
+}
+```
+
+## base
+`base` guarantees every subtype runs the base class's constructor and inherits its implementation, because outsiders can't `implement` it (which would skip both). Subclasses of a base class must be `base`, `final` or `sealed` too.
+
+## interface
+`interface` lets outsiders implement the class but not extend it, so the library author can change private implementation details without breaking subclasses.
+
+## final
+`final class` can't be extended or implemented outside its library. Use it for classes you don't want anyone to subtype, such as value objects.
+
+## mixin class
+`mixin class` can be used both as a regular class and as a mixin. Since Dart 3, plain classes can no longer be mixed in unless declared this way.
+
+> TIP: For app code, modifiers matter less because you own every file. For packages and large modular apps, they make the intended usage explicit and protect you from accidental breaking changes.
+
+:::check Can code in another library implement a `base class`?
+No. base classes can be extended but not implemented outside their library.
+:::
+
+## Common mistakes
+- Marking classes `final` in a package and later discovering users legitimately need to mock them in tests (consider `interface` instead).
+- Forgetting that subclasses of `base` classes must also be `base`, `final` or `sealed`.
+
+## Summary
+- Modifiers (`base`, `interface`, `final`, `sealed`, `abstract`, `mixin class`) control construction, extension and implementation.
+- Restrictions apply across library boundaries.
+- They help package authors evolve APIs safely.
+
+## Further learning
+- dart.dev ▸ Language ▸ Class modifiers
+@quiz
+? mcq: Which modifier prevents a class from being extended or implemented outside its library?
+- base
+- interface
++ final
+- abstract
+> final classes can't be subtyped from other libraries.
+? tf: Outside its library, an `interface class` can be extended.
+= false
+> interface classes can be implemented but not extended outside their library.
+? fill: A class that can be used both as a normal class and as a mixin is declared `___ class`.
+= mixin
+> mixin class allows both uses.
+? mcq: What does `base` guarantee?
++ Subtypes inherit the implementation and run the base constructor
+- The class cannot be instantiated
+- All fields are private
+- The class is a singleton
+> base forbids implementing from outside, so every subtype extends it.
+? scenario: You publish a package with a `Storage` contract that users must implement but should never subclass. Which declaration fits?
++ abstract interface class Storage
+- final class Storage
+- base class Storage
+- mixin Storage
+> abstract interface class is an implement-only contract.
+
+@lesson dart-m07-l05 | Typedefs | 8
+## Learning objectives
+- Create type aliases with `typedef`
+- Name function types for readability
+- Know when a typedef helps and when it hides meaning
+
+## Naming types
+A `typedef` gives an existing type a new name. It doesn't create a new type; it's an **alias**.
+
+```dart
+typedef Json = Map<String, Object?>;
+typedef Predicate<T> = bool Function(T value);
+typedef Coordinates = ({double lat, double lng});
+
+List<T> filter<T>(List<T> items, Predicate<T> test) => items.where(test).toList();
+
+Coordinates parseCoordinates(Json json) => (
+      lat: (json['lat'] as num).toDouble(),
+      lng: (json['lng'] as num).toDouble(),
+    );
+
+void main() {
+  print(filter([1, 2, 3, 4], (n) => n.isEven)); // [2, 4]
+  final c = parseCoordinates({'lat': 38.7, 'lng': -9.1});
+  print('${c.lat}, ${c.lng}');
+}
+```
+
+## Function type aliases
+Callbacks with long signatures are much easier to read with a name:
+
+```dart
+typedef ProgressCallback = void Function(int completed, int total);
+
+void download(List<String> files, ProgressCallback onProgress) {
+  for (var i = 0; i < files.length; i++) {
+    onProgress(i + 1, files.length);
+  }
+}
+
+void main() {
+  download(['a.png', 'b.png'], (done, total) => print('$done/$total'));
+}
+```
+
+Flutter uses typedefs extensively: `VoidCallback` is `void Function()`, `ValueChanged<T>` is `void Function(T value)`, and `WidgetBuilder` is `Widget Function(BuildContext context)`.
+
+## Aliases are not new types
+Because a typedef is just another name, `Json` and `Map<String, Object?>` are fully interchangeable. If you need the compiler to *distinguish* two things with the same underlying type (like `UserId` and `LessonId`), use an **extension type** instead.
+
+> TIP: Use typedefs for complex function types and long generic types that appear repeatedly. Don't alias simple types like `typedef Name = String;`; it hides meaning without adding safety.
+
+:::check Does `typedef Email = String;` stop you passing any String where an Email is expected?
+No. A typedef is an alias, not a new type; use an extension type for that.
+:::
+
+## Common mistakes
+- Expecting a typedef to add type safety.
+- Creating many aliases that force readers to jump around to understand signatures.
+
+## Summary
+- `typedef Name = Type;` creates an alias, including generic and function types.
+- Great for callbacks (`VoidCallback`, `ValueChanged<T>`) and long generics.
+- For distinct types, use extension types or classes.
+
+## Further learning
+- dart.dev ▸ Language ▸ Typedefs
+@quiz
+? tf: A typedef creates a brand-new type that the compiler keeps separate from the original.
+= false
+> typedefs are aliases; both names refer to the same type.
+? mcq: In Flutter, what is `VoidCallback`?
++ A typedef for void Function()
+- A widget
+- A Future
+- A mixin
+> VoidCallback aliases a function with no parameters and no return value.
+? fill: Complete the alias: `typedef Predicate<T> = bool ___(T value);`
+= Function
+> Function types are written ReturnType Function(Parameters).
+? output: What does this print?
+```dart
+typedef Op = int Function(int, int);
+
+void main() {
+  final Op add = (a, b) => a + b;
+  print(add(2, 5));
+}
+```
++ 7
+- 25
+- A compile error
+- Op
+> The alias names the function type; add sums its arguments.
+? scenario: Callback parameters like `void Function(String id, int index, bool selected)` appear in ten places. What improves readability?
++ A typedef such as `typedef OnItemSelected = void Function(String id, int index, bool selected);`
+- Replace it with dynamic
+- Use a global variable
+- Remove the parameters
+> A named function type documents the callback once.
+
+@lesson dart-m07-l06 | Metadata and annotations | 8
+## Learning objectives
+- Use built-in annotations like `@override` and `@Deprecated`
+- Understand `package:meta` annotations
+- Know how code generators use annotations
+
+## Annotations add information
+**Metadata** (annotations) attaches extra information to declarations. Annotations start with `@` and are either a constant reference or a const constructor call.
+
+```dart
+class Base {
+  void run() => print('base');
+}
+
+class Child extends Base {
+  @override
+  void run() => print('child');
+
+  @Deprecated('Use run() instead. Will be removed in 3.0.')
+  void execute() => run();
+}
+
+void main() {
+  final c = Child();
+  c.run();
+  // c.execute(); // the analyzer shows a deprecation warning
+}
+```
+
+Built-in annotations:
+- `@override`: the member overrides an inherited one.
+- `@Deprecated('message')` / `@deprecated`: discourages use; the analyzer warns callers.
+- `@pragma('vm:prefer-inline')`: hints for compilers (advanced).
+
+## package:meta
+The `meta` package (re-exported by Flutter's `foundation`) adds annotations the analyzer understands:
+
+```dart
+import 'package:meta/meta.dart';
+
+class Repository {
+  @protected
+  void cacheResult(String key) {}   // warn if used outside subclasses
+
+  @visibleForTesting
+  int get cacheSize => 0;           // warn if used outside tests
+
+  @mustCallSuper
+  void dispose() {}                 // overrides must call super.dispose()
+}
+
+@immutable
+class Point {
+  const Point(this.x, this.y);
+  final int x;
+  final int y;
+}
+```
+
+`@immutable` makes the analyzer warn if a subclass adds non-final fields. Flutter's `Widget` is annotated with it.
+
+## Annotations for code generation
+Packages like `json_serializable`, `freezed` and `riverpod_generator` read annotations at build time and generate code:
+
+```dart
+// @JsonSerializable()
+// class User {
+//   User(this.name);
+//   final String name;
+//   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+// }
+```
+
+Running `dart run build_runner build` produces the `_$UserFromJson` function in a `.g.dart` file.
+
+## Custom annotations
+Any const object can be an annotation:
+
+```dart
+class Todo {
+  const Todo(this.owner, this.note);
+  final String owner;
+  final String note;
+}
+
+@Todo('ada', 'Add retries')
+void fetchData() {}
+```
+
+Custom annotations do nothing on their own; they're read by tools (analyzer plugins or generators).
+
+> TIP: Treat deprecation warnings as a to-do list. Run `dart fix --apply` to automatically migrate many deprecated APIs.
+
+:::check What does @mustCallSuper do?
+It makes the analyzer warn when an override of that method does not call super.
+:::
+
+## Common mistakes
+- Expecting annotations to change runtime behaviour on their own.
+- Ignoring `@Deprecated` warnings until an upgrade breaks the build.
+
+## Summary
+- Annotations attach metadata with `@`.
+- `@override` and `@Deprecated` are built in; `package:meta` adds `@protected`, `@visibleForTesting`, `@mustCallSuper`, `@immutable`.
+- Code generators read annotations to produce boilerplate.
+
+## Further learning
+- dart.dev ▸ Language ▸ Metadata
+- pub.dev ▸ meta
+@quiz
+? mcq: Which annotation marks an API that callers should stop using?
+- @override
++ @Deprecated('message')
+- @immutable
+- @protected
+> @Deprecated causes analyzer warnings at call sites.
+? tf: A custom annotation like `@Todo('x')` changes how the function runs at runtime.
+= false
+> Annotations are metadata; tools may read them, but they don't change behaviour by themselves.
+? fill: The annotation that warns when a subclass of a widget adds non-final fields is `@___`.
+= immutable
+> @immutable comes from package:meta and is used on Widget.
+? mcq: What do code generators such as json_serializable typically rely on?
++ Annotations on classes and a build_runner step
+- Reflection at runtime
+- Manual copy-paste
+- Comments
+> Generators scan annotations at build time.
+? scenario: A test-only helper getter is being called from production code. Which annotation helps catch this?
++ @visibleForTesting
+- @override
+- @pragma
+- @Deprecated
+> The analyzer warns when @visibleForTesting members are used outside tests.
+
+@lesson dart-m07-l07 | Error handling | 12
+## Learning objectives
+- Distinguish errors from exceptions
+- Use try, catch, on, finally and rethrow
+- Design error handling at the right level
+
+## Errors vs exceptions
+Dart distinguishes two families:
+- **Exception**: an expected, recoverable problem (network unavailable, invalid user input, file not found). Code is expected to catch and handle these.
+- **Error**: a programming bug (null check failed, index out of range, assertion failed). These indicate the code is wrong and generally shouldn't be caught; fix the bug instead.
+
+```dart
+void main() {
+  // Exception: invalid input – handle it
+  try {
+    final n = int.parse('abc');
+    print(n);
+  } on FormatException catch (e) {
+    print('Please enter a number (${e.message})');
+  }
+
+  // Error: a bug – don't catch it, fix it
+  final list = [1, 2, 3];
+  // print(list[5]); // RangeError
+  print(list.length);
+}
+```
+
+## try / on / catch / finally
+```dart
+String readSetting(Map<String, String> settings, String key) {
+  try {
+    final value = settings[key];
+    if (value == null) throw StateError('Missing setting: $key');
+    return value;
+  } on StateError catch (e) {
+    print('Using default because: ${e.message}');
+    return 'default';
+  } catch (e, stackTrace) {
+    print('Unexpected: $e\n$stackTrace');
+    rethrow; // propagate to the caller after logging
+  } finally {
+    print('Lookup of $key finished'); // always runs
+  }
+}
+
+void main() {
+  print(readSetting({'theme': 'dark'}, 'theme'));
+  print(readSetting({}, 'theme'));
+}
+```
+
+- `on Type` catches a specific type.
+- `catch (e, s)` binds the exception and the stack trace.
+- `rethrow` re-throws the same exception, preserving its stack trace.
+- `finally` runs whether or not an exception occurred, ideal for cleanup.
+
+## Where to handle errors
+Handle an exception where you can do something **meaningful**: show a message, retry, fall back to cached data. Low-level code (a repository) often converts raw exceptions into domain-specific ones and lets the UI layer decide what to show.
+
+```dart
+class NetworkException implements Exception {
+  NetworkException(this.message);
+  final String message;
+  @override
+  String toString() => 'NetworkException: $message';
+}
+```
+
+## Result types instead of exceptions
+For expected failures, some teams prefer returning a sealed `Result<T>` (seen in the generics lesson) so callers can't forget to handle failure: the switch must be exhaustive.
+
+> WARNING: An empty `catch (e) {}` silently swallows problems and makes bugs impossible to diagnose. At minimum, log the error.
+
+:::check What is the difference between `throw e` and `rethrow` inside a catch block?
+rethrow preserves the original stack trace; throw e starts a new one from the current line.
+:::
+
+## Common mistakes
+- Catching `Error` subclasses to hide bugs.
+- Catching everything with a bare `catch` and ignoring it.
+
+## Summary
+- Exceptions are recoverable conditions; Errors signal bugs.
+- Use `on Type catch (e, s)` for specific handling, `finally` for cleanup, `rethrow` to propagate.
+- Handle errors where you can respond meaningfully; consider Result types for expected failures.
+
+## Further learning
+- dart.dev ▸ Language ▸ Error handling
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  try {
+    throw const FormatException('bad');
+  } on FormatException {
+    print('format');
+  } finally {
+    print('done');
+  }
+}
+```
++ format then done
+- done only
+- format only
+- An unhandled exception
+> The on clause handles it and finally always runs afterwards.
+? mcq: Which of these usually indicates a bug that should be fixed rather than caught?
+- FormatException from user input
+- SocketException when offline
++ RangeError from an invalid index
+- TimeoutException from a slow server
+> Errors such as RangeError indicate programming mistakes.
+? fill: To re-throw the caught exception and keep its stack trace, use ___.
+= rethrow
+> rethrow propagates the same exception with its original trace.
+? tf: A `finally` block runs even when no exception is thrown.
+= true
+> finally always runs after try (and catch, if any).
+? scenario: A repository catches a low-level HTTP exception. What should it usually do?
++ Convert it into a meaningful domain exception or Result and let the UI decide what to show
+- Swallow it with an empty catch
+- Exit the app
+- Print it and return null without explanation
+> Translate low-level failures into something callers can handle meaningfully.
+
+@lesson dart-m07-l08 | Exceptions and custom exceptions | 10
+## Learning objectives
+- Throw built-in exceptions appropriately
+- Create custom exception classes
+- Use exceptions with asynchronous code
+
+## Throwing
+Use `throw` with an object, preferably one implementing `Exception` (for recoverable conditions) or extending `Error` (for misuse):
+
+```dart
+double withdraw(double balance, double amount) {
+  if (amount <= 0) {
+    throw ArgumentError.value(amount, 'amount', 'Must be positive'); // misuse: Error
+  }
+  if (amount > balance) {
+    throw InsufficientFundsException(balance: balance, requested: amount); // expected: Exception
+  }
+  return balance - amount;
+}
+
+class InsufficientFundsException implements Exception {
+  const InsufficientFundsException({required this.balance, required this.requested});
+  final double balance;
+  final double requested;
+
+  @override
+  String toString() => 'Insufficient funds: requested $requested, available $balance';
+}
+
+void main() {
+  try {
+    withdraw(50, 80);
+  } on InsufficientFundsException catch (e) {
+    print(e);
+  }
+}
+```
+
+## Useful built-in types
+- `FormatException`: invalid string format (parsing)
+- `StateError`: an object is in the wrong state for the operation
+- `ArgumentError` / `RangeError`: invalid arguments
+- `UnsupportedError` / `UnimplementedError`: operation not supported / not yet written
+- `TimeoutException` (`dart:async`): an operation took too long
+- `IOException` subclasses (`dart:io`): files and network
+
+## A hierarchy of app exceptions
+A small sealed hierarchy makes handling exhaustive and clear:
+
+```dart
+sealed class AppException implements Exception {
+  const AppException(this.message);
+  final String message;
+}
+
+class OfflineException extends AppException {
+  const OfflineException() : super('You appear to be offline.');
+}
+
+class ServerException extends AppException {
+  const ServerException(this.statusCode) : super('Server error');
+  final int statusCode;
+}
+
+String userMessage(AppException e) => switch (e) {
+  OfflineException() => e.message,
+  ServerException(:final statusCode) => 'Something went wrong ($statusCode). Please try again.',
+};
+```
+
+## Exceptions in async code
+In `async` functions, a thrown exception completes the returned `Future` with an error. Catch it with `try`/`catch` around `await`:
+
+```dart
+class OfflineException implements Exception {
+  const OfflineException();
+  String get message => 'You appear to be offline.';
+}
+
+Future<String> fetchProfile() async {
+  await Future.delayed(const Duration(milliseconds: 10));
+  throw const OfflineException();
+}
+
+Future<void> main() async {
+  try {
+    await fetchProfile();
+  } on OfflineException catch (e) {
+    print(e.message);
+  }
+}
+```
+
+> NOTE: You can throw any non-null object, even a String, but don't: typed exceptions can be caught selectively with `on` and carry structured data.
+
+:::check What happens to an exception thrown inside an async function?
+The returned Future completes with that error; it is caught by try/catch around the await.
+:::
+
+## Common mistakes
+- Throwing strings (`throw 'oops'`).
+- Forgetting to `await` a future inside `try`, so the exception escapes the try block.
+
+## Summary
+- Throw `Exception` implementations for expected problems and `Error`s for misuse.
+- Custom exceptions carry structured information; sealed hierarchies enable exhaustive handling.
+- In async code, exceptions flow through Futures and are caught around `await`.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ Exception
+@quiz
+? tf: Throwing a plain String like `throw 'oops'` is recommended practice.
+= false
+> Throw typed exceptions so callers can catch them selectively.
+? mcq: Which exception fits "the object is in the wrong state for this operation"?
+- FormatException
++ StateError
+- RangeError
+- TimeoutException
+> StateError signals an invalid state.
+? fill: Custom recoverable exceptions should `implements ___`.
+= Exception
+> Implementing Exception marks the type as an expected, recoverable condition.
+? scenario: Your try/catch around `fetchProfile();` (without await) never catches the failure. Why?
++ Without await, the error is delivered to the Future after the try block has already finished
+- try/catch doesn't work in Dart
+- The exception type is wrong
+- finally swallowed it
+> await is required for the try block to observe the Future's error.
+? output: What does this print?
+```dart
+void check(int age) {
+  if (age < 0) throw ArgumentError('negative');
+}
+
+void main() {
+  try {
+    check(-1);
+    print('ok');
+  } on ArgumentError {
+    print('invalid');
+  }
+}
+```
++ invalid
+- ok
+- ok then invalid
+- An unhandled exception
+> The throw skips print('ok') and the on clause handles it.
+
+@lesson dart-m07-l09 | Futures | 12
+## Learning objectives
+- Explain what a Future represents
+- Create, chain and combine Futures
+- Handle Future errors and timeouts
+
+## A value that arrives later
+A `Future<T>` represents a value of type `T` (or an error) that will be available **in the future**: the result of a network request, a file read, a database query or a timer. While waiting, your program keeps running, so the UI stays responsive.
+
+```dart
+Future<String> fetchUsername() {
+  return Future.delayed(const Duration(seconds: 1), () => 'ada');
+}
+
+void main() {
+  print('Requesting...');
+  fetchUsername().then((name) => print('Hello $name'));
+  print('Request sent'); // prints before "Hello ada"
+}
+```
+
+Output order: `Requesting...`, `Request sent`, then (after one second) `Hello ada`. The callback registered with `then` runs when the future completes.
+
+## States of a Future
+1. **Uncompleted**: the operation is still running.
+2. **Completed with a value**.
+3. **Completed with an error**.
+
+## Creating Futures
+```dart
+final immediate = Future.value(42);
+final failing = Future<int>.error(StateError('nope'));
+final delayed = Future.delayed(const Duration(milliseconds: 500), () => 'later');
+```
+
+## Chaining with then, catchError and whenComplete
+```dart
+void main() {
+  Future.value(10)
+      .then((n) => n * 2)
+      .then((n) => print('Result: $n'))           // Result: 20
+      .catchError((Object e) => print('Failed: $e'))
+      .whenComplete(() => print('Finished'));
+}
+```
+
+In modern Dart you'll mostly use `async`/`await` (next lesson), which is easier to read, but `then` remains useful for quick one-liners.
+
+## Combining Futures
+`Future.wait` runs several futures **concurrently** and completes when all are done:
+
+```dart
+Future<int> slowSquare(int n) => Future.delayed(const Duration(milliseconds: 300), () => n * n);
+
+Future<void> main() async {
+  final stopwatch = Stopwatch()..start();
+  final results = await Future.wait([slowSquare(2), slowSquare(3), slowSquare(4)]);
+  print('$results in ~${stopwatch.elapsedMilliseconds} ms'); // [4, 9, 16] in ~300 ms, not 900
+}
+```
+
+With records you can wait for futures of different types: `final (user, posts) = await (fetchUser(), fetchPosts()).wait;`.
+
+## Timeouts
+```dart
+import 'dart:async';
+
+Future<void> main() async {
+  try {
+    await Future.delayed(const Duration(seconds: 5)).timeout(const Duration(seconds: 1));
+  } on TimeoutException {
+    print('Took too long');
+  }
+}
+```
+
+> WARNING: An error in a Future that nobody handles is reported as an *unhandled exception*. Always attach error handling (catchError or try/await).
+
+:::check In what order do 'Request sent' and 'Hello ada' print?
+'Request sent' first; 'Hello ada' prints when the future completes later.
+:::
+
+## Common mistakes
+- Expecting code after `then(...)` to wait for the result.
+- Running independent requests one after another instead of with `Future.wait`.
+
+## Summary
+- A Future is a value or error that arrives later.
+- `then`, `catchError` and `whenComplete` react to completion.
+- `Future.wait` and record `.wait` run futures concurrently; `timeout` bounds waiting time.
+
+## Further learning
+- dart.dev ▸ Libraries ▸ Asynchronous programming: futures, async, await
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  Future.value(1).then((v) => print('future $v'));
+  print('sync');
+}
+```
++ sync then future 1
+- future 1 then sync
+- sync only
+- future 1 only
+> then callbacks run asynchronously, after the current synchronous code.
+? mcq: What does Future.wait do?
++ Waits for several futures running concurrently and returns all results
+- Runs futures one after another
+- Cancels futures
+- Converts a future into a stream
+> Future.wait completes when all futures complete.
+? tf: A Future can complete with either a value or an error.
+= true
+> Futures complete with a value or an error.
+? fill: To fail if a future takes longer than 2 seconds, call `.time___(const Duration(seconds: 2))`.
+= out
+> timeout throws a TimeoutException when the duration elapses.
+? scenario: A screen loads user, settings and notifications from three independent endpoints one after another, taking 3 seconds. How can it be faster?
++ Start all three requests and await them together with Future.wait (or a record .wait)
+- Add a loading spinner only
+- Use a for loop
+- Make the requests synchronous
+> Concurrent waiting takes as long as the slowest request, not the sum.
+
+@lesson dart-m07-l10 | Async and await | 14
+## Learning objectives
+- Write asynchronous code with `async` and `await`
+- Handle errors in async functions
+- Understand the event loop and microtasks
+
+## Sequential-looking asynchronous code
+`async` and `await` let you write asynchronous code that reads top to bottom:
+
+```dart
+Future<String> fetchUser() => Future.delayed(const Duration(milliseconds: 200), () => 'ada');
+Future<int> fetchScore(String user) => Future.delayed(const Duration(milliseconds: 200), () => 92);
+
+Future<String> loadSummary() async {
+  final user = await fetchUser();          // pause here without blocking
+  final score = await fetchScore(user);    // then here
+  return '$user scored $score';
+}
+
+Future<void> main() async {
+  print(await loadSummary()); // ada scored 92
+}
+```
+
+- An `async` function always returns a `Future` (a `String` return value becomes `Future<String>`).
+- `await` pauses the function until the future completes and then gives you its value.
+- While paused, the event loop runs other work: the UI keeps animating.
+
+## Error handling
+Use ordinary `try`/`catch`:
+
+```dart
+Future<void> save() async {
+  try {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    throw StateError('disk full');
+  } on StateError catch (e) {
+    print('Could not save: ${e.message}');
+  } finally {
+    print('Save attempt finished');
+  }
+}
+
+Future<void> main() => save();
+```
+
+## The event loop
+Dart runs your code on a single thread per isolate with an **event loop**:
+
+```diagram
+ ┌─────────────────────────────┐
+ │  Run main() synchronously   │
+ └──────────────┬──────────────┘
+                ▼
+   Microtask queue empty? ──no──▶ run next microtask
+                │yes
+                ▼
+   Event queue: timers, I/O, taps, frames ──▶ run next event
+                │
+                └──── repeat forever ◀───────┘
+```
+
+- **Microtasks** (from `scheduleMicrotask` and completed futures' callbacks) run before the next event.
+- **Events** include timers, I/O and user input.
+
+```dart
+import 'dart:async';
+
+void main() {
+  print('1 sync');
+  Future(() => print('4 event'));
+  scheduleMicrotask(() => print('3 microtask'));
+  print('2 sync');
+}
+```
+
+Output: 1 sync, 2 sync, 3 microtask, 4 event.
+
+## Don't block the loop
+`await` doesn't block, but long **synchronous** work (parsing a huge JSON string, image processing) does. In Flutter that drops frames. Move heavy CPU work to another isolate (lesson 12).
+
+## Fire and forget
+Calling an async function without `await` starts it but doesn't wait. If that's intentional, use `unawaited(...)` from `dart:async` to make it explicit (and silence the lint).
+
+> TIP: Enable the `unawaited_futures` and `discarded_futures` lints to catch forgotten awaits.
+
+:::check What does an async function that returns an int actually return?
+A Future<int>.
+:::
+
+## Common mistakes
+- Forgetting `await`, so code continues before the result is ready.
+- Using `await` inside `forEach`; `forEach` doesn't wait. Use `for-in` with `await`, or `Future.wait`.
+
+## Summary
+- `async` functions return Futures; `await` pauses until a Future completes.
+- Use try/catch/finally for async errors.
+- The event loop runs microtasks before events; avoid long synchronous work.
+- Use `Future.wait` for concurrency and `unawaited` for intentional fire-and-forget.
+
+## Further learning
+- dart.dev ▸ Language ▸ Concurrency ▸ Asynchronous support
+@quiz
+? output: What does this print?
+```dart
+import 'dart:async';
+
+void main() {
+  Future(() => print('B'));
+  scheduleMicrotask(() => print('A'));
+  print('C');
+}
+```
++ C, A, B
+- A, B, C
+- B, A, C
+- C, B, A
+> Synchronous code runs first, then microtasks, then events.
+? tf: The `await` keyword blocks the whole program until the Future completes.
+= false
+> await pauses only the current async function; the event loop keeps running.
+? mcq: What is the return type of `async` function `fetch()` that returns a String value?
++ Future<String>
+- String
+- Stream<String>
+- void
+> async functions wrap their result in a Future.
+? fill: You can only use `await` inside a function marked ___.
+= async
+> await requires an async (or async*) function.
+? scenario: `items.forEach((i) async => await save(i));` finishes before saves complete. What's the fix?
++ Use `for (final i in items) { await save(i); }` or `await Future.wait(items.map(save))`
+- Add more async keywords
+- Use reduce
+- Wrap it in try/catch
+> forEach ignores the futures returned by the callback.
+? output: What does this print?
+```dart
+Future<int> two() async => 2;
+
+Future<void> main() async {
+  final x = await two();
+  print(x * 3);
+}
+```
++ 6
+- Instance of 'Future<int>'
+- 2
+- A compile error
+> await unwraps the Future to the int 2.
+
+@lesson dart-m07-l11 | Streams | 14
+## Learning objectives
+- Consume streams with `listen` and `await for`
+- Create streams with `async*`, controllers and transformations
+- Distinguish single-subscription and broadcast streams
+
+## Many values over time
+A `Future` delivers one value; a `Stream` delivers **a sequence** of values over time: user input, WebSocket messages, location updates, download progress, database changes.
+
+```dart
+Stream<int> countdown(int from) async* {
+  for (var i = from; i >= 0; i--) {
+    await Future.delayed(const Duration(milliseconds: 100));
+    yield i;
+  }
+}
+
+Future<void> main() async {
+  await for (final n in countdown(3)) {
+    print(n); // 3, 2, 1, 0
+  }
+  print('Lift off!');
+}
+```
+
+`async*` functions return Streams and use `yield` to emit values.
+
+## Listening
+`listen` registers callbacks and returns a `StreamSubscription` you can pause, resume or cancel:
+
+```dart
+import 'dart:async';
+
+Future<void> main() async {
+  final ticks = Stream.periodic(const Duration(milliseconds: 100), (i) => i);
+  late final StreamSubscription<int> sub;
+  sub = ticks.listen(
+    (i) {
+      print('tick $i');
+      if (i == 2) sub.cancel();
+    },
+    onError: (Object e) => print('error $e'),
+    onDone: () => print('done'),
+  );
+  await Future.delayed(const Duration(milliseconds: 500));
+}
+```
+
+> IMPORTANT: Cancel subscriptions you no longer need (in Flutter, in `dispose`). Forgotten subscriptions leak memory and keep doing work.
+
+## Transforming streams
+Streams have methods like iterables:
+
+```dart
+Future<void> main() async {
+  final words = Stream.fromIterable(['dart', 'is', 'fun', 'and', 'fast']);
+  final result = await words
+      .where((w) => w.length > 2)
+      .map((w) => w.toUpperCase())
+      .toList();
+  print(result); // [DART, FUN, AND, FAST]
+}
+```
+
+Others include `take`, `skip`, `distinct`, `asyncMap`, `expand` and `handleError`.
+
+## StreamController
+To push values from imperative code, use a `StreamController`:
+
+```dart
+import 'dart:async';
+
+class ChatRoom {
+  final _controller = StreamController<String>.broadcast();
+  Stream<String> get messages => _controller.stream;
+  void send(String text) => _controller.add(text);
+  Future<void> close() => _controller.close();
+}
+
+Future<void> main() async {
+  final room = ChatRoom();
+  room.messages.listen((m) => print('Alice sees: $m'));
+  room.messages.listen((m) => print('Bob sees: $m'));
+  room.send('Hello!');
+  await room.close();
+}
+```
+
+## Single-subscription vs broadcast
+- **Single-subscription** (default): one listener; events are buffered until someone listens. Good for file reads and HTTP bodies.
+- **Broadcast**: many listeners; events are not buffered for late listeners. Good for UI events and notifications.
+
+Listening twice to a single-subscription stream throws a `StateError`.
+
+> TIP: In Flutter, `StreamBuilder` listens to a stream and rebuilds widgets on each event, handling the subscription for you.
+
+:::check What keyword makes a function return a Stream and emit with yield?
+async* (asynchronous generator).
+:::
+
+## Common mistakes
+- Not cancelling subscriptions or closing controllers.
+- Listening twice to a single-subscription stream.
+
+## Summary
+- Streams deliver multiple asynchronous values; consume with `await for` or `listen`.
+- Create them with `async*`/`yield`, `Stream.fromIterable`, `Stream.periodic` or `StreamController`.
+- Transform with `map`, `where`, `asyncMap`...; manage subscriptions carefully.
+
+## Further learning
+- dart.dev ▸ Libraries ▸ Asynchronous programming: streams
+@quiz
+? output: What does this print?
+```dart
+Stream<int> nums() async* {
+  yield 1;
+  yield 2;
+  yield 3;
+}
+
+Future<void> main() async {
+  print(await nums().map((n) => n * 10).toList());
+}
+```
++ [10, 20, 30]
+- [1, 2, 3]
+- 60
+- Instance of Stream
+> map transforms each emitted value and toList collects them.
+? tf: A single-subscription stream can be listened to by two listeners at once.
+= false
+> A second listen throws StateError; use a broadcast stream for multiple listeners.
+? fill: Inside an async* function, values are emitted with ___.
+= yield
+> yield adds a value to the stream.
+? mcq: What should you do with a StreamSubscription when a screen is disposed?
++ Cancel it
+- Pause it forever
+- Nothing
+- Listen again
+> Cancelling stops work and releases resources.
+? scenario: Several widgets must react to the same "user logged out" events. Which stream type fits?
++ A broadcast stream, for example StreamController.broadcast()
+- A single-subscription stream
+- A Future
+- A List
+> Broadcast streams support multiple listeners.
+
+@lesson dart-m07-l12 | Isolates | 12
+## Learning objectives
+- Explain Dart's isolate model
+- Run CPU-heavy work in another isolate with `Isolate.run`
+- Communicate between isolates with messages
+
+## Separate memory, real parallelism
+An **isolate** is an independent worker with its **own memory heap and event loop**. Isolates don't share mutable memory, so there are no data races or locks. They communicate by **passing messages**.
+
+Your `main` function runs in the main isolate (in Flutter, the UI isolate). Long synchronous work there blocks everything, including animations. Moving it to another isolate keeps the main one responsive and uses other CPU cores.
+
+## Isolate.run
+The simplest API (Dart 2.19+) runs a function in a new isolate and returns its result:
+
+```dart
+import 'dart:isolate';
+
+int countPrimes(int limit) {
+  var count = 0;
+  for (var n = 2; n <= limit; n++) {
+    var isPrime = true;
+    for (var d = 2; d * d <= n; d++) {
+      if (n % d == 0) {
+        isPrime = false;
+        break;
+      }
+    }
+    if (isPrime) count++;
+  }
+  return count;
+}
+
+Future<void> main() async {
+  final primes = await Isolate.run(() => countPrimes(200000));
+  print('Found $primes primes'); // Found 17984 primes
+}
+```
+
+While the worker isolate counts, the main isolate can keep handling events.
+
+In Flutter, `compute(function, argument)` from `foundation` does the same and also works on the web (where it runs on the same thread).
+
+## What can be sent?
+Messages are copied between isolates. Most objects can be sent: numbers, strings, lists, maps, records and instances of your own classes. Objects tied to native resources (open sockets, `ReceivePort`s) generally cannot. Large immutable data such as `TransferableTypedData` can be transferred efficiently.
+
+## Long-lived workers
+For repeated work, create a long-lived isolate and talk to it through ports:
+
+```dart
+import 'dart:isolate';
+
+Future<void> main() async {
+  final receivePort = ReceivePort();
+  await Isolate.spawn(_worker, receivePort.sendPort);
+  final messages = receivePort.asBroadcastStream();
+  final workerPort = await messages.first as SendPort;
+  workerPort.send(21);
+  print('Answer: ${await messages.first}'); // Answer: 42
+  receivePort.close();
+}
+
+void _worker(SendPort mainPort) {
+  final port = ReceivePort();
+  mainPort.send(port.sendPort);
+  port.listen((message) {
+    mainPort.send((message as int) * 2);
+    port.close();
+  });
+}
+```
+
+## When to use isolates
+- Parsing very large JSON responses
+- Image or audio processing
+- Compression, encryption, complex calculations
+
+Not needed for normal I/O: network and file operations are already asynchronous and don't block the event loop.
+
+> NOTE: Spawning an isolate has overhead (milliseconds). Don't use one for tiny tasks.
+
+:::check Do isolates share mutable memory?
+No. Each isolate has its own heap; they communicate by passing messages.
+:::
+
+## Common mistakes
+- Using isolates for network calls that are already non-blocking.
+- Trying to send closures that capture non-sendable objects.
+
+## Summary
+- Isolates are independent workers with separate memory and event loops.
+- `Isolate.run` (or Flutter's `compute`) offloads CPU-heavy work.
+- Long-lived workers communicate through `SendPort`/`ReceivePort`.
+
+## Further learning
+- dart.dev ▸ Language ▸ Concurrency ▸ Isolates
+@quiz
+? tf: Two isolates can read and write the same object in memory at the same time.
+= false
+> Isolates have separate heaps and exchange copies via messages.
+? mcq: Which task benefits most from running in a separate isolate?
++ Parsing a 30 MB JSON file
+- Waiting for an HTTP response
+- Reading a small setting from storage
+- Showing a dialog
+> CPU-heavy synchronous work blocks the event loop; I/O is already asynchronous.
+? fill: The simplest way to run a function in a new isolate and get its result is `Isolate.___(...)`.
+= run
+> Isolate.run spawns, runs and returns the result.
+? mcq: How do long-lived isolates communicate?
++ Through SendPort and ReceivePort messages
+- Through shared global variables
+- Through mutexes
+- Through the clipboard
+> Ports carry messages between isolates.
+? scenario: Your Flutter app stutters while decoding a huge JSON response. What is a good fix?
++ Decode it in a background isolate with compute or Isolate.run
+- Add more await keywords
+- Use a bigger device
+- Decode it in build()
+> Moving CPU-heavy decoding off the UI isolate keeps animations smooth.
+
+@lesson dart-m07-l13 | Concurrency patterns | 12
+## Learning objectives
+- Combine Futures and Streams for real-world concurrency
+- Limit concurrency, debounce and cancel work
+- Avoid race conditions in asynchronous code
+
+## Concurrency without threads
+Dart achieves concurrency mainly through asynchronous I/O on a single event loop, plus isolates for parallel CPU work. Even on one thread, **race conditions** can happen when two async operations interleave.
+
+## Race conditions with async state
+```dart
+var latestQuery = '';
+
+Future<List<String>> search(String query) async {
+  await Future.delayed(Duration(milliseconds: query.length * 100)); // slower for longer queries
+  return ['result for $query'];
+}
+
+Future<void> onQueryChanged(String query) async {
+  latestQuery = query;
+  final results = await search(query);
+  if (query != latestQuery) return; // ignore stale responses
+  print(results);
+}
+
+Future<void> main() async {
+  onQueryChanged('flutter');   // slow
+  onQueryChanged('dart');      // fast, typed later
+  await Future.delayed(const Duration(seconds: 1));
+}
+```
+
+Without the `latestQuery` check, the slow "flutter" response would arrive *after* "dart" and overwrite the newer results.
+
+## Limiting concurrency
+Starting 500 downloads at once can overwhelm a server or device. Process in batches:
+
+```dart
+Future<void> processAll(List<int> ids, Future<void> Function(int) task, {int batchSize = 4}) async {
+  for (var i = 0; i < ids.length; i += batchSize) {
+    final batch = ids.skip(i).take(batchSize);
+    await Future.wait(batch.map(task));
+  }
+}
+
+Future<void> main() async {
+  await processAll(List.generate(10, (i) => i), (id) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    print('done $id');
+  });
+}
+```
+
+## Debouncing
+For search-as-you-type, wait until the user pauses before firing a request:
+
+```dart
+import 'dart:async';
+
+class Debouncer {
+  Debouncer(this.delay);
+  final Duration delay;
+  Timer? _timer;
+
+  void run(void Function() action) {
+    _timer?.cancel();
+    _timer = Timer(delay, action);
+  }
+
+  void dispose() => _timer?.cancel();
+}
+```
+
+## Cancellation
+Futures can't be cancelled, but you can stop *caring* about them (as above), cancel the underlying stream subscription, or use `CancelableOperation` from `package:async`. HTTP clients typically support closing the client to abort requests.
+
+## Completer
+A `Completer` lets you create a Future and complete it manually, bridging callback-based APIs:
+
+```dart
+import 'dart:async';
+
+Future<String> waitForTap(void Function(void Function(String) onTap) register) {
+  final completer = Completer<String>();
+  register((value) {
+    if (!completer.isCompleted) completer.complete(value);
+  });
+  return completer.future;
+}
+```
+
+> TIP: When state can be changed by several async operations, keep a single source of truth and ignore results that belong to outdated requests.
+
+:::check Why can race conditions happen in single-threaded Dart?
+Because async operations interleave at await points, and responses can arrive in a different order than requests were made.
+:::
+
+## Common mistakes
+- Letting stale responses overwrite newer state.
+- Launching unbounded numbers of concurrent requests.
+
+## Summary
+- Async operations interleave, so guard against stale results.
+- Batch work to limit concurrency; debounce rapid events with Timers.
+- Use Completers to adapt callbacks; cancel subscriptions or ignore stale futures.
+
+## Further learning
+- pub.dev ▸ async (CancelableOperation, StreamGroup)
+@quiz
+? tf: Race conditions are impossible in Dart because it is single-threaded per isolate.
+= false
+> Async operations interleave at await points and can complete out of order.
+? mcq: What does a debouncer do?
++ Delays an action until events stop arriving for a given duration
+- Runs an action in another isolate
+- Repeats an action forever
+- Cancels all futures
+> Debouncing waits for a pause before acting, ideal for search-as-you-type.
+? fill: To create a Future that you complete manually, use a ___.
+= Completer
+> Completer exposes a future and complete/completeError methods.
+? scenario: Search results sometimes show results for an older query. What is the fix?
++ Track the latest query and ignore responses for outdated queries
+- Increase the timeout
+- Use a broadcast stream
+- Remove await
+> Discarding stale responses prevents them from overwriting newer state.
+? mcq: How can you limit 100 uploads to 4 at a time?
++ Process them in batches with Future.wait on each batch
+- Start all 100 with Future.wait
+- Use a for loop without await
+- Use isolates for each upload
+> Batching bounds the number of concurrent operations.
+
+@lesson dart-m07-l14 | Memory management | 10
+## Learning objectives
+- Understand Dart's garbage collector
+- Identify common causes of memory leaks
+- Release resources correctly
+
+## Automatic memory management
+Dart uses a **garbage collector (GC)**. When no live reference points to an object, its memory is reclaimed automatically. The Dart VM uses a **generational** collector:
+- **Young generation**: new objects are allocated here. Most die young (temporary strings, widget instances) and are collected very cheaply.
+- **Old generation**: objects that survive several collections are promoted and collected less often.
+
+This design is why Flutter can rebuild thousands of short-lived widget objects per second without trouble.
+
+## What is a leak in a GC language?
+A **memory leak** happens when objects you no longer need are still **reachable**, so the GC can't free them. Common causes:
+
+```dart
+import 'dart:async';
+
+class PriceTicker {
+  final _subscriptions = <StreamSubscription<double>>[];
+
+  void watch(Stream<double> prices) {
+    // Leak risk: if we never cancel, this listener (and everything it captures) stays alive.
+    _subscriptions.add(prices.listen((p) => print('price $p')));
+  }
+
+  void dispose() {
+    for (final s in _subscriptions) {
+      s.cancel();
+    }
+    _subscriptions.clear();
+  }
+}
+```
+
+Typical leak sources:
+- Stream subscriptions and listeners that are never cancelled
+- Timers (`Timer.periodic`) never cancelled
+- Static or global caches that grow forever
+- Closures that capture large objects and are stored in long-lived places
+- Flutter controllers (`AnimationController`, `TextEditingController`, `ScrollController`) not disposed
+
+## Bounded caches
+Unbounded caches are leaks waiting to happen. Limit their size:
+
+```dart
+class LruCache<K, V> {
+  LruCache(this.capacity);
+  final int capacity;
+  final _map = <K, V>{}; // LinkedHashMap keeps insertion order
+
+  V? get(K key) {
+    final value = _map.remove(key);
+    if (value != null) _map[key] = value; // move to most recent
+    return value;
+  }
+
+  void put(K key, V value) {
+    _map.remove(key);
+    _map[key] = value;
+    if (_map.length > capacity) _map.remove(_map.keys.first); // evict oldest
+  }
+}
+
+void main() {
+  final cache = LruCache<String, int>(2)
+    ..put('a', 1)
+    ..put('b', 2)
+    ..get('a')
+    ..put('c', 3); // evicts 'b'
+  print(cache.get('b')); // null
+}
+```
+
+## Weak references
+`WeakReference<T>` and `Finalizer` (Dart 2.17+) let you refer to an object without keeping it alive, or get notified after it's collected. They're advanced tools for caches and native interop.
+
+## Measuring
+Use Dart DevTools' **Memory** view to take heap snapshots, compare them, and find which objects are retained and by whom.
+
+> TIP: Pair every `listen`, `Timer`, `controller` or `addListener` with a matching `cancel`/`dispose`/`removeListener`. Write them at the same time.
+
+:::check Can a garbage-collected language leak memory?
+Yes, when unneeded objects remain reachable, for example through uncancelled subscriptions or ever-growing caches.
+:::
+
+## Common mistakes
+- Assuming the GC cleans up active subscriptions and timers.
+- Using a global Map as a cache without any size limit.
+
+## Summary
+- Dart's generational GC frees unreachable objects automatically.
+- Leaks occur when unneeded objects stay reachable.
+- Cancel subscriptions and timers, dispose controllers, bound caches, and profile with DevTools.
+
+## Further learning
+- docs.flutter.dev ▸ DevTools ▸ Memory view
+@quiz
+? tf: Objects that are still referenced from a live subscription can be garbage-collected.
+= false
+> Reachable objects are never collected.
+? mcq: Which is a common cause of memory leaks in Dart apps?
++ Stream subscriptions that are never cancelled
+- Using final variables
+- Using const constructors
+- Short-lived temporary strings
+> Active listeners keep their captured objects reachable.
+? fill: Dart's VM garbage collector is ___, with young and old spaces.
+= generational
+> Most objects die young, so a generational design is efficient.
+? scenario: Memory grows steadily as users open many product pages; each page adds to a static Map cache. What fixes it?
++ Bound the cache size (for example an LRU cache) or clear entries when no longer needed
+- Make the Map const
+- Add more RAM
+- Use dynamic types
+> Unbounded caches retain everything forever.
+? mcq: Which tool helps you find retained objects?
++ Dart DevTools Memory view
+- dart format
+- pub.dev
+- DartPad
+> DevTools heap snapshots show what is retained and why.
+
+@lesson dart-m07-l15 | Testing Dart code | 14
+## Learning objectives
+- Write unit tests with `package:test`
+- Structure tests with groups, setUp and matchers
+- Test asynchronous code and use fakes
+
+## Why test?
+Automated tests verify your code works today and **keeps working** when you change it. Unit tests run in milliseconds, so you can run hundreds on every save.
+
+## Setup
+```yaml
+dev_dependencies:
+  test: ^1.25.0
+```
+
+Tests live in `test/` and file names end with `_test.dart`. Run them with `dart test` (or `flutter test` in Flutter projects).
+
+## A first test
+```dart
+// lib/grader.dart
+int percent(int correct, int total) => total == 0 ? 0 : (correct * 100 / total).round();
+bool passed(int correct, int total) => percent(correct, total) >= 70;
+```
+
+```dart
+// test/grader_test.dart
+import 'package:test/test.dart';
+import 'package:my_app/grader.dart';
+
+void main() {
+  group('percent', () {
+    test('rounds to the nearest integer', () {
+      expect(percent(2, 3), 67);
+    });
+
+    test('returns 0 for an empty quiz', () {
+      expect(percent(0, 0), 0);
+    });
+  });
+
+  group('passed', () {
+    test('70% is a pass', () => expect(passed(7, 10), isTrue));
+    test('60% is a fail', () => expect(passed(6, 10), isFalse));
+  });
+}
+```
+
+Structure: `group` organises related tests; `test` defines one behaviour; `expect(actual, matcher)` asserts.
+
+## Matchers
+- Equality: `expect(x, 42)` or `equals(42)`
+- Booleans and null: `isTrue`, `isFalse`, `isNull`, `isNotNull`
+- Collections: `contains(3)`, `hasLength(2)`, `isEmpty`, `orderedEquals([...])`
+- Numbers: `greaterThan(1)`, `closeTo(0.3, 1e-9)`
+- Types and errors: `isA<String>()`, `throwsA(isA<FormatException>())`, `throwsArgumentError`
+
+```dart
+test('parse throws on invalid input', () {
+  expect(() => int.parse('x'), throwsFormatException);
+});
+```
+
+## setUp and tearDown
+```dart
+late List<int> data;
+setUp(() => data = [3, 1, 2]);   // runs before each test
+tearDown(() => data.clear());    // runs after each test
+```
+
+## Async tests
+Return a Future (or mark the test `async`):
+
+```dart
+test('loads profile', () async {
+  final name = await Future.value('Ada');
+  expect(name, 'Ada');
+});
+
+test('stream emits in order', () {
+  expect(Stream.fromIterable([1, 2]), emitsInOrder([1, 2, emitsDone]));
+});
+```
+
+## Fakes over real dependencies
+Inject dependencies through constructors so tests can pass fakes (or mocks generated by `mocktail`/`mockito`). A fake clock, a fake repository or an in-memory database keeps tests fast and deterministic.
+
+> TIP: Name tests after behaviour ("returns 0 for an empty quiz"), not implementation ("calls round"). When a test fails, its name should tell you what broke.
+
+:::check How do you assert that a function throws a FormatException?
+expect(() => fn(), throwsFormatException) or throwsA(isA<FormatException>()).
+:::
+
+## Common mistakes
+- Passing the result instead of a function to throw-matchers: `expect(fn(), throwsX)` throws before `expect` runs.
+- Tests that depend on the current time, network or random values without control.
+
+## Summary
+- `package:test` provides `test`, `group`, `expect`, `setUp` and matchers.
+- Async tests return Futures; stream matchers check emissions.
+- Inject dependencies to use fakes and keep tests deterministic.
+
+## Further learning
+- dart.dev ▸ Guides ▸ Testing
+- pub.dev ▸ test, mocktail
+@quiz
+? mcq: Where do Dart test files usually live?
++ In the test/ folder, with names ending in _test.dart
+- In lib/ next to the code
+- In bin/
+- Anywhere, named test.txt
+> dart test discovers files matching *_test.dart in test/.
+? fill: The function that asserts a value in package:test is ___.
+= expect
+> expect(actual, matcher) performs the assertion.
+? tf: `expect(int.parse('x'), throwsFormatException)` correctly tests that parsing throws.
+= false
+> The call throws before expect runs; pass a closure: () => int.parse('x').
+? mcq: Which matcher checks a double approximately?
+- equals
++ closeTo
+- isA
+- hasLength
+> closeTo(value, delta) allows a tolerance.
+? scenario: A streak test fails every day around midnight. What's the best fix?
++ Inject a clock/time provider and use a fixed time in tests
+- Run tests only at noon
+- Delete the test
+- Add retries
+> Controlling time makes the test deterministic.
+? order: Order the lines of a minimal test file.
+~ import 'package:test/test.dart';
+~ void main() {
+~   test('adds', () => expect(1 + 1, 2));
+~ }
+> Import the test package, then declare tests inside main.
+
+@lesson dart-m07-l16 | Package management | 12
+## Learning objectives
+- Manage dependencies with pubspec.yaml and dart pub
+- Understand version constraints and the lockfile
+- Create and structure your own package
+
+## pubspec.yaml
+```yaml
+name: bimo_utils
+description: Helpers shared across Bimo projects.
+version: 1.2.0
+environment:
+  sdk: ^3.5.0
+dependencies:
+  collection: ^1.18.0
+  http: ^1.2.0
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0
+```
+
+- `dependencies`: needed at runtime.
+- `dev_dependencies`: only for development (tests, linters, code generators).
+
+## Commands
+```bash
+dart pub add http               # add a dependency (resolves a version for you)
+dart pub add --dev test         # add a dev dependency
+dart pub get                    # install dependencies
+dart pub upgrade                # upgrade within constraints
+dart pub outdated               # see newer versions
+dart pub deps                   # show the dependency graph
+```
+
+## Semantic versioning
+Packages use **semver**: `MAJOR.MINOR.PATCH`.
+- PATCH: bug fixes
+- MINOR: new features, backwards compatible
+- MAJOR: breaking changes
+
+The caret constraint `^1.2.0` means `>=1.2.0 <2.0.0`. For versions below 1.0.0, `^0.4.1` means `>=0.4.1 <0.5.0`, because in 0.x versions the minor number signals breaking changes.
+
+## pubspec.lock
+`dart pub get` writes `pubspec.lock` with the **exact** versions chosen. Commit the lockfile for **applications** so every developer and CI build uses identical versions. For reusable **packages**, don't commit it: consumers resolve their own versions.
+
+## Package layout
+```diagram
+bimo_utils/
+├── lib/
+│   ├── bimo_utils.dart     ← public entry point (exports)
+│   └── src/                ← private implementation
+│       └── formatting.dart
+├── test/
+├── example/
+├── CHANGELOG.md
+├── README.md
+└── pubspec.yaml
+```
+
+```dart
+// lib/bimo_utils.dart
+// Public API: re-export only what users should see.
+// export 'src/formatting.dart' show formatDuration;
+```
+
+Code in `lib/src/` is considered private by convention; users import `package:bimo_utils/bimo_utils.dart`.
+
+## Path and git dependencies
+During development you can depend on local or git packages:
+
+```yaml
+dependencies:
+  bimo_utils:
+    path: ../bimo_utils
+```
+
+## Publishing
+`dart pub publish --dry-run` validates your package; `dart pub publish` uploads it to pub.dev, where it receives a pub points score for documentation, platform support and analysis.
+
+> TIP: Run `dart pub outdated` regularly and upgrade dependencies in small steps; large, delayed upgrades are painful.
+
+:::check Should an application commit pubspec.lock?
+Yes. It makes builds reproducible with exact dependency versions.
+:::
+
+## Common mistakes
+- Putting test-only packages under `dependencies` instead of `dev_dependencies`.
+- Using `any` as a version constraint, which can pull in breaking changes.
+
+## Summary
+- pubspec.yaml declares dependencies; `dart pub` installs and updates them.
+- Caret constraints follow semver; the lockfile pins exact versions (commit it for apps).
+- Packages expose a public API from `lib/` and hide implementation in `lib/src/`.
+
+## Further learning
+- dart.dev ▸ Tools ▸ pub ▸ Dependencies
+- dart.dev ▸ Tools ▸ pub ▸ Publishing packages
+@quiz
+? mcq: What does the constraint `^2.3.0` allow?
++ >=2.3.0 <3.0.0
+- Exactly 2.3.0
+- >=2.3.0 <2.4.0
+- Any version
+> Caret allows compatible versions up to the next major release.
+? mcq: What does `^0.4.1` allow?
+- >=0.4.1 <1.0.0
++ >=0.4.1 <0.5.0
+- Exactly 0.4.1
+- >=0.0.0
+> For 0.x versions, the minor number signals breaking changes.
+? tf: Reusable library packages should commit pubspec.lock.
+= false
+> Only applications should commit the lockfile.
+? fill: Test-only packages belong in the ___ section of pubspec.yaml.
+= dev_dependencies
+> dev_dependencies are not included for consumers or at runtime.
+? scenario: A bug fix release of a dependency goes from 1.4.2 to 1.4.3. Which semver part changed?
++ PATCH
+- MINOR
+- MAJOR
+- BUILD
+> Bug fixes increment the patch number.
+
+@lesson dart-m07-l17 | Effective Dart practices | 14
+## Learning objectives
+- Apply Effective Dart style, documentation, usage and design guidelines
+- Configure lints and analysis options
+- Review code with a professional checklist
+
+## The four guides
+Effective Dart is the official set of guidelines, divided into **Style**, **Documentation**, **Usage** and **Design**. Following them makes your code look familiar to every Dart developer.
+
+## Style highlights
+- `UpperCamelCase` for types, extensions and enums; `lowerCamelCase` for everything else, including constants; `lowercase_with_underscores` for file and package names.
+- Format with `dart format`. Don't argue about style; let the formatter decide.
+- Use curly braces for all flow control statements, except a single-line `if` without `else`.
+
+## Documentation highlights
+- Use `///` doc comments for public APIs, starting with a one-sentence summary.
+- Prefer `[name]` references and examples over long prose.
+
+## Usage highlights
+```dart
+// Prefer collection literals and type inference
+final names = <String>[];                 // not List<String>()
+// Prefer ?? and ?. for null handling
+final display = nickname ?? fullName;
+// Prefer interpolation over concatenation
+final greeting = 'Hello $name';
+// Use isEmpty / isNotEmpty, not length == 0
+if (items.isEmpty) return;
+// Prefer final for locals that don't change
+final total = prices.fold(0, (a, b) => a + b);
+// Use whereType<T>() to filter by type
+final strings = mixed.whereType<String>();
+```
+
+(These lines are illustrative; `nickname`, `fullName`, `items`, `prices` and `mixed` stand for your own variables.)
+
+## Design highlights
+- Make classes and members as private as possible.
+- Prefer named parameters for booleans and for functions with several parameters of the same type.
+- Avoid public mutable fields when invariants matter; expose behaviour.
+- Use `Future<void>` (not `Future`) for async functions without a result.
+- Avoid returning `null` for "empty" collections; return an empty collection.
+
+## Lints
+Add `package:lints` (or `flutter_lints` in Flutter apps) and enable it in `analysis_options.yaml`:
+
+```yaml
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    - prefer_final_locals
+    - unawaited_futures
+    - always_declare_return_types
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+```
+
+`dart analyze` then reports violations, and `dart fix --apply` fixes many automatically.
+
+## A review checklist
+Before opening a pull request, check:
+1. Formatted (`dart format .`) and analyzer-clean (`dart analyze`).
+2. Names describe intent; no abbreviations like `usrLst`.
+3. No unhandled futures; subscriptions and controllers are disposed.
+4. Errors are handled where meaningful; no empty catches.
+5. New behaviour has tests; tests pass (`dart test`).
+6. Public APIs are documented.
+
+> TIP: Consistency beats cleverness. Code is read far more often than it is written.
+
+:::check What naming style should Dart file names use?
+lowercase_with_underscores, for example lesson_card.dart.
+:::
+
+## Common mistakes
+- Fighting the formatter with manual alignment.
+- Disabling lints instead of fixing the underlying issues.
+
+## Summary
+- Effective Dart covers style, documentation, usage and design.
+- Use `dart format`, `dart analyze`, lints and `dart fix`.
+- Prefer clear names, minimal visibility, null-aware operators, and tests for new behaviour.
+
+## Further learning
+- dart.dev ▸ Effective Dart
+- dart.dev ▸ Tools ▸ Linter rules
+@quiz
+? mcq: Which name follows Effective Dart for a constant?
+- MAX_RETRIES
++ maxRetries
+- Max_Retries
+- kMaxRetries_
+> Effective Dart uses lowerCamelCase for constants.
+? fill: Dart file names should be written in lowercase_with___.
+= underscores
+> File and package names use lowercase_with_underscores.
+? tf: Effective Dart recommends `if (list.length == 0)` over `if (list.isEmpty)`.
+= false
+> isEmpty is clearer and may be faster for some iterables.
+? mcq: Which file configures lint rules for a Dart project?
++ analysis_options.yaml
+- pubspec.lock
+- lints.json
+- dart.config
+> analysis_options.yaml includes lint sets and analyzer options.
+? scenario: A pull request contains a function returning `null` when there are no results, forcing callers to null-check. What does Effective Dart suggest?
++ Return an empty collection instead of null
+- Return -1
+- Throw an exception
+- Return dynamic
+> Empty collections are simpler for callers than null.
+? mcq: Which command automatically applies many lint and migration fixes?
+- dart run
++ dart fix --apply
+- dart pub get
+- dart compile
+> dart fix applies automated fixes suggested by the analyzer.

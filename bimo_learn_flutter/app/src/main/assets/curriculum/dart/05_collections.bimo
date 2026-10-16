@@ -1,0 +1,1208 @@
+@module dart-m05 | Collections
+@summary Store and transform data with lists, sets, maps and iterables.
+
+@lesson dart-m05-l01 | Lists | 14
+## Learning objectives
+- Create, read and modify lists
+- Use common list operations and properties
+- Choose between growable, fixed-length and unmodifiable lists
+
+## Ordered collections
+A `List` is an ordered collection of elements accessed by a zero-based index.
+
+```dart
+void main() {
+  final fruits = <String>['apple', 'banana'];
+  fruits.add('cherry');
+  fruits.addAll(['date', 'elderberry']);
+  fruits.insert(0, 'apricot');
+
+  print(fruits.length);   // 6
+  print(fruits[0]);       // apricot
+  print(fruits.last);     // elderberry
+  fruits[1] = 'avocado';  // replace by index
+  fruits.remove('banana');
+  fruits.removeAt(0);
+  print(fruits);          // [avocado, cherry, date, elderberry]
+  print(fruits.contains('date'));  // true
+  print(fruits.indexOf('cherry')); // 1
+}
+```
+
+Accessing an index outside `0..length-1` throws a `RangeError`. Use `isEmpty`/`isNotEmpty` before reading `first` or `last`, or use `firstOrNull` from `package:collection`.
+
+## Creating lists in other ways
+```dart
+final zeros = List.filled(3, 0);                 // [0, 0, 0] fixed-length
+final squares = List.generate(5, (i) => i * i);  // [0, 1, 4, 9, 16]
+final copy = List.of(squares);                   // independent copy
+final readOnly = List.unmodifiable(squares);     // cannot be changed
+```
+
+`List.filled` creates a **fixed-length** list by default: you can replace elements but not add or remove. Pass `growable: true` if you need to resize it.
+
+## Sublists and ranges
+```dart
+final letters = ['a', 'b', 'c', 'd', 'e'];
+print(letters.sublist(1, 3));     // [b, c]
+print(letters.getRange(2, 5).toList()); // [c, d, e]
+letters.removeRange(0, 2);        // [c, d, e]
+```
+
+## Lists of lists
+```dart
+final board = List.generate(3, (_) => List.filled(3, '.'));
+board[1][1] = 'X';
+for (final row in board) {
+  print(row.join(' '));
+}
+```
+
+> WARNING: `List.filled(3, [])` puts the **same** inner list in every slot. Use `List.generate` so each row is a new list.
+
+:::check What does `List.filled(2, 'x')..add('y')` do?
+It throws an UnsupportedError, because List.filled creates a fixed-length list unless you pass growable: true.
+:::
+
+## Common mistakes
+- Off-by-one: the last index is `length - 1`.
+- Sharing one inner list across rows with `List.filled`.
+
+## Summary
+- Lists are ordered and indexed from 0.
+- `add`, `insert`, `remove`, `removeAt`, `[]=` modify; `contains`, `indexOf` query.
+- `List.generate`, `List.filled`, `List.of` and `List.unmodifiable` create lists.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ List
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final list = [10, 20, 30];
+  list.insert(1, 15);
+  print(list);
+}
+```
++ [10, 15, 20, 30]
+- [15, 10, 20, 30]
+- [10, 20, 15, 30]
+- [10, 15, 30]
+> insert(1, 15) places 15 at index 1 and shifts the rest.
+? mcq: What is the index of the last element of a list with 5 elements?
+- 5
++ 4
+- 6
+- -1
+> Indexes start at 0, so the last index is length - 1.
+? output: What does this print?
+```dart
+void main() {
+  print(List.generate(4, (i) => i * 2));
+}
+```
++ [0, 2, 4, 6]
+- [2, 4, 6, 8]
+- [0, 1, 2, 3]
+- [0, 2, 4, 6, 8]
+> generate calls the function with indexes 0 to 3.
+? tf: `List.filled(3, 0)` returns a growable list by default.
+= false
+> List.filled is fixed-length unless growable: true is passed.
+? fill: Accessing an index outside the valid range throws a ___.
+= RangeError
+> Out-of-range indexes throw RangeError.
+? scenario: You need a 3×3 grid where changing one cell must not affect other rows. How do you create it?
++ List.generate(3, (_) => List.filled(3, 0))
+- List.filled(3, List.filled(3, 0))
+- [[0, 0, 0]] * 3
+- List.filled(9, 0)
+> generate builds a new inner list for each row.
+
+@lesson dart-m05-l02 | Sets | 10
+## Learning objectives
+- Store unique values with `Set`
+- Use set operations: union, intersection, difference
+- Know when a set is better than a list
+
+## Unique, unordered-by-meaning values
+A `Set` holds **unique** elements. Adding a duplicate has no effect. Dart's default `Set` is a `LinkedHashSet`, which preserves insertion order when iterating.
+
+```dart
+void main() {
+  final tags = <String>{'dart', 'flutter'};
+  tags.add('dart');        // ignored, already present
+  tags.add('firebase');
+  print(tags);             // {dart, flutter, firebase}
+  print(tags.length);      // 3
+  print(tags.contains('flutter')); // true
+}
+```
+
+> WARNING: `{}` on its own creates an empty **Map**, not a Set. Write `<String>{}` or `Set<String>()` for an empty set.
+
+## Set operations
+```dart
+void main() {
+  final alice = {'dart', 'go', 'rust'};
+  final bob = {'dart', 'kotlin', 'go'};
+
+  print(alice.union(bob));        // {dart, go, rust, kotlin}
+  print(alice.intersection(bob)); // {dart, go}
+  print(alice.difference(bob));   // {rust}
+}
+```
+
+## Fast lookups
+`contains` on a set is typically constant time, whereas on a list it scans every element. For large collections where you frequently ask "is this in here?", a set is much faster.
+
+```dart
+void main() {
+  final completedLessons = {'dart-m01-l01', 'dart-m01-l02'};
+  bool isDone(String id) => completedLessons.contains(id);
+  print(isDone('dart-m01-l02')); // true
+}
+```
+
+This is exactly how Bimo checks which lessons you've completed.
+
+## Removing duplicates
+```dart
+final emails = ['a@x.com', 'b@x.com', 'a@x.com'];
+final unique = emails.toSet().toList(); // [a@x.com, b@x.com]
+```
+
+## Equality matters
+Sets use `==` and `hashCode` to detect duplicates. Two instances of your own class are considered different unless you override both (Module 6).
+
+:::check What does `{1, 2, 2, 3}.length` return?
+3. Duplicates are not stored.
+:::
+
+## Common mistakes
+- Writing `var s = {};` and getting a `Map<dynamic, dynamic>`.
+- Expecting index access: sets have no `[]` operator; use `elementAt` or convert to a list.
+
+## Summary
+- Sets store unique elements and keep insertion order (LinkedHashSet).
+- `union`, `intersection`, `difference` combine sets.
+- `contains` is fast; use sets for membership checks and deduplication.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ Set
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final s = {'a', 'b'};
+  s.add('a');
+  s.add('c');
+  print(s.length);
+}
+```
++ 3
+- 4
+- 2
+- 1
+> The duplicate 'a' is ignored.
+? mcq: What does `var x = {};` create?
++ An empty Map
+- An empty Set
+- An empty List
+- A compile error
+> Empty braces default to a Map literal.
+? output: What does this print?
+```dart
+void main() {
+  print({1, 2, 3}.intersection({2, 3, 4}));
+}
+```
++ {2, 3}
+- {1, 2, 3, 4}
+- {1}
+- {4}
+> intersection keeps elements present in both sets.
+? tf: Checking `contains` on a large Set is usually faster than on a large List.
+= true
+> Sets use hashing for near constant-time lookup.
+? fill: To remove duplicates from a list, convert it with `list.to___()`.
+= Set
+> toSet keeps only unique elements.
+
+@lesson dart-m05-l03 | Maps | 14
+## Learning objectives
+- Store key-value pairs in maps
+- Read, write, update and remove entries safely
+- Iterate maps and transform them
+
+## Key-value storage
+A `Map` associates **keys** with **values**. Keys are unique; values can repeat.
+
+```dart
+void main() {
+  final stock = <String, int>{'apples': 12, 'pears': 4};
+  stock['plums'] = 7;            // add
+  stock['apples'] = 10;          // update
+  print(stock['pears']);         // 4
+  print(stock['kiwis']);         // null – missing key
+  print(stock.containsKey('plums')); // true
+  stock.remove('pears');
+  print(stock);                  // {apples: 10, plums: 7}
+}
+```
+
+Reading a missing key returns `null`, so the type of `stock['x']` is `int?`.
+
+## Safe access patterns
+```dart
+final count = stock['kiwis'] ?? 0;            // default value
+stock.putIfAbsent('kiwis', () => 0);          // add only if missing
+stock.update('apples', (v) => v + 5);         // modify existing (throws if missing)
+stock.update('mangoes', (v) => v + 1, ifAbsent: () => 1); // upsert
+```
+
+## Iterating
+```dart
+void main() {
+  final prices = {'tea': 250, 'coffee': 320};
+  for (final MapEntry(:key, :value) in prices.entries) {
+    print('$key costs ${value / 100}');
+  }
+  print(prices.keys);    // (tea, coffee)
+  print(prices.values);  // (250, 320)
+}
+```
+
+## Transforming
+```dart
+void main() {
+  final prices = {'tea': 250, 'coffee': 320};
+  final discounted = prices.map((name, cents) => MapEntry(name, (cents * 0.9).round()));
+  final expensive = Map.fromEntries(prices.entries.where((e) => e.value > 300));
+  print(discounted); // {tea: 225, coffee: 288}
+  print(expensive);  // {coffee: 320}
+}
+```
+
+## Counting with a map
+A classic use: counting occurrences.
+
+```dart
+void main() {
+  final words = 'the cat and the hat and the bat'.split(' ');
+  final counts = <String, int>{};
+  for (final w in words) {
+    counts[w] = (counts[w] ?? 0) + 1;
+  }
+  print(counts); // {the: 3, cat: 1, and: 2, hat: 1, bat: 1}
+}
+```
+
+## Maps and JSON
+Decoded JSON objects are `Map<String, dynamic>` in Dart, so you'll use maps whenever you talk to web APIs (Flutter Module 8).
+
+> NOTE: Default maps (`LinkedHashMap`) iterate in insertion order.
+
+:::check What is the type of `scores['bob']` when scores is a `Map<String, int>`?
+int?, because the key might be missing.
+:::
+
+## Common mistakes
+- Using `map[key]!` everywhere; handle missing keys with `??` or `containsKey`.
+- Calling `update` without `ifAbsent` on a key that may not exist.
+
+## Summary
+- Maps store unique keys mapped to values; missing keys return null.
+- `??`, `putIfAbsent` and `update(ifAbsent:)` handle missing keys.
+- Iterate with `entries`, `keys`, `values`; transform with `map` and `fromEntries`.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ Map
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final m = {'a': 1};
+  m['b'] = 2;
+  m['a'] = 5;
+  print(m);
+}
+```
++ {a: 5, b: 2}
+- {a: 1, b: 2}
+- {a: 1, a: 5, b: 2}
+- {b: 2, a: 5}
+> Assigning to an existing key updates it; insertion order is kept.
+? mcq: What does reading a missing key from a Map return?
+- An empty string
+- 0
++ null
+- It throws
+> The [] operator returns null for missing keys.
+? fill: To add a key only if it is missing, call `map.putIf___(key, () => value)`.
+= Absent
+> putIfAbsent inserts only when the key does not exist.
+? output: What does this print?
+```dart
+void main() {
+  final counts = <String, int>{};
+  for (final c in ['x', 'y', 'x']) {
+    counts[c] = (counts[c] ?? 0) + 1;
+  }
+  print(counts['x']);
+}
+```
++ 2
+- 1
+- null
+- 3
+> 'x' appears twice.
+? tf: In a Map, two different keys can have the same value.
+= true
+> Keys are unique; values can repeat.
+? scenario: You want to increment a counter for a key that may not exist yet in one call. Which API fits?
++ map.update(key, (v) => v + 1, ifAbsent: () => 1)
+- map.update(key, (v) => v + 1)
+- map.add(key)
+- map[key]!++
+> update with ifAbsent performs an upsert.
+
+@lesson dart-m05-l04 | Iterables | 12
+## Learning objectives
+- Understand the `Iterable` interface shared by lists and sets
+- Recognise lazy evaluation
+- Create iterables with generators
+
+## The common interface
+`List` and `Set` both implement `Iterable`, the abstraction for "something you can loop over". `map`, `where` and `skip` return `Iterable`s too. Methods like `first`, `last`, `length`, `contains`, `join`, `toList` and `toSet` are defined on `Iterable`.
+
+```dart
+void main() {
+  Iterable<int> numbers = [1, 2, 3, 4, 5];
+  print(numbers.first);                 // 1
+  print(numbers.skip(2).take(2).toList()); // [3, 4]
+  print(numbers.join(' | '));           // 1 | 2 | 3 | 4 | 5
+}
+```
+
+Iterables don't support `[index]`; use `elementAt(i)` (which may need to walk the sequence) or convert to a list.
+
+## Lazy evaluation
+Many iterable operations are **lazy**: they describe work that happens only when you iterate.
+
+```dart
+void main() {
+  final numbers = [1, 2, 3];
+  final mapped = numbers.map((n) {
+    print('mapping $n');
+    return n * 10;
+  });
+  print('Nothing mapped yet');
+  print(mapped.first); // prints "mapping 1" then 10
+}
+```
+
+Only the first element was computed, because only `first` was requested. Laziness makes chains efficient and allows infinite sequences, but iterating twice repeats the work.
+
+## Generator functions
+`sync*` functions produce iterables lazily using `yield`:
+
+```dart
+Iterable<int> countDown(int from) sync* {
+  for (var i = from; i >= 0; i--) {
+    yield i;
+  }
+}
+
+Iterable<int> naturals() sync* {
+  var n = 1;
+  while (true) {
+    yield n++;   // infinite, but lazy
+  }
+}
+
+void main() {
+  print(countDown(3).toList());       // [3, 2, 1, 0]
+  print(naturals().take(5).toList()); // [1, 2, 3, 4, 5]
+}
+```
+
+`yield*` delegates to another iterable: `yield* countDown(2);`.
+
+## Helpful iterable getters and methods
+- `isEmpty`, `isNotEmpty`, `length` (may iterate everything for lazy iterables)
+- `firstWhere`, `lastWhere`, `singleWhere`
+- `expand` flattens: `[[1, 2], [3]].expand((l) => l)` → `(1, 2, 3)`
+- `followedBy` concatenates iterables
+
+> TIP: Return `Iterable` from APIs when callers only need to loop; return `List` when they need indexing or length repeatedly.
+
+:::check Does `numbers.map(f)` call f before you iterate?
+No. map is lazy; f runs as elements are requested.
+:::
+
+## Common mistakes
+- Calling `.length` on an expensive lazy iterable several times.
+- Expecting `[i]` on an Iterable.
+
+## Summary
+- `Iterable` is the shared interface for sequences.
+- Operations like `map`, `where`, `skip`, `take` are lazy.
+- `sync*` and `yield` create lazy iterables, even infinite ones.
+
+## Further learning
+- dart.dev ▸ Libraries ▸ Iterable collections
+@quiz
+? output: What does this print?
+```dart
+Iterable<int> evens() sync* {
+  var n = 0;
+  while (true) {
+    yield n;
+    n += 2;
+  }
+}
+
+void main() {
+  print(evens().take(3).toList());
+}
+```
++ [0, 2, 4]
+- [2, 4, 6]
+- An infinite loop
+- [0, 2, 4, 6]
+> The generator is lazy, so take(3) stops after three values.
+? tf: You can access `iterable[0]` on any Iterable.
+= false
+> Iterable has no [] operator; use elementAt or first.
+? fill: Inside a sync* function, values are produced with the keyword ___.
+= yield
+> yield emits the next element of the iterable.
+? mcq: Which method flattens a list of lists into a single iterable?
+- flatten
++ expand
+- merge
+- spread
+> expand maps each element to an iterable and concatenates the results.
+? output: What does this print?
+```dart
+void main() {
+  print([5, 6, 7, 8].skip(1).take(2).toList());
+}
+```
++ [6, 7]
+- [5, 6]
+- [7, 8]
+- [6, 7, 8]
+> skip(1) drops 5, take(2) keeps 6 and 7.
+
+@lesson dart-m05-l05 | Essential collection methods | 12
+## Learning objectives
+- Search, test and summarise collections with built-in methods
+- Use `package:collection` helpers
+- Pick the right method for the task
+
+## Searching
+```dart
+void main() {
+  final users = ['ada', 'grace', 'linus', 'guido'];
+  print(users.firstWhere((u) => u.startsWith('g')));        // grace
+  print(users.lastWhere((u) => u.startsWith('g')));         // guido
+  print(users.indexWhere((u) => u.length > 4));             // 1
+  print(users.firstWhere((u) => u == 'bob', orElse: () => 'none')); // none
+}
+```
+
+`firstWhere` without `orElse` throws a `StateError` when nothing matches. With null safety, a cleaner alternative is `firstWhereOrNull` from `package:collection`, or in Dart 3 the built-in `.where(test).firstOrNull`.
+
+## Testing
+```dart
+final ages = [21, 34, 17];
+print(ages.any((a) => a < 18));   // true
+print(ages.every((a) => a > 10)); // true
+print(ages.contains(34));         // true
+```
+
+## Summarising
+```dart
+final prices = [3.5, 2.0, 7.25];
+final total = prices.fold<double>(0, (sum, p) => sum + p); // 12.75
+final maxPrice = prices.reduce((a, b) => a > b ? a : b);   // 7.25
+final labels = prices.map((p) => '\$$p').join(', ');       // $3.5, $2.0, $7.25
+```
+
+## Grouping and chunking with package:collection
+The official `collection` package adds many helpers:
+
+```dart
+import 'package:collection/collection.dart';
+
+void main() {
+  final words = ['apple', 'avocado', 'banana', 'blueberry', 'cherry'];
+  final byLetter = words.groupListsBy((w) => w[0]);
+  print(byLetter); // {a: [apple, avocado], b: [banana, blueberry], c: [cherry]}
+  print([3, 1, 2].sorted((a, b) => a.compareTo(b))); // [1, 2, 3] – new list
+  print([1, 2, 3, 4, 5].slices(2).toList()); // [[1, 2], [3, 4], [5]]
+  print(const ListEquality<int>().equals([1, 2], [1, 2])); // true
+}
+```
+
+## Comparing lists
+`[1, 2] == [1, 2]` is **false**: lists use identity equality. Use `ListEquality` or `listEquals` (Flutter foundation) to compare contents.
+
+> TIP: Before writing a loop, ask "is there a method for this?" Searching (`firstWhere`), testing (`any`/`every`), counting (`where(...).length`) and summarising (`fold`) cover most cases.
+
+:::check What does `[1, 2] == [1, 2]` evaluate to?
+false. Lists compare by identity, not contents.
+:::
+
+## Common mistakes
+- Calling `firstWhere` on data that might not contain a match, without `orElse`.
+- Comparing lists with `==`.
+
+## Summary
+- `firstWhere`, `lastWhere`, `indexWhere` search; `any`, `every`, `contains` test.
+- `fold`, `reduce`, `join` summarise.
+- `package:collection` adds `groupListsBy`, `sorted(compare)`, `slices`, `firstWhereOrNull` and equality helpers.
+
+## Further learning
+- pub.dev ▸ collection
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final nums = [4, 9, 16];
+  print(nums.indexWhere((n) => n > 5));
+}
+```
++ 1
+- 9
+- 2
+- -1
+> The first element greater than 5 is 9, at index 1.
+? tf: `[1, 2] == [1, 2]` is true in Dart.
+= false
+> Lists use identity equality; use ListEquality to compare contents.
+? mcq: What happens when firstWhere finds no match and no orElse is given?
+- Returns null
+- Returns the first element
++ Throws a StateError
+- Returns -1
+> Without orElse, firstWhere throws when nothing matches.
+? fill: To check that all elements satisfy a condition, use `list.___(test)`.
+= every
+> every returns true only if all elements pass.
+? scenario: You need to group orders by customer id into a Map of lists. What's the most concise tool?
++ groupListsBy from package:collection
+- A switch expression
+- list.sort()
+- A Set
+> groupListsBy builds a Map<K, List<T>> in one call.
+
+@lesson dart-m05-l06 | Spread operators | 8
+## Learning objectives
+- Insert collections into collection literals with `...`
+- Handle nullable collections with `...?`
+- Build lists, sets and maps declaratively
+
+## Spreading elements
+The spread operator `...` inserts all elements of one collection into another literal:
+
+```dart
+void main() {
+  final basics = ['Variables', 'Functions'];
+  final advanced = ['Isolates', 'Streams'];
+  final syllabus = ['Intro', ...basics, ...advanced, 'Final exam'];
+  print(syllabus); // [Intro, Variables, Functions, Isolates, Streams, Final exam]
+}
+```
+
+This creates a **new** list; `basics` and `advanced` are unchanged.
+
+## Null-aware spread
+If the collection may be null, use `...?`, which inserts nothing for null:
+
+```dart
+void main() {
+  List<String>? optionalModules;
+  final all = ['Core', ...?optionalModules];
+  print(all); // [Core]
+}
+```
+
+## Spreading sets and maps
+```dart
+void main() {
+  final defaults = {'theme': 'light', 'sound': 'on'};
+  final userPrefs = {'theme': 'dark'};
+  final settings = {...defaults, ...userPrefs};
+  print(settings); // {theme: dark, sound: on}
+
+  final a = {1, 2};
+  final b = {2, 3};
+  print({...a, ...b}); // {1, 2, 3}
+}
+```
+
+With maps, later entries **override** earlier ones with the same key, which makes spreading a neat way to merge defaults with overrides.
+
+## Copying immutably
+Spreads are great for producing updated copies instead of mutating state, a pattern widely used in Flutter state management:
+
+```dart
+void main() {
+  final todos = ['Buy milk'];
+  final updated = [...todos, 'Walk dog']; // new list, original untouched
+  print('$todos $updated');
+}
+```
+
+> NOTE: Spreading copies the *references* to elements (a shallow copy). Mutable objects inside are still shared.
+
+:::check What does `{...{'a': 1}, ...{'a': 2}}` produce?
+{a: 2}. The later entry wins.
+:::
+
+## Best practices
+- Use spreads to build *new* collections from old ones instead of calling `addAll` on a shared list.
+- Put the defaults first and the overrides last when merging maps, so the intent reads left to right.
+- Combine spreads with collection `if` (next lesson) to assemble lists declaratively: `[...base, if (isPro) ...proItems]`.
+
+## Common mistakes
+- Forgetting `?` when spreading a nullable collection.
+- Assuming spread performs a deep copy of nested objects.
+
+## Summary
+- `...` inserts elements into list, set and map literals.
+- `...?` safely ignores null collections.
+- Map spreads merge, with later keys winning; spreads create shallow copies.
+
+## Further learning
+- dart.dev ▸ Language ▸ Collections ▸ Spread operators
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final a = [1, 2];
+  final b = [0, ...a, 3];
+  print(b);
+}
+```
++ [0, 1, 2, 3]
+- [0, [1, 2], 3]
+- [1, 2, 0, 3]
+- [0, 3]
+> The spread inserts each element of a into the new list.
+? output: What does this print?
+```dart
+void main() {
+  final merged = {...{'x': 1, 'y': 2}, ...{'y': 9}};
+  print(merged);
+}
+```
++ {x: 1, y: 9}
+- {x: 1, y: 2}
+- {x: 1, y: 2, y: 9}
+- {y: 9}
+> Later map entries override earlier ones with the same key.
+? fill: To spread a collection that might be null, use the ___ operator.
+= ...?
+> The null-aware spread inserts nothing for null.
+? tf: Spreading a list into a new list modifies the original list.
+= false
+> Spreading creates a new collection and leaves the original unchanged.
+? mcq: What kind of copy does spreading create?
++ A shallow copy: element references are shared
+- A deep copy of every nested object
+- No copy, the same list is reused
+- A frozen const copy
+> Only the top-level collection is new; objects inside are shared.
+
+@lesson dart-m05-l07 | Collection if and for | 10
+## Learning objectives
+- Build collections conditionally with collection `if`
+- Generate elements with collection `for`
+- Combine them for declarative data building
+
+## Collection if
+Inside a list, set or map literal, `if` includes an element only when a condition holds:
+
+```dart
+void main() {
+  const isLoggedIn = true;
+  const isAdmin = false;
+  final menu = [
+    'Home',
+    if (isLoggedIn) 'Profile',
+    if (isAdmin) 'Admin panel' else 'Help',
+  ];
+  print(menu); // [Home, Profile, Help]
+}
+```
+
+## Collection for
+`for` inside a literal generates elements:
+
+```dart
+void main() {
+  final squares = [for (var i = 1; i <= 5; i++) i * i];
+  final names = ['ada', 'grace'];
+  final labels = [for (final n in names) 'Hello ${n.toUpperCase()}'];
+  final lengths = {for (final n in names) n: n.length};
+  print(squares); // [1, 4, 9, 16, 25]
+  print(labels);  // [Hello ADA, Hello GRACE]
+  print(lengths); // {ada: 3, grace: 5}
+}
+```
+
+## Combining if, for and spread
+```dart
+void main() {
+  final scores = {'Ada': 92, 'Bob': 55, 'Cy': 78};
+  final honourRoll = [
+    'Honour roll:',
+    for (final MapEntry(:key, :value) in scores.entries)
+      if (value >= 75) '$key ($value)',
+  ];
+  print(honourRoll); // [Honour roll:, Ada (92), Cy (78)]
+}
+```
+
+## if-case in collections
+Collection `if` also supports patterns:
+
+```dart
+Object? nickname = 'Ace';
+final greeting = [
+  'Welcome',
+  if (nickname case String n when n.isNotEmpty) 'aka $n',
+];
+```
+
+## Why it matters for Flutter
+Flutter widget trees are built from lists of children. Collection `if` and `for` let you describe the UI declaratively:
+
+```dart
+// Column(children: [
+//   const Header(),
+//   if (isLoading) const CircularProgressIndicator(),
+//   for (final item in items) ItemTile(item),
+// ])
+```
+
+> TIP: Prefer collection `if`/`for` over building a list with `add` calls in a loop; the result reads like a description of the data.
+
+:::check What does `[for (final x in [1, 2]) if (x > 1) x]` produce?
+[2].
+:::
+
+## Common mistakes
+- Putting an `if` *statement* with braces inside a literal; collection `if` takes a single element (or a spread).
+- Trying to use `else if` chains that become unreadable; extract a variable instead.
+
+## Summary
+- Collection `if` conditionally includes elements (with optional `else`).
+- Collection `for` generates elements in lists, sets and maps.
+- Combine with spreads and patterns to build data declaratively.
+
+## Further learning
+- dart.dev ▸ Language ▸ Collections ▸ Control-flow operators
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final show = false;
+  print(['a', if (show) 'b', 'c']);
+}
+```
++ [a, c]
+- [a, b, c]
+- [a, null, c]
+- [a, false, c]
+> The 'b' element is omitted when show is false.
+? output: What does this print?
+```dart
+void main() {
+  print([for (var i = 0; i < 3; i++) i * 10]);
+}
+```
++ [0, 10, 20]
+- [10, 20, 30]
+- [0, 1, 2]
+- [0, 10, 20, 30]
+> The collection for generates three elements.
+? tf: Collection if supports an else branch.
+= true
+> `if (cond) a else b` is valid inside collection literals.
+? fill: Generating map entries uses `{for (final n in names) n: n.___}` to map names to their lengths.
+= length
+> Collection for can produce key: value pairs in map literals.
+? scenario: Your widget list should include an error banner only when `error != null`. What is the most idiomatic Dart?
++ if (error != null) ErrorBanner(error) inside the children list
+- Build an empty list and call add in an if statement after the literal
+- Always include the banner and hide it with opacity
+- Use a while loop
+> Collection if expresses optional children declaratively.
+
+@lesson dart-m05-l08 | Filtering | 8
+## Learning objectives
+- Filter collections with `where`, `whereType`, `takeWhile` and `skipWhile`
+- Remove elements in place with `removeWhere` and `retainWhere`
+- Choose between creating a new collection and mutating
+
+## where
+`where` returns a lazy iterable of elements that satisfy a test:
+
+```dart
+void main() {
+  final products = [
+    (name: 'Mouse', price: 25, inStock: true),
+    (name: 'Monitor', price: 220, inStock: false),
+    (name: 'Keyboard', price: 70, inStock: true),
+  ];
+  final affordable = products.where((p) => p.inStock && p.price < 100).map((p) => p.name);
+  print(affordable.toList()); // [Mouse, Keyboard]
+}
+```
+
+## whereType
+`whereType<T>()` keeps elements of a type and gives you a properly typed iterable, great for mixed or nullable lists:
+
+```dart
+void main() {
+  final mixed = <Object?>[1, 'two', 3, null, 'five'];
+  final strings = mixed.whereType<String>(); // Iterable<String>
+  final nonNull = [1, null, 3].whereType<int>(); // removes nulls
+  print('${strings.toList()} ${nonNull.toList()}'); // [two, five] [1, 3]
+}
+```
+
+Since Dart 3, `nonNulls` does the same for nullable iterables: `[1, null, 3].nonNulls`.
+
+## takeWhile and skipWhile
+These stop or start at the first element that fails the test:
+
+```dart
+final temps = [12, 15, 19, 24, 18, 26];
+print(temps.takeWhile((t) => t < 20).toList()); // [12, 15, 19]
+print(temps.skipWhile((t) => t < 20).toList()); // [24, 18, 26]
+```
+
+Note `18` appears after the first value ≥ 20, so `skipWhile` keeps it.
+
+## Mutating filters
+`removeWhere` and `retainWhere` modify a list in place:
+
+```dart
+final inbox = ['spam: win', 'hi mum', 'spam: free'];
+inbox.removeWhere((m) => m.startsWith('spam'));
+print(inbox); // [hi mum]
+```
+
+> TIP: In Flutter state, prefer creating a new filtered list (`where(...).toList()`) over mutating, so change detection can see a new object.
+
+:::check What is the type of `[1, 'a'].whereType<int>()`?
+Iterable<int>.
+:::
+
+## Common mistakes
+- Forgetting `toList()` when you need a List (for example, to assign to a `List<String>` variable).
+- Using `takeWhile` when you meant `where`: it stops at the first failure.
+
+## Summary
+- `where` filters lazily; `whereType<T>()` filters and casts.
+- `takeWhile`/`skipWhile` work on leading runs of elements.
+- `removeWhere`/`retainWhere` mutate in place.
+
+## Further learning
+- api.dart.dev ▸ Iterable.where
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  print([1, 2, 3, 4, 5, 6].where((n) => n % 3 == 0).toList());
+}
+```
++ [3, 6]
+- [1, 2, 4, 5]
+- [3]
+- [0, 3, 6]
+> Only multiples of 3 pass the test.
+? output: What does this print?
+```dart
+void main() {
+  print([2, 4, 5, 6].takeWhile((n) => n.isEven).toList());
+}
+```
++ [2, 4]
+- [2, 4, 6]
+- [5]
+- [2, 4, 5, 6]
+> takeWhile stops at 5, the first odd number.
+? fill: To keep only Strings from a `List<Object>`, call `list.whereType<___>()`.
+= String
+> whereType filters by type and returns a typed iterable.
+? tf: `removeWhere` returns a new list and leaves the original unchanged.
+= false
+> removeWhere mutates the list in place.
+? mcq: Which getter (Dart 3) removes nulls from an `Iterable<int?>`?
++ nonNulls
+- withoutNull
+- notNull
+- compact
+> nonNulls yields only the non-null elements as Iterable<int>.
+
+@lesson dart-m05-l09 | Mapping and transforming | 8
+## Learning objectives
+- Transform elements with `map`
+- Flatten with `expand`
+- Convert collections to other shapes
+
+## map
+`map` applies a function to each element and returns a lazy iterable of results:
+
+```dart
+void main() {
+  final celsius = [0, 20, 37];
+  final fahrenheit = celsius.map((c) => c * 9 / 5 + 32).toList();
+  print(fahrenheit); // [32.0, 68.0, 98.6]
+}
+```
+
+## Mapping to objects
+A common pattern: turn raw data into model objects, for example decoded JSON into classes.
+
+```dart
+class Lesson {
+  Lesson(this.id, this.title);
+  final String id;
+  final String title;
+  @override
+  String toString() => 'Lesson($id)';
+}
+
+void main() {
+  final raw = [
+    {'id': 'l1', 'title': 'Variables'},
+    {'id': 'l2', 'title': 'Functions'},
+  ];
+  final lessons = raw.map((json) => Lesson(json['id']!, json['title']!)).toList();
+  print(lessons); // [Lesson(l1), Lesson(l2)]
+}
+```
+
+## expand
+`expand` maps each element to **zero or more** elements and flattens the result:
+
+```dart
+void main() {
+  final modules = [
+    ['intro', 'setup'],
+    ['loops'],
+    <String>[],
+  ];
+  print(modules.expand((m) => m).toList()); // [intro, setup, loops]
+  print([1, 2, 3].expand((n) => [n, n]).toList()); // [1, 1, 2, 2, 3, 3]
+}
+```
+
+## Mapping with an index
+```dart
+void main() {
+  final names = ['Ada', 'Grace'];
+  final numbered = names.indexed.map((e) => '${e.$1 + 1}. ${e.$2}').toList();
+  print(numbered); // [1. Ada, 2. Grace]
+}
+```
+
+## Building maps
+```dart
+final names = ['Ada', 'Grace'];
+final byInitial = {for (final n in names) n[0]: n};       // {A: Ada, G: Grace}
+final lengths = Map.fromIterable(names, value: (n) => (n as String).length); // works, but less typed
+```
+
+Prefer the collection-for version: it keeps full type safety.
+
+> TIP: Chains like `where(...).map(...).toList()` are the bread and butter of Flutter list screens: filter data, map it to widgets, show it.
+
+:::check What does `['a', 'b'].map((s) => s * 2).toList()` produce?
+[aa, bb].
+:::
+
+## Common mistakes
+- Forgetting that `map` is lazy and must be iterated or converted.
+- Using `map` purely for side effects; use a `for` loop instead.
+
+## Summary
+- `map` transforms each element; `expand` maps to many and flattens.
+- `indexed` provides indexes; collection-for builds maps with full typing.
+- Convert lazy results with `toList()` or `toSet()`.
+
+## Further learning
+- api.dart.dev ▸ Iterable.map, Iterable.expand
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  print([1, 2, 3].map((n) => n * n).toList());
+}
+```
++ [1, 4, 9]
+- [2, 4, 6]
+- [1, 2, 3]
+- 14
+> map squares each element.
+? output: What does this print?
+```dart
+void main() {
+  print([[1], [2, 3]].expand((l) => l).toList());
+}
+```
++ [1, 2, 3]
+- [[1], [2, 3]]
+- [1, [2, 3]]
+- [3]
+> expand flattens the nested lists.
+? tf: `list.map(...)` is a good choice for code that only performs side effects such as printing.
+= false
+> Use a for loop for side effects; map is for transformations.
+? fill: To flatten a list of lists, use the ___ method.
+= expand
+> expand maps each element to an iterable and flattens.
+? mcq: Which is the most type-safe way to build a Map from a list of names to their lengths?
++ {for (final n in names) n: n.length}
+- Map.fromIterable(names, value: (n) => n.length)
+- names.toMap()
+- Map.from(names)
+> Collection-for keeps the key and value types precise.
+
+@lesson dart-m05-l10 | Sorting | 10
+## Learning objectives
+- Sort lists in place with `sort`
+- Write comparators for custom orders
+- Sort by multiple keys and avoid mutating shared lists
+
+## Natural order
+`sort()` sorts a list **in place** using the elements' natural ordering (`Comparable`):
+
+```dart
+void main() {
+  final numbers = [5, 2, 9, 1];
+  numbers.sort();
+  print(numbers); // [1, 2, 5, 9]
+
+  final names = ['grace', 'Ada', 'linus'];
+  names.sort();
+  print(names); // [Ada, grace, linus] – uppercase sorts before lowercase
+}
+```
+
+## Comparators
+Pass a comparator `(a, b)` that returns a negative number if `a` should come first, positive if `b` should come first, and zero if equal:
+
+```dart
+void main() {
+  final words = ['banana', 'kiwi', 'apple'];
+  words.sort((a, b) => a.length.compareTo(b.length)); // by length
+  print(words); // [kiwi, apple, banana]
+  words.sort((a, b) => b.compareTo(a));               // descending
+  print(words); // [kiwi, banana, apple]
+  final mixedCase = ['b', 'A', 'c'];
+  mixedCase.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  print(mixedCase); // [A, b, c]
+}
+```
+
+## Sorting objects by several keys
+```dart
+void main() {
+  final students = [
+    (name: 'Cy', score: 80),
+    (name: 'Ada', score: 95),
+    (name: 'Bo', score: 80),
+  ];
+  students.sort((a, b) {
+    final byScore = b.score.compareTo(a.score); // highest first
+    if (byScore != 0) return byScore;
+    return a.name.compareTo(b.name);            // then alphabetical
+  });
+  for (final s in students) {
+    print('${s.name} ${s.score}');
+  }
+  // Ada 95, Bo 80, Cy 80
+}
+```
+
+## Don't mutate what you don't own
+`sort` changes the list. If the list came from somewhere else (state, a parameter), sort a copy:
+
+```dart
+List<int> sortedCopy(List<int> input) => [...input]..sort();
+```
+
+`package:collection` offers `sorted(compare)` and `sortedBy((e) => key)`, which return new lists.
+
+> NOTE: Dart's `List.sort` is not guaranteed to be stable (equal elements may change order). If order among equal elements matters, add a tie-breaker or use `mergeSort` from `package:collection`.
+
+:::check What should a comparator return when a should come before b?
+A negative integer.
+:::
+
+## Common mistakes
+- Assigning the result of `sort()`: it returns `void`. `final s = list.sort();` is an error.
+- Mutating a list that other code relies on.
+
+## Summary
+- `sort()` sorts in place using natural order; comparators define custom orders.
+- Combine keys with tie-breakers for multi-key sorting.
+- Sort copies (`[...list]..sort()` or `sorted()`) to avoid surprising mutations.
+
+## Further learning
+- api.dart.dev ▸ List.sort
+- pub.dev ▸ collection ▸ sortedBy
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final n = [3, 1, 2];
+  n.sort((a, b) => b - a);
+  print(n);
+}
+```
++ [3, 2, 1]
+- [1, 2, 3]
+- [3, 1, 2]
+- [2, 1, 3]
+> b - a sorts in descending order.
+? tf: `final sorted = list.sort();` stores the sorted list in `sorted`.
+= false
+> sort returns void; it sorts the list in place.
+? mcq: What does a comparator return when both elements are considered equal?
+- 1
+- -1
++ 0
+- null
+> Zero means the elements are equal for ordering purposes.
+? fill: To sort a copy without changing the original, write `[...list]..___()`.
+= sort
+> The cascade sorts the new list and returns it.
+? output: What does this print?
+```dart
+void main() {
+  final w = ['ccc', 'a', 'bb'];
+  w.sort((a, b) => a.length.compareTo(b.length));
+  print(w.first);
+}
+```
++ a
+- ccc
+- bb
+- [a, bb, ccc]
+> Sorting by length puts the shortest word first.
+? scenario: Equal-scoring students must keep alphabetical order after sorting by score. What should you do?
++ Add a tie-breaker that compares names when scores are equal
+- Sort twice randomly
+- Use a Set
+- Rely on sort being stable
+> List.sort is not guaranteed stable, so add an explicit tie-breaker.

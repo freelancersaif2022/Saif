@@ -1,0 +1,1039 @@
+@module flutter-m01 | Flutter Introduction
+@summary Understand what Flutter is, how it works, set up your tools and run your first app.
+
+@lesson flutter-m01-l01 | What is Flutter? | 10
+## Learning objectives
+- Describe Flutter and the platforms it targets
+- Explain the "everything is a widget" idea
+- Recognise why teams choose Flutter
+
+## One codebase, many platforms
+Flutter is Google's open-source **UI toolkit** for building natively compiled applications for **Android, iOS, web, Windows, macOS and Linux** from a single Dart codebase. It was first released as 1.0 in December 2018 and is used by companies such as Google (Google Pay, Google Earth), BMW, Toyota, Alibaba and ByteDance.
+
+Unlike toolkits that wrap the platform's native buttons and text fields, Flutter **draws every pixel itself** using its own rendering engine. That's why a Flutter app looks the same on every device and can run smooth, custom animations at the display's full refresh rate.
+
+## Everything is a widget
+In Flutter you describe your UI by composing **widgets**: small, immutable descriptions of part of the interface. Text, padding, rows, buttons, gestures, animations and even the whole app are widgets.
+
+```dart
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(
+    const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('Hello, Flutter!'),
+        ),
+      ),
+    ),
+  );
+}
+```
+
+Read it from the outside in: an app (`MaterialApp`) whose home screen (`Scaffold`) has a body that centres (`Center`) a piece of text (`Text`). You build UIs by **nesting** widgets like this, forming a **widget tree**.
+
+## Declarative UI
+Flutter is **declarative**: you describe *what* the UI should look like for the current state, and Flutter figures out how to update the screen. When state changes, you rebuild the description; Flutter efficiently updates only what changed. You never manually find a label and change its text.
+
+## Why teams choose Flutter
+- **Productivity**: one codebase for many platforms, plus **hot reload** to see changes instantly.
+- **Performance**: Dart is compiled ahead of time to native machine code; the engine renders with the GPU.
+- **Expressive UI**: full control over every pixel, rich Material 3 and Cupertino widget sets.
+- **Ecosystem**: thousands of packages on pub.dev and first-party plugins for device features.
+
+> NOTE: Bimo itself is a native Android app built with Kotlin and Jetpack Compose, a declarative toolkit with very similar ideas. Skills you learn here transfer between declarative frameworks.
+
+:::check Does Flutter use the platform's native button widgets?
+No. Flutter renders its own widgets with its engine, which is why apps look consistent across platforms.
+:::
+
+## Common mistakes
+- Thinking Flutter is a web view wrapper. It compiles to native code and renders with its own engine.
+- Expecting to change UI imperatively ("find this label and set its text") instead of rebuilding from state.
+
+## Summary
+- Flutter builds apps for mobile, web and desktop from one Dart codebase.
+- UIs are trees of immutable widgets; Flutter draws them itself.
+- It's declarative: UI = f(state).
+
+## Further learning
+- flutter.dev ▸ Docs ▸ Get started
+- docs.flutter.dev ▸ Flutter architectural overview
+@quiz
+? mcq: Which language are Flutter apps written in?
+- Kotlin
++ Dart
+- JavaScript
+- Swift
+> Flutter apps are written in Dart.
+? tf: Flutter renders its UI using the platform's native button and text components.
+= false
+> Flutter draws its own widgets with its rendering engine.
+? fill: In Flutter, the UI is built by composing small, immutable ___.
+= widgets | widget
+> Everything you see is described by widgets.
+? mcq: What does "declarative UI" mean?
++ You describe what the UI should look like for the current state
+- You manually update individual views when data changes
+- The UI is written in XML
+- The UI cannot change
+> In declarative frameworks the UI is a function of state.
+? scenario: A startup must ship an Android and iOS app quickly with a small team and a custom-branded design. Why might Flutter fit?
++ One codebase targets both platforms with full control over custom UI
+- Flutter only supports Android
+- Flutter requires two separate codebases
+- Flutter cannot draw custom designs
+> Flutter shares code across platforms and renders custom designs consistently.
+
+@lesson flutter-m01-l02 | Flutter architecture | 14
+## Learning objectives
+- Name the layers of Flutter: framework, engine, embedder
+- Understand the three trees: widgets, elements, render objects
+- Know what Impeller is
+
+## The layered architecture
+```diagram
+┌──────────────────────────────────────────┐
+│ Your app (Dart)                          │
+├──────────────────────────────────────────┤
+│ Framework (Dart)                         │
+│  Material  |  Cupertino                  │
+│  Widgets                                 │
+│  Rendering                               │
+│  Animation | Painting | Gestures         │
+│  Foundation                              │
+├──────────────────────────────────────────┤
+│ Engine (C++): Impeller/Skia, Dart runtime,│
+│ text layout, platform channels           │
+├──────────────────────────────────────────┤
+│ Embedder (platform-specific):            │
+│ Android (Java/C++), iOS (Obj-C), Windows,│
+│ macOS, Linux, Web                        │
+└──────────────────────────────────────────┘
+```
+
+- **Framework**: everything you import from `package:flutter`, written in Dart. You can read its source in your IDE.
+- **Engine**: written mostly in C++; renders frames, runs Dart, lays out text and talks to the platform.
+- **Embedder**: the platform-specific host that creates a window/surface, forwards input events and manages the app lifecycle.
+
+## Rendering: Impeller
+Flutter's modern renderer is **Impeller**, which precompiles shaders so animations don't stutter the first time they run ("shader compilation jank"). Impeller is the default on iOS and on modern Android devices; older Android devices fall back to Skia.
+
+## Three trees
+When you write widgets, Flutter maintains three parallel trees:
+
+1. **Widget tree**: your immutable configuration (`Text('Hi')`). Cheap to create and thrown away on every rebuild.
+2. **Element tree**: long-lived objects that link widgets to their place in the tree and hold `State`. Elements decide whether to update or recreate parts of the UI.
+3. **RenderObject tree**: objects that perform **layout** (sizes and positions), **painting** and **hit testing**.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Greeting extends StatelessWidget {
+  const Greeting({super.key, required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    // A new Text widget is created every build – that's fine, widgets are cheap.
+    return Text('Hello $name');
+  }
+}
+```
+
+When `name` changes, `build` returns a new `Text` widget. The element compares it with the old one: same type and key → it **updates** the existing render object's text instead of creating a new one. This is why rebuilding is fast.
+
+## The frame pipeline
+Each frame (60 or 120 times per second), Flutter runs:
+1. **Build**: call `build` on dirty widgets.
+2. **Layout**: render objects compute sizes ("constraints go down, sizes go up").
+3. **Paint**: render objects record drawing commands.
+4. **Composite**: layers are sent to the engine, which rasterises them on the GPU.
+
+> TIP: You'll rarely touch elements or render objects directly, but knowing they exist explains Flutter's performance rules: keep `build` cheap, and use `const` widgets.
+
+:::check Which tree holds State objects for StatefulWidgets?
+The element tree.
+:::
+
+## Common mistakes
+- Believing that rebuilding a widget recreates everything on screen. Elements and render objects are reused when possible.
+- Doing expensive work inside `build`, which may run every frame.
+
+## Summary
+- Flutter has a Dart framework, a C++ engine and platform embedders.
+- Impeller renders without shader-compilation jank.
+- Widgets (configuration), elements (lifecycle and state) and render objects (layout and paint) form three trees.
+
+## Further learning
+- docs.flutter.dev ▸ Architectural overview
+- docs.flutter.dev ▸ Impeller rendering engine
+@quiz
+? mcq: Which layer of Flutter is written mostly in C++?
+- The framework
++ The engine
+- The Material library
+- Your app
+> The engine (rendering, Dart runtime, text) is C++.
+? mcq: Which tree performs layout and painting?
+- Widget tree
+- Element tree
++ RenderObject tree
+- Package tree
+> Render objects compute sizes, paint and hit test.
+? tf: Creating new widget objects on every build is expensive, so Flutter apps should avoid rebuilding.
+= false
+> Widgets are lightweight configurations; elements and render objects are reused.
+? fill: Flutter's modern renderer that avoids shader compilation jank is called ___.
+= Impeller
+> Impeller precompiles shaders.
+? order: Put the frame pipeline stages in order.
+~ Build
+~ Layout
+~ Paint
+~ Composite
+> Widgets are built, laid out, painted, then composited and rasterised.
+? scenario: A teammate puts a slow JSON parse inside build(). Why is that a problem?
++ build can run very often, even every frame during animations, so the slow work repeats and causes jank
+- build only runs once per app launch
+- build runs on a separate isolate automatically
+- JSON cannot be parsed in Flutter
+> Keep build methods fast and side-effect free.
+
+@lesson flutter-m01-l03 | Flutter vs native development | 10
+## Learning objectives
+- Compare Flutter with native Android/iOS and other cross-platform tools
+- Understand trade-offs for performance, UI fidelity and platform access
+- Decide when Flutter is a good fit
+
+## The options
+- **Native**: Kotlin/Jetpack Compose for Android and Swift/SwiftUI for iOS. Two codebases, best direct access to new platform APIs.
+- **Flutter**: one Dart codebase, own rendering engine, compiled to native code.
+- **React Native**: JavaScript/TypeScript with React, rendering through native components.
+- **Kotlin Multiplatform**: share business logic in Kotlin; UI can be native or Compose Multiplatform.
+
+## Strengths of Flutter
+- **Single codebase** for UI and logic across six platforms.
+- **Consistent look**: pixel-identical rendering everywhere.
+- **Hot reload** for very fast iteration.
+- **Performance**: AOT-compiled Dart and GPU rendering; typically 60–120 fps.
+- **Rich widgets**: Material 3 and Cupertino sets out of the box.
+
+## Trade-offs
+- **App size**: a minimal release APK is a few megabytes larger than a minimal native app because it bundles the engine.
+- **Brand-new platform APIs** may need a plugin or a small amount of native code (via platform channels) until a package supports them.
+- **Platform look and feel**: Flutter renders its own widgets, so matching every native detail (or OS updates to native controls) requires care.
+
+## Accessing native code
+When you need a platform feature without an existing package, Flutter lets you call Kotlin/Swift through **platform channels** (Module 14):
+
+```dart
+import 'package:flutter/services.dart';
+
+const _battery = MethodChannel('samples.flutter.dev/battery');
+
+Future<int?> batteryLevel() async {
+  try {
+    return await _battery.invokeMethod<int>('getBatteryLevel');
+  } on PlatformException {
+    return null;
+  }
+}
+```
+
+## When to choose what
+- Flutter: multi-platform apps, custom branded UI, small teams, fast iteration.
+- Native: apps tightly bound to the newest platform APIs (for example, deep OS integrations on launch day), or teams already invested in native expertise.
+- Many companies mix them: a native app with Flutter screens added via "add-to-app".
+
+> TIP: Choose based on product needs and team skills, not hype. Prototype the riskiest feature first in the technology you're evaluating.
+
+:::check What mechanism lets Flutter call native Kotlin or Swift code?
+Platform channels (MethodChannel, EventChannel, etc.), or packages built on them.
+:::
+
+## Common mistakes
+- Assuming cross-platform means "slow". Flutter compiles to native code.
+- Assuming Flutter can never use native features; plugins and platform channels cover them.
+
+## Summary
+- Flutter offers one codebase, consistent rendering and fast iteration.
+- Trade-offs include slightly larger binaries and occasional native code for new APIs.
+- Platform channels and plugins bridge to native features.
+
+## Further learning
+- docs.flutter.dev ▸ Platform integration
+- docs.flutter.dev ▸ Add Flutter to an existing app
+@quiz
+? mcq: How does Flutter render its UI?
++ With its own engine, drawing every pixel
+- By converting widgets into native views
+- Through a web view
+- Using XML layouts
+> Flutter's engine renders the UI directly.
+? tf: Flutter apps can call native Kotlin or Swift code when needed.
+= true
+> Platform channels and plugins provide native access.
+? mcq: Which is a realistic trade-off of Flutter?
++ A slightly larger minimal app size because the engine is bundled
+- No support for iOS
+- No hot reload
+- Interpreted Dart in release builds
+> The bundled engine adds a few megabytes to minimal apps.
+? fill: Adding Flutter screens to an existing native app is called add-to-___.
+= app
+> Add-to-app integrates Flutter modules into native apps.
+? scenario: A company needs an app on Android, iOS and desktop with a highly custom design and only three developers. What's a strong option?
++ Flutter, sharing one codebase with custom rendering
+- Three separate native apps
+- A command-line tool
+- A static website only
+> Flutter's single codebase and custom UI suit small multi-platform teams.
+
+@lesson flutter-m01-l04 | Installing the Flutter SDK | 14
+## Learning objectives
+- Install the Flutter SDK on Windows, macOS or Linux
+- Add Flutter to your PATH and verify the installation
+- Understand Flutter channels and upgrades
+
+## System requirements (overview)
+- 64-bit Windows 10+, macOS, or a 64-bit Linux distribution
+- Several GB of free disk space (SDK, Android SDK, emulators)
+- Git installed
+- For iOS development: a Mac with Xcode
+
+## Install
+The recommended path changes over time, so always follow docs.flutter.dev for your OS. The two common approaches are:
+
+1. **Using VS Code**: install VS Code and the Flutter extension; it can download the SDK for you ("Flutter: New Project" offers to install it).
+2. **Manual download**: download the stable SDK archive for your OS, extract it to a folder without spaces (for example `C:\dev\flutter` or `~/development/flutter`), and add `flutter/bin` to your PATH.
+
+```bash
+# macOS / Linux (zsh or bash) – add to ~/.zshrc or ~/.bashrc
+export PATH="$HOME/development/flutter/bin:$PATH"
+
+# Then open a new terminal
+flutter --version
+```
+
+On Windows, add `C:\dev\flutter\bin` to the **Path** user environment variable through System Properties ▸ Environment Variables, then open a new terminal.
+
+## Verify
+```bash
+flutter --version
+# Flutter 3.x.y • channel stable • https://github.com/flutter/flutter.git
+# Dart 3.x.y • DevTools 2.x.y
+```
+
+The output shows the Flutter version **and** the bundled Dart version.
+
+## Channels and upgrades
+```bash
+flutter channel          # show channels; use 'stable'
+flutter upgrade          # upgrade to the latest version of your channel
+flutter downgrade        # return to the previous version
+```
+
+- **stable**: recommended for production and learning.
+- **beta**: monthly previews of upcoming features.
+- **master/main**: the very latest commits, can break.
+
+## Disable analytics (optional)
+```bash
+flutter --disable-analytics
+```
+
+> WARNING: Don't install Flutter in a folder that requires administrator rights (like `C:\Program Files`) or contains spaces; it causes permission and path issues.
+
+:::check Which folder must be on your PATH for the flutter command to work?
+The bin folder inside the Flutter SDK directory (flutter/bin).
+:::
+
+## Common mistakes
+- Forgetting to restart the terminal or IDE after editing PATH.
+- Installing into a protected folder or a path with spaces.
+
+## Exercise
+Install Flutter, then run `flutter --version`. Note the Flutter and Dart versions.
+:::solution What success looks like
+```bash
+$ flutter --version
+Flutter 3.29.2 • channel stable
+Dart 3.7.2 • DevTools 2.42.3
+```
+Any recent stable version is fine for this course.
+:::
+
+## Summary
+- Install the stable SDK via VS Code or by extracting the archive.
+- Add `flutter/bin` to PATH and verify with `flutter --version`.
+- Stay on the stable channel; update with `flutter upgrade`.
+
+## Further learning
+- docs.flutter.dev ▸ Get started ▸ Install
+@quiz
+? mcq: Which channel should you use for production apps?
++ stable
+- beta
+- master
+- dev
+> The stable channel receives tested releases.
+? fill: To update Flutter to the newest release of your channel, run `flutter ___`.
+= upgrade
+> flutter upgrade updates the SDK.
+? tf: `flutter --version` also shows the version of the bundled Dart SDK.
+= true
+> The output lists both Flutter and Dart versions.
+? mcq: Which install location is a bad idea on Windows?
++ C:\Program Files\flutter
+- C:\dev\flutter
+- C:\src\flutter
+- D:\tools\flutter
+> Protected folders and paths with spaces cause problems.
+? scenario: You added Flutter to PATH but `flutter` is still not recognised in VS Code's terminal. What should you try first?
++ Restart VS Code so it picks up the new PATH
+- Reinstall Windows
+- Switch to the master channel
+- Delete pubspec.yaml
+> Running programs keep their old environment until restarted.
+
+@lesson flutter-m01-l05 | Android Studio setup | 12
+## Learning objectives
+- Install Android Studio and the Android SDK components Flutter needs
+- Install the Flutter and Dart plugins
+- Accept Android licenses
+
+## Why Android Studio?
+Even if you write code in VS Code, Flutter needs the **Android SDK**, platform tools and build tools to compile Android apps, and Android Studio is the easiest way to install them. It also includes the Android **Emulator**.
+
+## Steps
+1. Download and install **Android Studio** from developer.android.com.
+2. Run the setup wizard and install the **Android SDK**, **Android SDK Platform-Tools** and **Android SDK Build-Tools**.
+3. Open **SDK Manager ▸ SDK Tools** and also install **Android SDK Command-line Tools (latest)**.
+4. Install the **Flutter** plugin (which also installs the **Dart** plugin) from **Settings ▸ Plugins ▸ Marketplace**, then restart.
+5. Accept the Android licences from a terminal:
+
+```bash
+flutter doctor --android-licenses
+# Press y to accept each licence
+```
+
+## Creating a project in Android Studio
+**File ▸ New ▸ New Flutter Project**, choose Flutter, check that the SDK path points to your Flutter folder, then pick a project name (lowercase_with_underscores), organisation (reverse domain like `com.example`) and platforms.
+
+## Useful features
+- **Flutter Inspector**: visualise and explore the widget tree, highlight repaints.
+- **Hot reload** button (⚡) and **Hot restart**.
+- **Run/Debug** configurations with breakpoints.
+- **Refactor ▸ Wrap with widget** (Alt+Enter / ⌥⏎ on a widget) to wrap it in Padding, Center, Column and more.
+
+```dart
+// Place the cursor on Text, press Alt+Enter (⌥⏎ on macOS) and choose
+// "Wrap with Padding" to produce:
+// Padding(
+//   padding: const EdgeInsets.all(8.0),
+//   child: Text('Hello'),
+// )
+```
+
+## Point Flutter to the SDK (if needed)
+If `flutter doctor` can't find the Android SDK:
+
+```bash
+flutter config --android-sdk /path/to/Android/sdk
+```
+
+> TIP: Keep Android Studio updated, but don't upgrade it in the middle of a release crunch; new versions occasionally require Gradle or plugin updates.
+
+:::check Which command accepts the Android SDK licences?
+flutter doctor --android-licenses
+:::
+
+## Common mistakes
+- Skipping the Command-line Tools component, which `flutter doctor` reports as missing.
+- Installing the Flutter plugin but not restarting Android Studio.
+
+## Summary
+- Android Studio installs the Android SDK, tools and emulator Flutter needs.
+- Install the Flutter and Dart plugins and accept licences.
+- Use the Flutter Inspector, hot reload and "wrap with widget" refactorings.
+
+## Further learning
+- docs.flutter.dev ▸ Get started ▸ Install ▸ Android setup
+@quiz
+? fill: Accept Android licences with `flutter doctor --android-___`.
+= licenses | licences
+> The command walks you through each licence.
+? mcq: Which SDK component does flutter doctor often report missing if you skip it?
++ Android SDK Command-line Tools
+- Kotlin compiler
+- Gradle wrapper
+- Java EE
+> The command-line tools are needed for licence management and builds.
+? tf: Installing the Flutter plugin in Android Studio also installs the Dart plugin.
+= true
+> The Flutter plugin depends on and installs the Dart plugin.
+? mcq: Which Android Studio tool lets you explore the live widget tree?
++ Flutter Inspector
+- Layout Editor
+- Logcat
+- APK Analyzer
+> The Flutter Inspector visualises widgets.
+? scenario: flutter doctor says it can't locate the Android SDK, which you installed in a custom folder. What helps?
++ flutter config --android-sdk <path>
+- Reinstall Flutter
+- Delete the emulator
+- Switch to the beta channel
+> flutter config can point to a custom SDK location.
+
+@lesson flutter-m01-l06 | VS Code setup | 10
+## Learning objectives
+- Configure VS Code for Flutter development
+- Use the command palette, device selector and debugging tools
+- Turn on productivity settings
+
+## Install the extension
+1. Install **Visual Studio Code**.
+2. Open the Extensions view and install **Flutter** (by Dart Code). It installs the **Dart** extension too.
+3. Open the Command Palette (**Ctrl+Shift+P** / **⌘⇧P**) and run **Flutter: Run Flutter Doctor** to confirm everything works.
+
+## Create and run a project
+- Command Palette ▸ **Flutter: New Project** ▸ **Application**.
+- Pick a device in the status bar (bottom right): an emulator, a connected phone, Chrome or your desktop.
+- Press **F5** to run with debugging, or **Ctrl+F5** to run without.
+
+## Recommended settings
+Add these to your user `settings.json`:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "dart.previewFlutterUiGuides": true,
+  "[dart]": {
+    "editor.rulers": [80],
+    "editor.tabSize": 2
+  }
+}
+```
+
+- **Format on save** runs `dart format`.
+- **fixAll** applies analyzer quick fixes (like adding `const`) on save.
+- **UI guides** draw lines connecting parent and child widgets in the editor.
+
+## Handy shortcuts
+- **Ctrl+.** / **⌘.**: quick fixes and refactors such as *Wrap with widget*, *Extract widget*, *Remove widget*.
+- **F12**: go to definition (great for reading Flutter's source).
+- Save the file to trigger **hot reload** while debugging.
+
+## Snippets
+Type `stless` or `stful` and press Enter to generate a stateless or stateful widget skeleton:
+
+```dart
+import 'package:flutter/material.dart';
+
+class ProfileCard extends StatelessWidget {
+  const ProfileCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Placeholder();
+  }
+}
+```
+
+> TIP: Use **Flutter: Open DevTools** from the Command Palette to inspect widgets, performance and memory while your app runs.
+
+:::check Which shortcut opens quick fixes such as "Wrap with Center"?
+Ctrl+. on Windows/Linux or ⌘. on macOS.
+:::
+
+## Common mistakes
+- Installing only the Dart extension and missing Flutter-specific commands.
+- Running the app from a terminal and wondering why breakpoints in VS Code don't stop; launch it with F5 instead.
+
+## Summary
+- Install the Flutter extension and run Flutter Doctor from the Command Palette.
+- Choose devices in the status bar and run with F5.
+- Enable format on save, fix-all on save and UI guides; use Ctrl+. refactors and widget snippets.
+
+## Further learning
+- docs.flutter.dev ▸ Tools ▸ VS Code
+@quiz
+? mcq: What does the snippet `stless` generate?
++ A StatelessWidget class skeleton
+- A StatefulWidget with State
+- A test file
+- A pubspec.yaml
+> stless creates a stateless widget template; stful creates a stateful one.
+? tf: Saving a file while debugging in VS Code triggers hot reload.
+= true
+> The Flutter extension hot reloads on save during debug sessions.
+? fill: To run a Flutter app with debugging in VS Code, press ___.
+= F5
+> F5 starts debugging.
+? mcq: Which setting automatically formats Dart code when you save?
++ "editor.formatOnSave": true
+- "dart.lint": true
+- "flutter.format": "auto"
+- "editor.wordWrap": "on"
+> formatOnSave runs the Dart formatter.
+? scenario: You want to quickly surround a Text widget with Padding without typing brackets. What do you use?
++ The Ctrl+. (⌘.) quick fix "Wrap with Padding"
+- Manually retype the whole tree
+- Hot restart
+- flutter clean
+> The wrap refactor inserts the parent widget for you.
+
+@lesson flutter-m01-l07 | Flutter Doctor | 8
+## Learning objectives
+- Run `flutter doctor` and read its report
+- Fix common issues it reports
+- Use verbose mode for troubleshooting
+
+## Your setup's health check
+`flutter doctor` checks your environment and reports what's ready and what's missing:
+
+```bash
+flutter doctor
+```
+
+```text
+Doctor summary (to see all details, run flutter doctor -v):
+[✓] Flutter (Channel stable, 3.x.y)
+[✓] Android toolchain - develop for Android devices (Android SDK version 35.0.0)
+[✗] Xcode - develop for iOS and macOS
+    ✗ Xcode installation is incomplete
+[✓] Chrome - develop for the web
+[✓] Android Studio (version 2024.x)
+[✓] VS Code (version 1.9x)
+[✓] Connected device (2 available)
+[✓] Network resources
+```
+
+- **✓** ready
+- **!** works, with warnings
+- **✗** missing or broken
+
+You don't need every line green. If you only build Android apps, a missing Xcode or Visual Studio entry is fine.
+
+## Common issues and fixes
+- **Android licences not accepted** → `flutter doctor --android-licenses`
+- **cmdline-tools component is missing** → install *Android SDK Command-line Tools* in Android Studio's SDK Manager
+- **Unable to locate Android SDK** → `flutter config --android-sdk <path>`
+- **No devices available** → start an emulator or connect a phone with USB debugging
+- **Network resources unavailable** → check proxy/firewall settings
+
+## Verbose mode
+```bash
+flutter doctor -v
+```
+
+Prints paths, versions and detailed diagnostics. Paste this output when asking for help online.
+
+## Useful companions
+```bash
+flutter devices          # list connected devices and emulators
+flutter emulators        # list available emulators
+flutter clean            # delete build outputs when builds behave strangely
+```
+
+> TIP: Run `flutter doctor` after every major tool upgrade (Flutter, Android Studio, Xcode). It catches broken setups before they waste your afternoon.
+
+:::check Do you need Xcode for Android-only development?
+No. Missing Xcode only affects iOS/macOS builds.
+:::
+
+## Common mistakes
+- Trying to fix every ✗ even for platforms you don't target.
+- Asking for help without sharing `flutter doctor -v` output.
+
+## Summary
+- `flutter doctor` reports the health of your Flutter setup.
+- Fix issues for the platforms you target; others can stay unchecked.
+- Use `-v` for details; `flutter devices` and `flutter emulators` help with devices.
+
+## Further learning
+- docs.flutter.dev ▸ Get started ▸ Troubleshooting
+@quiz
+? mcq: Which command shows detailed diagnostics of your Flutter setup?
++ flutter doctor -v
+- flutter analyze
+- flutter run --debug
+- flutter pub deps
+> -v enables verbose output.
+? tf: Every item in flutter doctor must show a check mark before you can build Android apps.
+= false
+> Only the toolchain for your target platforms needs to be ready.
+? fill: To list connected devices and emulators, run `flutter ___`.
+= devices
+> flutter devices lists available targets.
+? scenario: flutter doctor reports "Android license status unknown". What do you run?
++ flutter doctor --android-licenses
+- flutter clean
+- flutter upgrade --force
+- flutter config --no-analytics
+> Accepting the licences fixes this report.
+? mcq: What does the ! symbol mean in flutter doctor output?
++ The component works but has warnings
+- The component is fully ready
+- The component is not supported
+- The command crashed
+> ! indicates a partially working component.
+
+@lesson flutter-m01-l08 | Emulators and devices | 12
+## Learning objectives
+- Create and launch an Android emulator
+- Run apps on a physical Android device
+- Choose the right device for each task
+
+## Android Virtual Devices (AVDs)
+1. In Android Studio, open **Device Manager**.
+2. Click **Create Virtual Device**, pick a phone (for example *Pixel 8*), then a **system image** (choose a recent API level with Google Play if you need Play services).
+3. Finish and press ▶ to boot it.
+
+From the terminal:
+
+```bash
+flutter emulators                      # list emulators
+flutter emulators --launch Pixel_8_API_35
+flutter run                            # runs on the running emulator
+```
+
+> TIP: Enable **hardware acceleration** (Intel HAXM/WHPX on Windows, Hypervisor Framework on macOS, KVM on Linux). Without it, emulators are painfully slow.
+
+## Physical Android devices
+1. On the phone: **Settings ▸ About phone**, tap **Build number** seven times to enable Developer options.
+2. In **Developer options**, enable **USB debugging**.
+3. Connect via USB and accept the "Allow USB debugging?" prompt.
+4. Run `flutter devices` to confirm it's listed.
+
+Wireless debugging (Android 11+) works too: **Developer options ▸ Wireless debugging**, then pair the device from Android Studio.
+
+## iOS
+On a Mac with Xcode, `open -a Simulator` starts the iOS Simulator. Running on a physical iPhone requires an Apple developer account and code signing setup in Xcode.
+
+## Choosing a device
+- **Emulator/simulator**: quick to start, easy to test different screen sizes and Android versions.
+- **Physical device**: real performance, camera, sensors, notifications and touch feel. Always test release builds on real hardware before publishing.
+- **Chrome / desktop**: fast iteration for layout work, but behaviour differs from mobile.
+
+## Selecting a target
+```bash
+flutter run -d emulator-5554   # by device id
+flutter run -d chrome          # web
+flutter run -d windows         # desktop (if enabled)
+```
+
+> WARNING: Performance in debug mode is much slower than release. Measure performance with `flutter run --profile` on a real device.
+
+:::check Where do you enable USB debugging on Android?
+In Developer options, which you unlock by tapping Build number seven times.
+:::
+
+## Common mistakes
+- Judging app performance from debug builds on an emulator.
+- Forgetting to accept the USB debugging prompt on the phone.
+
+## Summary
+- Create AVDs in Android Studio's Device Manager; launch them from the IDE or `flutter emulators`.
+- Enable Developer options and USB debugging for physical devices.
+- Test real performance in profile/release mode on real hardware.
+
+## Further learning
+- developer.android.com ▸ Run apps on the Android Emulator
+- docs.flutter.dev ▸ Testing ▸ Debugging
+@quiz
+? mcq: How do you unlock Developer options on most Android phones?
++ Tap Build number seven times in About phone
+- Long-press the power button
+- Install Android Studio on the phone
+- Enable airplane mode
+> Tapping Build number repeatedly enables Developer options.
+? fill: To run the app in Chrome, use `flutter run -d ___`.
+= chrome
+> -d selects the target device.
+? tf: Debug builds accurately reflect release performance.
+= false
+> Debug mode includes extra checks and JIT; use profile/release for performance.
+? mcq: What speeds up the Android emulator dramatically?
++ Hardware acceleration (virtualisation)
+- Enabling USB debugging
+- Using a larger screen size
+- Running flutter clean
+> Hardware-accelerated virtualisation makes emulators usable.
+? scenario: You must test camera scanning and real touch responsiveness before release. Which target is best?
++ A physical device running a profile or release build
+- The web build in Chrome
+- An emulator in debug mode
+- A desktop build
+> Real hardware is needed for sensors, camera and true performance.
+
+@lesson flutter-m01-l09 | Your first Flutter app | 16
+## Learning objectives
+- Create and run a new Flutter project
+- Understand the counter app's code line by line
+- Use hot reload and hot restart
+
+## Create and run
+```bash
+flutter create first_app
+cd first_app
+flutter run
+```
+
+The template is the famous **counter app**: a button that increments a number on screen.
+
+## The code, simplified
+```dart
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'First App',
+      theme: ThemeData(colorSchemeSeed: Colors.deepPurple),
+      home: const CounterPage(title: 'Counter'),
+    );
+  }
+}
+
+class CounterPage extends StatefulWidget {
+  const CounterPage({super.key, required this.title});
+  final String title;
+
+  @override
+  State<CounterPage> createState() => _CounterPageState();
+}
+
+class _CounterPageState extends State<CounterPage> {
+  int _counter = 0;
+
+  void _increment() {
+    setState(() {
+      _counter++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('You have pushed the button this many times:'),
+            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _increment,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+```
+
+## Line by line
+- `runApp(const MyApp())` inflates the root widget and attaches it to the screen.
+- `MyApp` is a **StatelessWidget**: it has no changing data, just configuration (title, theme, home).
+- `MaterialApp` sets up Material Design, theming and navigation.
+- `CounterPage` is a **StatefulWidget**: it creates a `State` object that holds `_counter`.
+- `setState` tells Flutter "my state changed, please call `build` again". Flutter then updates the number on screen.
+- `widget.title` accesses the StatefulWidget's fields from its State.
+- `Scaffold` provides the app bar, body and floating action button slots.
+- `Theme.of(context)` reads the current theme from the widget tree.
+
+## Hot reload vs hot restart
+- **Hot reload** (`r` in the terminal, or save in the IDE): injects updated code and rebuilds, **keeping state**. Change the text or a colour and the counter value stays.
+- **Hot restart** (`R`): restarts the app from `main`, **resetting state**. Needed when you change `main`, global variables, or the type of state fields.
+- **Full restart** (stop and run again): required after adding native plugins or changing native code.
+
+## Try it
+1. Change `Colors.deepPurple` to `Colors.teal` and hot reload: the theme changes, the count stays.
+2. Change `_counter++` to `_counter += 2`, hot reload, and press the button.
+
+> TIP: If hot reload doesn't show your change, ask: did I change something that only runs once (like `main` or `initState`)? Then hot restart.
+
+:::check What happens if you change _counter++ without calling setState?
+The variable changes, but Flutter doesn't rebuild, so the screen keeps showing the old number.
+:::
+
+## Common mistakes
+- Updating state without `setState`.
+- Expecting hot reload to re-run `main()` or `initState()`.
+
+## Summary
+- `flutter create` + `flutter run` start a project.
+- StatelessWidgets describe fixed UI; StatefulWidgets keep mutable state in a State object.
+- `setState` triggers a rebuild; hot reload keeps state, hot restart resets it.
+
+## Further learning
+- docs.flutter.dev ▸ Get started ▸ Write your first app (codelab)
+@quiz
+? mcq: Which function attaches the root widget to the screen?
++ runApp
+- startApp
+- setState
+- build
+> runApp inflates the root widget.
+? tf: Hot reload resets all state in the app.
+= false
+> Hot reload keeps state; hot restart resets it.
+? fill: To tell Flutter that state changed and the UI must rebuild, call ___.
+= setState
+> setState schedules a rebuild of the State's widget.
+? mcq: How does a State object read fields declared on its StatefulWidget?
++ Through widget.fieldName
+- Through this.parent
+- Through context.fields
+- It cannot
+> State has a widget property referencing its current widget.
+? scenario: You changed code inside main() but hot reload shows no difference. What should you do?
++ Hot restart, because main only runs at startup
+- Run flutter clean
+- Reinstall the SDK
+- Restart the computer
+> Hot reload doesn't re-run main; hot restart does.
+? order: Arrange the commands to create and run a new app.
+~ flutter create first_app
+~ cd first_app
+~ flutter run
+> Create the project, enter its folder, then run it.
+
+@lesson flutter-m01-l10 | Project folder structure | 12
+## Learning objectives
+- Navigate a Flutter project's folders and files
+- Know which files you edit and which are generated
+- Organise lib/ for growing apps
+
+## What flutter create generates
+```diagram
+my_app/
+├── android/          Android host project (Gradle, Kotlin, manifest)
+├── ios/              iOS host project (Xcode, Info.plist)
+├── web/              index.html, icons, manifest.json
+├── windows/ macos/ linux/   desktop hosts (if enabled)
+├── lib/
+│   └── main.dart     ← your Dart code starts here
+├── test/
+│   └── widget_test.dart
+├── pubspec.yaml      ← name, version, dependencies, assets, fonts
+├── pubspec.lock      ← exact resolved versions (commit for apps)
+├── analysis_options.yaml ← lint rules (flutter_lints)
+├── .dart_tool/       generated, don't edit or commit
+└── build/            build outputs, don't commit
+```
+
+## Files you'll edit often
+- **lib/**: all your Dart code.
+- **pubspec.yaml**: dependencies, assets and fonts.
+- **test/**: your tests.
+- **android/app/src/main/AndroidManifest.xml**: permissions, app name, deep links.
+- **ios/Runner/Info.plist**: iOS permissions descriptions and settings.
+
+## Declaring assets
+Images, JSON files and fonts must be declared in `pubspec.yaml`:
+
+```yaml
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/data/lessons.json
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+```
+
+```dart
+import 'package:flutter/material.dart';
+
+class Logo extends StatelessWidget {
+  const Logo({super.key});
+  @override
+  Widget build(BuildContext context) => Image.asset('assets/images/logo.png', width: 96);
+}
+```
+
+> WARNING: YAML is indentation-sensitive. Use two spaces, never tabs, and keep `assets:` nested under `flutter:`.
+
+## Organising lib/ as the app grows
+Start simple, then group by **feature**:
+
+```diagram
+lib/
+├── main.dart
+├── app.dart                 MaterialApp, theme, routes
+├── core/                    shared utilities, theme, constants
+├── features/
+│   ├── auth/
+│   │   ├── data/            repositories, API clients
+│   │   ├── domain/          models, use cases
+│   │   └── presentation/    screens, widgets, state
+│   └── lessons/ ...
+└── shared/widgets/          reusable widgets
+```
+
+Feature-first organisation keeps related code together; Module 15 covers architecture in depth.
+
+## What to commit
+Commit everything except generated folders: `build/`, `.dart_tool/`, IDE folders and secrets. The generated `.gitignore` already handles the common cases.
+
+:::check Where do you declare an image so Image.asset can load it?
+Under the assets section of flutter: in pubspec.yaml.
+:::
+
+## Common mistakes
+- Forgetting to declare assets, causing "Unable to load asset" errors.
+- Committing `build/` or API keys.
+
+## Summary
+- Platform folders host your app on each OS; your Dart code lives in `lib/`.
+- `pubspec.yaml` declares dependencies, assets and fonts.
+- Organise `lib/` by feature as the app grows; don't commit generated folders.
+
+## Further learning
+- docs.flutter.dev ▸ UI ▸ Assets and images
+@quiz
+? mcq: Where does your Dart application code live?
++ lib/
+- android/
+- build/
+- .dart_tool/
+> lib/ contains your Dart source, starting with main.dart.
+? tf: The build/ folder should be committed to version control.
+= false
+> build/ contains generated outputs.
+? fill: Images and fonts are declared in the ___ file.
+= pubspec.yaml
+> The flutter section of pubspec.yaml lists assets and fonts.
+? mcq: Which file would you edit to add an Android permission?
++ android/app/src/main/AndroidManifest.xml
+- lib/main.dart
+- pubspec.lock
+- web/index.html
+> Android permissions are declared in the manifest.
+? scenario: Image.asset throws "Unable to load asset" for a file that exists on disk. What's the most likely cause?
++ The asset isn't declared (or is mis-indented) in pubspec.yaml
+- The image is too small
+- Hot reload is disabled
+- The device is offline
+> Undeclared assets are not bundled into the app.

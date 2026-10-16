@@ -1,0 +1,1086 @@
+@module dart-m04 | Functions
+@summary Declare reusable functions, master parameter styles, closures, higher-order functions and recursion.
+
+@lesson dart-m04-l01 | Function declarations | 12
+## Learning objectives
+- Declare functions with parameters and return types
+- Understand `void` and implicit `null` returns
+- Organise code into small, single-purpose functions
+
+## Anatomy of a function
+```dart
+int add(int a, int b) {
+  return a + b;
+}
+```
+
+- `int` before the name is the **return type**.
+- `add` is the **name** (lowerCamelCase).
+- `(int a, int b)` are the **parameters** with their types.
+- The body between braces runs when the function is **called**: `add(2, 3)`.
+
+Functions are first-class objects in Dart: you can store them in variables and pass them around, which later lessons explore.
+
+## void and returning nothing
+A function that performs an action but doesn't produce a useful value returns `void`:
+
+```dart
+void logMessage(String message) {
+  print('[${DateTime.now().toIso8601String()}] $message');
+}
+```
+
+If a non-void function finishes without a `return`, it implicitly returns `null`, which is only allowed when the return type is nullable. The analyzer warns you when a function with a non-nullable return type might not return a value.
+
+## Returning early
+`return` ends the function immediately, which pairs naturally with guard clauses:
+
+```dart
+double safeDivide(double a, double b) {
+  if (b == 0) return 0;
+  return a / b;
+}
+```
+
+## Small, focused functions
+Good functions do **one thing** and are named after it. Compare:
+
+```dart
+// One long function doing everything
+void processOrder(Map<String, int> cart) {
+  var total = 0;
+  for (final price in cart.values) {
+    total += price;
+  }
+  if (total > 5000) total = (total * 0.9).round();
+  print('Total: ${total / 100}');
+}
+
+// Split into named steps
+int subtotal(Map<String, int> cart) => cart.values.fold(0, (sum, p) => sum + p);
+int applyDiscount(int cents) => cents > 5000 ? (cents * 0.9).round() : cents;
+String formatCents(int cents) => (cents / 100).toStringAsFixed(2);
+
+void main() {
+  final cart = {'book': 3000, 'pen': 2500};
+  print('Total: ${formatCents(applyDiscount(subtotal(cart)))}'); // Total: 49.50
+}
+```
+
+Each small function can be tested and reused independently.
+
+## Top-level, local and member functions
+- **Top-level** functions live directly in a file.
+- **Local** functions are declared inside another function and are only visible there.
+- **Methods** belong to classes (Module 6).
+
+> TIP: Annotate return and parameter types on top-level and public functions. It documents your API and helps the analyzer.
+
+:::check What does a function with return type `String?` return if it reaches the end without a return statement?
+null.
+:::
+
+## Common mistakes
+- Forgetting `return` in a non-void function and getting an analyzer error.
+- Writing very long functions that mix calculation, formatting and printing.
+
+## Summary
+- A function has a return type, name, parameters and body.
+- `void` functions return nothing useful; `return` exits early.
+- Prefer small, well-named, single-purpose functions.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions
+@quiz
+? output: What does this print?
+```dart
+int square(int x) {
+  return x * x;
+}
+
+void main() {
+  print(square(square(2)));
+}
+```
++ 16
+- 4
+- 8
+- 2
+> square(2) is 4, and square(4) is 16.
+? mcq: Which return type should a function have if it only prints a message?
++ void
+- Null
+- dynamic
+- String
+> void signals that no useful value is returned.
+? tf: In Dart you can declare a function inside another function.
+= true
+> Local functions are visible only inside the enclosing function.
+? fill: The keyword that ends a function and gives back a value is ___.
+= return
+> return exits the function with an optional value.
+? scenario: A 120-line function validates input, calculates a price and formats a receipt. What is the best improvement?
++ Split it into small functions for validation, calculation and formatting
+- Add more comments to the long function
+- Make all variables dynamic
+- Convert it to a class with one method
+> Small single-purpose functions are easier to read, test and reuse.
+
+@lesson dart-m04-l02 | Parameters | 10
+## Learning objectives
+- Distinguish parameters from arguments
+- Understand positional parameters and pass-by-reference semantics
+- Use types to make parameters self-documenting
+
+## Parameters vs arguments
+A **parameter** is the variable listed in the function declaration. An **argument** is the actual value passed when calling it.
+
+```dart
+String greet(String name) => 'Hi $name'; // name is a parameter
+void main() => print(greet('Ada'));       // 'Ada' is an argument
+```
+
+## Required positional parameters
+By default, parameters are **positional** and **required**: callers must pass them in order.
+
+```dart
+String formatPrice(String currency, int cents) => '$currency${(cents / 100).toStringAsFixed(2)}';
+
+void main() {
+  print(formatPrice('€', 1999));  // €19.99
+  // print(formatPrice(1999, '€')); // compile error: wrong types
+}
+```
+
+Types protect you from mixing up arguments of different types, but two parameters of the **same** type can still be swapped by mistake. That's why named parameters (next lesson) are popular for functions with several arguments.
+
+## How arguments are passed
+Dart passes **references to objects**. Reassigning a parameter inside a function never affects the caller's variable, but *mutating* a mutable object is visible to the caller:
+
+```dart
+void addBonus(List<int> scores) {
+  scores.add(10);         // mutates the caller's list
+}
+
+void reset(List<int> scores) {
+  scores = [];            // only changes the local parameter
+}
+
+void main() {
+  final scores = [50];
+  addBonus(scores);
+  reset(scores);
+  print(scores); // [50, 10]
+}
+```
+
+> TIP: Functions that don't modify their inputs are easier to reason about. Prefer returning a new list over mutating the argument, unless mutation is the function's purpose.
+
+## Parameters are final by convention
+Effective Dart discourages reassigning parameters; create a new local variable instead. Many teams enable the `parameter_assignments` lint.
+
+:::check If a function receives a List and calls `.clear()` on it, does the caller's list change?
+Yes. The function receives a reference to the same list object.
+:::
+
+## Common mistakes
+- Swapping two same-typed positional arguments (for example width and height).
+- Surprising callers by mutating lists or maps they passed in.
+
+## Summary
+- Parameters are declared; arguments are passed.
+- Positional parameters are required by default and matched by order.
+- Dart passes object references: mutations are shared, reassignments are not.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Parameters
+@quiz
+? output: What does this print?
+```dart
+void change(List<String> items) {
+  items.add('b');
+  items = ['z'];
+}
+
+void main() {
+  final items = ['a'];
+  change(items);
+  print(items);
+}
+```
++ [a, b]
+- [z]
+- [a]
+- [a, b, z]
+> add mutates the shared list; reassigning the parameter only affects the local variable.
+? mcq: In `print(add(2, 3))`, what are 2 and 3?
+- Parameters
++ Arguments
+- Return values
+- Generics
+> Values passed at the call site are arguments.
+? tf: Positional parameters can be passed in any order.
+= false
+> Positional arguments are matched by position.
+? fill: Values listed in a function declaration, such as `int a`, are called ___.
+= parameters | parameter
+> Parameters are placeholders declared by the function.
+? scenario: A function `resize(int width, int height)` is often called with the values swapped. What change prevents this best?
++ Use named parameters such as resize(width: 300, height: 200)
+- Rename the function
+- Add a comment
+- Make the parameters dynamic
+> Named arguments make each value's meaning explicit at the call site.
+
+@lesson dart-m04-l03 | Named parameters | 12
+## Learning objectives
+- Declare and call functions with named parameters
+- Make named parameters required or give them defaults
+- Recognise the Flutter widget constructor style
+
+## Named parameters
+Wrap parameters in curly braces to make them **named**. Callers write `name: value`, in any order:
+
+```dart
+void createAccount({required String email, String plan = 'free', bool newsletter = false}) {
+  print('Account $email on $plan plan, newsletter: $newsletter');
+}
+
+void main() {
+  createAccount(email: 'ada@example.com');
+  createAccount(plan: 'premium', email: 'grace@example.com', newsletter: true);
+}
+```
+
+- `required` means the caller must provide it.
+- Others are optional; they need a **default value** or a **nullable type**.
+
+## Why named parameters matter
+They make call sites self-documenting:
+
+```dart
+// Positional: what do these numbers mean?
+drawRect(10, 20, 100, 50, true);
+
+// Named: obvious
+drawRect(x: 10, y: 20, width: 100, height: 50, filled: true);
+```
+
+This is exactly the style Flutter uses for every widget:
+
+```dart
+// Flutter style (shown for illustration)
+// Padding(
+//   padding: const EdgeInsets.all(16),
+//   child: Text('Hello', style: TextStyle(fontSize: 18)),
+// )
+```
+
+## Mixing positional and named
+Positional parameters come first, then a named block:
+
+```dart
+String repeat(String text, {int times = 2, String separator = ' '}) =>
+    List.filled(times, text).join(separator);
+
+void main() {
+  print(repeat('ha'));                         // ha ha
+  print(repeat('ho', times: 3, separator: '-')); // ho-ho-ho
+}
+```
+
+## Nullable named parameters
+When "not provided" is meaningful, use a nullable type without a default:
+
+```dart
+void search(String query, {int? limit}) {
+  final effective = limit ?? 20;
+  print('Searching "$query" (limit $effective, user set: ${limit != null})');
+}
+```
+
+> TIP: Make a named parameter `required` when there's no sensible default. It's better than a nullable parameter that you immediately `!`.
+
+:::check Can named arguments be passed in a different order than they are declared?
+Yes. Named arguments are matched by name, not position.
+:::
+
+## Common mistakes
+- Declaring an optional named parameter with a non-nullable type and no default: the compiler rejects it.
+- Overusing booleans as named flags; consider an enum when there are more than two modes.
+
+## Summary
+- `{}` declares named parameters; call them with `name: value` in any order.
+- `required` makes them mandatory; otherwise give a default or a nullable type.
+- Positional parameters come before the named block.
+- Flutter constructors use named parameters extensively.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Named parameters
+@quiz
+? output: What does this print?
+```dart
+String label({required String text, bool upper = false}) => upper ? text.toUpperCase() : text;
+
+void main() {
+  print(label(upper: true, text: 'go'));
+}
+```
++ GO
+- go
+- A compile error because of argument order
+- upper
+> Named arguments can be passed in any order.
+? mcq: Which declaration is valid?
+- void f({String name}) {}
++ void f({String name = 'x'}) {}
+- void f({required String name = 'x'}) {}
+- void f(String {name}) {}
+> Optional named non-nullable parameters need a default value.
+? fill: Mark a named parameter as mandatory with the keyword ___.
+= required
+> required forces callers to supply the argument.
+? tf: Positional parameters must be declared before the named parameter block.
+= true
+> The named block {} comes last in the parameter list.
+? scenario: An optional named parameter `int? pageSize` is always unwrapped with `!` inside the function. What is a better design?
++ Give it a default value like {int pageSize = 20}
+- Change it to dynamic
+- Remove the type
+- Add more ! operators
+> A default makes the parameter non-nullable and removes the risky !.
+
+@lesson dart-m04-l04 | Optional positional parameters | 8
+## Learning objectives
+- Declare optional positional parameters with square brackets
+- Provide default values
+- Decide between optional positional and named parameters
+
+## Square brackets
+Wrap trailing positional parameters in `[]` to make them optional:
+
+```dart
+String greet(String name, [String greeting = 'Hello', String? punctuation]) {
+  return '$greeting, $name${punctuation ?? '!'}';
+}
+
+void main() {
+  print(greet('Ada'));              // Hello, Ada!
+  print(greet('Ada', 'Hi'));        // Hi, Ada!
+  print(greet('Ada', 'Hey', '...')); // Hey, Ada...
+}
+```
+
+Optional positional arguments must be supplied **in order**: to pass `punctuation` you must also pass `greeting`.
+
+## Rules
+- A function can have optional positional **or** named parameters, not both.
+- Optional positional parameters must come after required ones.
+- Like named parameters, they need a default or a nullable type.
+
+## When to use them
+Optional positional parameters work well when:
+- There are only one or two optional values.
+- Their meaning is obvious from position, as in `substring(start, [end])` or `List.filled(length, value)`.
+
+```dart
+void main() {
+  final word = 'Flutter';
+  print(word.substring(3));     // tter
+  print(word.substring(0, 3));  // Flu
+}
+```
+
+For anything less obvious, named parameters are clearer. Most modern Dart and Flutter APIs prefer named optional parameters.
+
+> NOTE: Default values must be compile-time constants, such as literals or `const` objects.
+
+:::check Can a function have both `[optional positional]` and `{named}` parameters?
+No. Dart allows one kind of optional parameter block per function.
+:::
+
+## Common mistakes
+- Adding a third or fourth optional positional parameter; callers can no longer tell which value is which.
+- Using a non-constant default such as `DateTime.now()`; use a nullable parameter and `??` inside the body instead.
+
+## Summary
+- `[]` makes trailing positional parameters optional.
+- They're passed in order and need defaults or nullable types.
+- Use them sparingly; named parameters scale better.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Optional positional parameters
+@quiz
+? output: What does this print?
+```dart
+String tag(String text, [String open = '<', String close = '>']) => '$open$text$close';
+
+void main() {
+  print(tag('b', '['));
+}
+```
++ [b>
+- <b>
+- [b]
+- A compile error
+> Only the first optional argument was provided; close keeps its default.
+? tf: A function may declare both optional positional and named parameters.
+= false
+> Only one kind of optional parameter block is allowed.
+? mcq: Which is a valid default value for an optional parameter?
++ 'Hello'
+- DateTime.now()
+- someVariable that is not const
+- Random().nextInt(5)
+> Defaults must be compile-time constants.
+? fill: Optional positional parameters are wrapped in ___ brackets.
+= square | []
+> Square brackets mark optional positional parameters.
+? scenario: A function has four optional positional booleans. Callers keep passing them in the wrong order. What should you do?
++ Convert them to named parameters
+- Add a fifth parameter
+- Document the order in a comment
+- Make them dynamic
+> Named parameters make each argument explicit.
+
+@lesson dart-m04-l05 | Arrow functions | 8
+## Learning objectives
+- Write concise single-expression functions with `=>`
+- Use arrow syntax for getters and callbacks
+- Know its limitations
+
+## Arrow syntax
+`=> expression` is shorthand for `{ return expression; }`:
+
+```dart
+int triple(int x) => x * 3;
+bool isWeekend(int weekday) => weekday == DateTime.saturday || weekday == DateTime.sunday;
+String initials(String first, String last) => '${first[0]}${last[0]}'.toUpperCase();
+
+void main() {
+  print(triple(4));                 // 12
+  print(isWeekend(DateTime.sunday)); // true
+  print(initials('ada', 'lovelace')); // AL
+}
+```
+
+## Arrows in classes
+Getters and short methods read nicely with arrows:
+
+```dart
+class Rectangle {
+  const Rectangle(this.width, this.height);
+  final double width;
+  final double height;
+  double get area => width * height;
+  bool get isSquare => width == height;
+  Rectangle scale(double f) => Rectangle(width * f, height * f);
+}
+```
+
+## Arrows in callbacks
+Arrow functions are perfect for short callbacks passed to collection methods:
+
+```dart
+void main() {
+  final prices = [12, 7, 30];
+  final doubled = prices.map((p) => p * 2).toList();
+  final cheap = prices.where((p) => p < 15).toList();
+  print('$doubled $cheap'); // [24, 14, 60] [12, 7]
+}
+```
+
+## Limitations
+- Only one **expression**: no `if` statements, loops or variable declarations.
+- `=> {}` is a trap: it returns a set/map literal, not a block.
+- `void` arrow functions are fine for side effects: `void log(String m) => print(m);`
+
+> TIP: If an arrow function no longer fits comfortably on one or two lines, switch to a block body.
+
+:::check What does `bool isEven(int n) => n % 2 == 0;` return for 7?
+false.
+:::
+
+## Best practices
+- Use arrows for getters, one-line helpers and callbacks; use blocks for anything with branching or several steps.
+- Keep the expression readable: if you need to scroll horizontally to read it, it belongs in a block body.
+- Effective Dart recommends `=>` for members whose body is a single, simple expression, because it signals "this just computes a value".
+
+## Common mistakes
+- Writing `=> { return x; }` (this is a syntax error or a set literal, depending on context).
+- Cramming complex logic into nested ternaries just to keep the arrow form.
+
+## Summary
+- `=> expr` returns a single expression.
+- Great for getters, short methods and callbacks.
+- Use block bodies for anything requiring statements.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions
+@quiz
+? output: What does this print?
+```dart
+int add(int a, int b) => a + b;
+
+void main() {
+  print(add(add(1, 2), 3));
+}
+```
++ 6
+- 3
+- 5
+- 123
+> add(1, 2) is 3; add(3, 3) is 6.
+? tf: An arrow function body can contain a for loop.
+= false
+> Arrow bodies must be a single expression.
+? mcq: Which getter is written correctly with arrow syntax?
++ double get area => width * height;
+- double get area() => width * height;
+- get double area => width * height;
+- double area get => width * height;
+> Getters use `get` and have no parameter list.
+? fill: Arrow syntax `=> expr` is shorthand for `{ ___ expr; }`.
+= return
+> The arrow returns the value of the expression.
+? scenario: A teammate wrote `final f = () => { print('hi') };` and is confused by a warning. What's happening?
++ `{ print('hi') }` is parsed as a set literal, not a block
+- Arrow functions cannot print
+- f must be declared const
+- The semicolon is missing inside the braces
+> After =>, braces create a collection literal rather than a function body.
+
+@lesson dart-m04-l06 | Anonymous functions | 10
+## Learning objectives
+- Create functions without names (lambdas)
+- Store functions in variables with function types
+- Pass anonymous functions as arguments
+
+## Functions without names
+An **anonymous function** (also called a lambda or closure) has parameters and a body but no name:
+
+```dart
+void main() {
+  final greet = (String name) {
+    return 'Hello, $name';
+  };
+  final shout = (String text) => text.toUpperCase();
+
+  print(greet('Ada'));     // Hello, Ada
+  print(shout('dart'));    // DART
+}
+```
+
+The variable `greet` holds a function. Its type is written `String Function(String)`.
+
+## Function types
+You can declare function types explicitly, which is useful for parameters and fields:
+
+```dart
+int applyTwice(int Function(int) f, int value) => f(f(value));
+
+void main() {
+  print(applyTwice((x) => x + 3, 10)); // 16
+  int Function(int) square = (x) => x * x;
+  print(applyTwice(square, 3));        // 81
+}
+```
+
+Notice that `(x) => x + 3` doesn't declare the type of `x`: Dart infers `int` from the expected `int Function(int)`.
+
+## Passing callbacks
+Anonymous functions are everywhere in Dart and Flutter: collection methods, event handlers and asynchronous code all accept functions.
+
+```dart
+void main() {
+  final names = ['grace', 'ada', 'linus'];
+  names.sort((a, b) => a.compareTo(b));
+  names.forEach((name) {
+    final capitalised = name[0].toUpperCase() + name.substring(1);
+    print(capitalised);
+  });
+}
+```
+
+In Flutter you'll write things like `onPressed: () { setState(() => count++); }` constantly.
+
+## Tear-offs
+If a callback just forwards to an existing function, pass the function itself (a **tear-off**) instead of wrapping it:
+
+```dart
+final words = ['a', 'b'];
+words.forEach(print);              // tear-off: clean
+words.forEach((w) => print(w));    // equivalent but noisier
+final lengths = words.map((w) => w.length); // a lambda is needed here
+```
+
+> TIP: The `unnecessary_lambdas` lint suggests tear-offs automatically.
+
+:::check What is the type of `(int a, int b) => a + b`?
+int Function(int, int).
+:::
+
+## Common mistakes
+- Declaring the parameter type as `Function` (untyped). Use precise types like `void Function(String)`.
+- Wrapping a function in a lambda when a tear-off would do.
+
+## Summary
+- Anonymous functions have no name and can be stored in variables.
+- Function types look like `ReturnType Function(ParamTypes)`.
+- Callbacks are passed as anonymous functions or tear-offs.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Anonymous functions
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final inc = (int x) => x + 1;
+  print(inc(inc(1)));
+}
+```
++ 3
+- 2
+- 1
+- 4
+> inc(1) is 2 and inc(2) is 3.
+? mcq: Which type describes a function that takes a String and returns nothing?
++ void Function(String)
+- String Function(void)
+- Function<String>
+- void(String)
+> Function types are written ReturnType Function(Parameters).
+? tf: `list.forEach(print)` passes the print function as a tear-off.
+= true
+> A tear-off references an existing function without calling it.
+? fill: A function written without a name is called an ___ function.
+= anonymous
+> Anonymous functions are also called lambdas or closures.
+? output: What does this print?
+```dart
+int applyTwice(int Function(int) f, int v) => f(f(v));
+
+void main() {
+  print(applyTwice((x) => x * 2, 5));
+}
+```
++ 20
+- 10
+- 25
+- 7
+> 5 doubled is 10, and 10 doubled is 20.
+
+@lesson dart-m04-l07 | Closures | 12
+## Learning objectives
+- Explain lexical scope and closures
+- Create functions that remember state
+- Avoid common closure pitfalls
+
+## Lexical scope
+Dart is **lexically scoped**: a variable is visible inside the braces where it is declared, including nested functions.
+
+```dart
+final appName = 'Bimo';           // top-level
+void main() {
+  final user = 'Ada';             // visible in main and nested functions
+  void greet() {
+    final time = 'morning';       // visible only in greet
+    print('Good $time $user, welcome to $appName');
+  }
+  greet();
+}
+```
+
+## What is a closure?
+A **closure** is a function that captures variables from its surrounding scope and keeps access to them even after that scope has finished running:
+
+```dart
+int Function() makeCounter() {
+  var count = 0;
+  return () {
+    count++;
+    return count;
+  };
+}
+
+void main() {
+  final counterA = makeCounter();
+  final counterB = makeCounter();
+  print(counterA()); // 1
+  print(counterA()); // 2
+  print(counterB()); // 1 – separate captured variable
+}
+```
+
+`makeCounter` has already returned, but each returned function still holds its **own** `count` variable. This is how closures keep private state without a class.
+
+## Closures capture variables, not values
+A closure sees the **current** value of a captured variable when it runs:
+
+```dart
+void main() {
+  var message = 'hello';
+  final say = () => print(message);
+  message = 'goodbye';
+  say(); // goodbye
+}
+```
+
+## Loops create fresh variables
+In Dart, each iteration of a `for` loop gets a new loop variable, so closures created in a loop capture different values:
+
+```dart
+void main() {
+  final callbacks = <void Function()>[];
+  for (var i = 0; i < 3; i++) {
+    callbacks.add(() => print(i));
+  }
+  for (final c in callbacks) {
+    c(); // 0, 1, 2
+  }
+}
+```
+
+## Closures in Flutter
+Every `onPressed: () => setState(() => _count++)` is a closure capturing `_count` and `setState` from the widget's state. Understanding capture explains why callbacks always see the latest state.
+
+> WARNING: Closures keep captured objects alive. A long-lived closure (for example, a stream listener) that captures a large object prevents it from being garbage-collected until the listener is cancelled.
+
+:::check Two counters are created by calling makeCounter() twice. Do they share the count?
+No. Each call creates a new local variable that only its own closure captures.
+:::
+
+## Common mistakes
+- Expecting a closure to "snapshot" a variable's value at creation time.
+- Forgetting to cancel subscriptions whose closures capture widgets or controllers.
+
+## Summary
+- Variables are visible within their lexical scope, including nested functions.
+- Closures capture variables and keep them alive.
+- Each loop iteration has its own variable; closures see the latest value of captured variables.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Lexical closures
+@quiz
+? output: What does this print?
+```dart
+int Function() counter() {
+  var n = 0;
+  return () => ++n;
+}
+
+void main() {
+  final c = counter();
+  c();
+  c();
+  print(c());
+}
+```
++ 3
+- 1
+- 0
+- 2
+> The closure keeps incrementing its captured n: 1, 2, 3.
+? output: What does this print?
+```dart
+void main() {
+  var word = 'cat';
+  final show = () => word;
+  word = 'dog';
+  print(show());
+}
+```
++ dog
+- cat
+- null
+- word
+> Closures capture variables, so they see the latest value.
+? tf: In Dart, closures created in a `for (var i = 0; ...)` loop all capture the same `i`.
+= false
+> Each iteration gets a fresh variable, so closures capture 0, 1, 2...
+? fill: A function that captures variables from its surrounding scope is called a ___.
+= closure
+> Closures retain access to variables from their lexical scope.
+? scenario: A screen registers a stream listener whose closure captures a large image cache, and memory keeps growing after leaving the screen. What is the likely fix?
++ Cancel the subscription when the screen is disposed
+- Make the cache a const
+- Use a for loop instead of a closure
+- Call print in the listener
+> Active closures keep captured objects alive until the listener is cancelled.
+
+@lesson dart-m04-l08 | Higher-order functions | 12
+## Learning objectives
+- Write functions that accept or return other functions
+- Use map, where, fold, any, every and reduce
+- Compose small functions into pipelines
+
+## Definition
+A **higher-order function** takes a function as a parameter, returns a function, or both. You've already seen `forEach`, `map`, `where` and `sort`.
+
+## Built-in higher-order methods
+```dart
+void main() {
+  final scores = [72, 45, 90, 88, 60];
+
+  final passed = scores.where((s) => s >= 70);           // filter
+  final curved = scores.map((s) => (s + 5).clamp(0, 100)); // transform
+  final total = scores.fold(0, (sum, s) => sum + s);       // accumulate
+  final best = scores.reduce((a, b) => a > b ? a : b);    // combine
+  final anyFail = scores.any((s) => s < 50);
+  final allPositive = scores.every((s) => s > 0);
+
+  print(passed.toList());   // [72, 90, 88]
+  print(curved.toList());   // [77, 50, 95, 93, 65]
+  print(total);             // 355
+  print(best);              // 90
+  print('$anyFail $allPositive'); // true true
+}
+```
+
+- `fold` starts from an initial value and is safe on empty collections.
+- `reduce` uses the first element as the start and **throws on an empty collection**.
+
+## Writing your own
+```dart
+List<T> keepIf<T>(List<T> items, bool Function(T) test) {
+  final result = <T>[];
+  for (final item in items) {
+    if (test(item)) result.add(item);
+  }
+  return result;
+}
+
+void main() {
+  print(keepIf(['a', 'bb', 'ccc'], (s) => s.length > 1)); // [bb, ccc]
+}
+```
+
+## Returning functions
+```dart
+bool Function(int) atLeast(int minimum) => (value) => value >= minimum;
+
+void main() {
+  final isAdult = atLeast(18);
+  final canRent = atLeast(25);
+  print(isAdult(20)); // true
+  print(canRent(20)); // false
+}
+```
+
+`atLeast` is a function *factory*: it builds customised predicate functions.
+
+## Lazy iterables
+`map` and `where` return **lazy** `Iterable`s: nothing is computed until you iterate or call `toList()`. Chaining many operations is therefore cheap, but iterating the same lazy iterable twice repeats the work. Call `toList()` once if you'll reuse the result.
+
+> TIP: Read pipelines top to bottom: `orders.where(isPaid).map(toTotal).fold(0, add)` describes *what* happens, not *how* to loop.
+
+:::check What does `[].reduce((a, b) => a + b)` do?
+It throws a StateError because the list is empty. Use fold with an initial value instead.
+:::
+
+## Common mistakes
+- Using `reduce` on lists that might be empty.
+- Forgetting `toList()` and accidentally re-running an expensive lazy pipeline.
+
+## Summary
+- Higher-order functions take or return functions.
+- `where`, `map`, `fold`, `reduce`, `any`, `every` cover most loops.
+- Function factories create customised functions.
+- `map` and `where` are lazy until iterated.
+
+## Further learning
+- dart.dev ▸ Language ▸ Collections ▸ Iterables
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final total = [1, 2, 3, 4].where((n) => n.isEven).fold(0, (a, b) => a + b);
+  print(total);
+}
+```
++ 6
+- 10
+- 4
+- 2
+> The even numbers are 2 and 4, which sum to 6.
+? mcq: Which method throws on an empty list?
+- fold
++ reduce
+- any
+- where
+> reduce needs at least one element; fold starts from an initial value.
+? tf: `list.map(f)` immediately computes and stores every result.
+= false
+> map returns a lazy Iterable that computes values on demand.
+? output: What does this print?
+```dart
+bool Function(int) above(int min) => (v) => v > min;
+
+void main() {
+  final check = above(10);
+  print(check(10));
+}
+```
++ false
+- true
+- 10
+- A compile error
+> 10 > 10 is false.
+? fill: To check whether at least one element satisfies a test, call `list.___(test)`.
+= any
+> any returns true if any element passes the test.
+? scenario: You compute an expensive `where(...).map(...)` pipeline and loop over the result three times. How do you avoid repeating the work?
++ Call toList() once and reuse the list
+- Use reduce instead
+- Use dynamic types
+- Call map twice
+> Materialising the lazy iterable once avoids recomputation.
+
+@lesson dart-m04-l09 | Recursion | 12
+## Learning objectives
+- Write recursive functions with base cases
+- Trace recursive calls
+- Know when recursion is appropriate and its limits
+
+## A function that calls itself
+A **recursive** function solves a problem by calling itself on a smaller version of the same problem. Every recursive function needs:
+1. A **base case** that returns without recursing.
+2. A **recursive case** that moves toward the base case.
+
+```dart
+int factorial(int n) {
+  if (n <= 1) return 1;          // base case
+  return n * factorial(n - 1);   // recursive case
+}
+
+void main() {
+  print(factorial(5)); // 120
+}
+```
+
+Tracing `factorial(5)`: 5 × factorial(4) → 5 × 4 × factorial(3) → … → 5 × 4 × 3 × 2 × 1 = 120.
+
+## Natural fits for recursion
+Recursion is elegant for **tree-shaped** data: folders inside folders, comments with replies, menus with sub-menus, and Flutter's own widget tree.
+
+```dart
+class Folder {
+  Folder(this.name, {this.files = 0, this.children = const []});
+  final String name;
+  final int files;
+  final List<Folder> children;
+}
+
+int countFiles(Folder folder) =>
+    folder.files + folder.children.fold(0, (sum, child) => sum + countFiles(child));
+
+void main() {
+  final root = Folder('root', files: 2, children: [
+    Folder('docs', files: 5),
+    Folder('src', files: 1, children: [Folder('lib', files: 8)]),
+  ]);
+  print(countFiles(root)); // 16
+}
+```
+
+## Stack depth
+Each call uses stack memory. Very deep recursion (tens of thousands of levels) can throw a `StackOverflowError`. Dart does not optimise tail calls, so for long linear processes, a loop is safer:
+
+```dart
+int sumTo(int n) {
+  var total = 0;
+  for (var i = 1; i <= n; i++) {
+    total += i;
+  }
+  return total;
+}
+```
+
+## Avoiding repeated work
+Naive recursive Fibonacci recalculates the same values exponentially many times. **Memoisation** stores results:
+
+```dart
+final _cache = <int, int>{};
+
+int fib(int n) {
+  if (n < 2) return n;
+  return _cache[n] ??= fib(n - 1) + fib(n - 2);
+}
+
+void main() {
+  print(fib(50)); // 12586269025, instantly
+}
+```
+
+> WARNING: A missing or unreachable base case causes infinite recursion and a StackOverflowError.
+
+:::check What is the base case in factorial?
+n <= 1, which returns 1 without another recursive call.
+:::
+
+## Common mistakes
+- Forgetting the base case or not making progress toward it.
+- Using naive recursion for problems with overlapping sub-problems.
+
+## Exercise
+Write a recursive function `int sumDigits(int n)` that returns the sum of the digits of a non-negative integer (for example, 472 → 13).
+:::solution Example solution
+```dart
+int sumDigits(int n) {
+  if (n < 10) return n;
+  return n % 10 + sumDigits(n ~/ 10);
+}
+
+void main() {
+  print(sumDigits(472)); // 13
+}
+```
+:::
+
+## Summary
+- Recursive functions need a base case and progress toward it.
+- Recursion suits tree-shaped problems.
+- Deep recursion can overflow the stack; loops are safer for long linear work.
+- Memoisation avoids recomputing overlapping sub-problems.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions
+@quiz
+? output: What does this print?
+```dart
+int f(int n) => n == 0 ? 0 : n + f(n - 1);
+
+void main() {
+  print(f(4));
+}
+```
++ 10
+- 4
+- 24
+- 0
+> 4 + 3 + 2 + 1 + 0 = 10.
+? mcq: What happens if a recursive function never reaches its base case?
+- It returns null
++ It eventually throws a StackOverflowError
+- Dart converts it into a loop
+- It runs once and stops
+> Infinite recursion exhausts the call stack.
+? tf: Dart automatically optimises tail-recursive calls so they never use extra stack space.
+= false
+> Dart does not guarantee tail-call optimisation.
+? fill: The condition that stops recursion is called the ___ case.
+= base
+> The base case returns without further recursion.
+? scenario: A recursive Fibonacci function takes minutes for n = 45. What is the best fix?
++ Memoise results or rewrite it iteratively
+- Add a print statement
+- Make n a double
+- Increase the stack size
+> Overlapping sub-problems make naive recursion exponential; caching fixes it.
+? order: Order the lines of a recursive countdown function.
+~ void countdown(int n) {
+~   if (n < 0) return;
+~   print(n);
+~   countdown(n - 1);
+~ }
+> Check the base case first, act, then recurse with a smaller value.

@@ -1,0 +1,1802 @@
+@module dart-m06 | Object-Oriented Programming
+@summary Model your domain with classes, constructors, inheritance, interfaces, mixins, extensions, generics and enums.
+
+@lesson dart-m06-l01 | Classes | 14
+## Learning objectives
+- Define classes with fields, getters and methods
+- Override `toString`, `==` and `hashCode`
+- Follow Dart naming and design conventions
+
+## A blueprint for objects
+A **class** describes the data (fields) and behaviour (methods) of a kind of object.
+
+```dart
+class BankAccount {
+  BankAccount(this.owner, [this._balanceCents = 0]);
+
+  final String owner;          // field (final: set once)
+  int _balanceCents;           // private field
+
+  int get balanceCents => _balanceCents;          // getter
+  bool get isOverdrawn => _balanceCents < 0;      // computed getter
+
+  void deposit(int cents) {                       // method
+    if (cents <= 0) throw ArgumentError.value(cents, 'cents', 'must be positive');
+    _balanceCents += cents;
+  }
+
+  @override
+  String toString() => 'BankAccount($owner, $_balanceCents¢)';
+}
+
+void main() {
+  final account = BankAccount('Ada');
+  account.deposit(2500);
+  print(account);               // BankAccount(Ada, 2500¢)
+  print(account.balanceCents);  // 2500
+}
+```
+
+Class names use **UpperCamelCase**; fields and methods use **lowerCamelCase**.
+
+## Fields, getters and setters
+Fields store state. A **getter** (`get`) computes a value on demand and is called without parentheses. A **setter** (`set`) runs code when a value is assigned:
+
+```dart
+class Temperature {
+  Temperature(this.celsius);
+  double celsius;
+  double get fahrenheit => celsius * 9 / 5 + 32;
+  set fahrenheit(double f) => celsius = (f - 32) * 5 / 9;
+}
+```
+
+## Equality
+By default `==` compares **identity**: two objects are equal only if they are the same instance. For value-like classes, override `==` and `hashCode` together:
+
+```dart
+class Money {
+  const Money(this.cents, this.currency);
+  final int cents;
+  final String currency;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Money && other.cents == cents && other.currency == currency;
+
+  @override
+  int get hashCode => Object.hash(cents, currency);
+}
+
+void main() {
+  print(const Money(100, 'EUR') == const Money(100, 'EUR')); // true
+  print({const Money(1, 'EUR'), const Money(1, 'EUR')}.length); // 1
+}
+```
+
+> IMPORTANT: Whenever you override `==`, also override `hashCode`, otherwise sets and maps behave incorrectly.
+
+Writing this by hand gets tedious; packages like `equatable` or code generators like `freezed` produce it for you, and Dart records (Module 7) have value equality built in.
+
+:::check Why must hashCode be overridden together with ==?
+Hash-based collections (Set, Map) first compare hash codes; equal objects must have equal hash codes or they will be treated as different.
+:::
+
+## Common mistakes
+- Making every field public and mutable. Prefer `final` fields and expose behaviour through methods.
+- Overriding `==` without `hashCode`.
+
+## Summary
+- Classes bundle fields, getters, setters and methods.
+- Getters compute values; setters validate or convert assignments.
+- Override `toString` for readable output and `==`/`hashCode` together for value equality.
+
+## Further learning
+- dart.dev ▸ Language ▸ Classes
+@quiz
+? mcq: How do you call a getter named `area` on `shape`?
++ shape.area
+- shape.area()
+- shape.getArea()
+- shape->area
+> Getters are accessed like fields, without parentheses.
+? tf: By default, two different instances with the same field values are equal with ==.
+= false
+> The default == compares identity.
+? fill: When overriding `==`, you must also override ___.
+= hashCode
+> Equal objects must have equal hash codes.
+? output: What does this print?
+```dart
+class P {
+  P(this.x);
+  final int x;
+}
+
+void main() {
+  print(P(1) == P(1));
+}
+```
++ false
+- true
+- A compile error
+- null
+> Without overriding ==, separate instances are not equal.
+? mcq: What naming convention do Dart class names use?
+- snake_case
++ UpperCamelCase
+- lowerCamelCase
+- SCREAMING_CAPS
+> Types use UpperCamelCase.
+? scenario: Your `Product` objects are stored in a Set, but identical-looking products appear twice. What is missing?
++ Overrides of == and hashCode based on the product's identifying fields
+- A toString override
+- A setter for every field
+- A factory constructor
+> Sets rely on == and hashCode to detect duplicates.
+
+@lesson dart-m06-l02 | Objects and instances | 10
+## Learning objectives
+- Create instances and access their members
+- Understand references, identity and object lifetime
+- Use `this`, cascades and null-aware member access with objects
+
+## Creating instances
+Calling a class's constructor creates an **instance** (an object). The `new` keyword is optional and omitted in modern Dart.
+
+```dart
+class Lesson {
+  Lesson(this.title, {this.minutes = 10});
+  final String title;
+  final int minutes;
+  bool completed = false;
+
+  void complete() => completed = true;
+}
+
+void main() {
+  final a = Lesson('Variables');
+  final b = Lesson('Functions', minutes: 15);
+  a.complete();
+  print('${a.title}: ${a.completed}'); // Variables: true
+  print('${b.title}: ${b.completed}'); // Functions: false
+}
+```
+
+Each instance has its **own** copy of the instance fields. Completing `a` does not affect `b`.
+
+## Variables hold references
+A variable doesn't contain the object itself; it contains a **reference** to it. Assigning one variable to another copies the reference:
+
+```dart
+class Lesson {
+  Lesson(this.title);
+  final String title;
+  bool completed = false;
+  void complete() => completed = true;
+}
+
+void main() {
+  final first = Lesson('Loops');
+  final alias = first;
+  alias.complete();
+  print(first.completed);          // true – same object
+  print(identical(first, alias));  // true
+}
+```
+
+## this
+Inside a class, `this` refers to the current instance. You usually omit it, but it's needed when a parameter shadows a field:
+
+```dart
+class Counter {
+  int value = 0;
+  void setValue(int value) {
+    this.value = value; // field = parameter
+  }
+}
+```
+
+## Cascades on objects
+```dart
+final counter = Counter()
+  ..value = 5
+  ..setValue(10);
+print(counter.value); // 10
+```
+
+## Lifetime and garbage collection
+Dart automatically frees objects that are no longer reachable from any variable. You don't delete objects manually, but you *do* need to release external resources (streams, controllers, sockets) explicitly, typically in a `dispose` or `close` method.
+
+> TIP: In Flutter, objects like `TextEditingController` and `AnimationController` must be disposed in `State.dispose()`; garbage collection alone does not stop their listeners.
+
+:::check After `final b = a;`, are a and b two objects?
+No. They are two variables referencing the same object.
+:::
+
+## Common mistakes
+- Expecting assignment to copy an object. Create a copy explicitly (for example with a `copyWith` method).
+- Forgetting to dispose resource-holding objects.
+
+## Summary
+- Constructors create instances; each instance has its own fields.
+- Variables hold references; assignment shares the same object.
+- `this` refers to the current instance; cascades configure objects fluently.
+- Memory is garbage-collected, but external resources need explicit disposal.
+
+## Further learning
+- dart.dev ▸ Language ▸ Classes ▸ Using class members
+@quiz
+? output: What does this print?
+```dart
+class Box {
+  int value = 1;
+}
+
+void main() {
+  final a = Box();
+  final b = a;
+  b.value = 9;
+  print(a.value);
+}
+```
++ 9
+- 1
+- null
+- A compile error
+> a and b reference the same object.
+? tf: In modern Dart, you must write `new` before constructor calls.
+= false
+> The new keyword is optional and normally omitted.
+? fill: Inside a method, the current instance is referred to as ___.
+= this
+> this refers to the object whose method is running.
+? mcq: Which function checks whether two references point to the same object?
++ identical(a, b)
+- a.equals(b)
+- same(a, b)
+- a === b
+> identical compares object identity.
+? scenario: A screen creates a TextEditingController. What must happen when the screen is removed?
++ Call controller.dispose() in the State's dispose method
+- Nothing, garbage collection handles it
+- Set it to null in build
+- Call print(controller)
+> Controllers hold listeners and resources that must be released explicitly.
+
+@lesson dart-m06-l03 | Constructors | 14
+## Learning objectives
+- Write generative constructors with initialising formals
+- Use initializer lists and assertions
+- Create const constructors and redirecting constructors
+
+## Generative constructors
+The most common constructor has the same name as the class. **Initialising formals** (`this.field`) assign parameters directly to fields:
+
+```dart
+class User {
+  User(this.name, this.email, {this.isAdmin = false});
+  final String name;
+  final String email;
+  final bool isAdmin;
+}
+```
+
+This is shorthand for writing the parameters and assigning them, and it works with `final` fields because the assignment happens *before* the constructor body runs.
+
+## Initializer lists
+Use an **initializer list** (after `:`) to compute fields from parameters or validate them with `assert`:
+
+```dart
+class Rectangle {
+  Rectangle(double width, double height)
+      : assert(width >= 0 && height >= 0, 'Sides must be non-negative'),
+        area = width * height,
+        _width = width,
+        _height = height;
+
+  final double area;
+  final double _width;
+  final double _height;
+
+  double get perimeter => 2 * (_width + _height);
+}
+
+void main() {
+  final r = Rectangle(3, 4);
+  print('${r.area} ${r.perimeter}'); // 12.0 14.0
+}
+```
+
+`assert` checks run in debug mode (and in tests); they're stripped from release builds. For checks that must always run, throw an `ArgumentError` in the constructor body or a factory.
+
+## Super parameters
+When extending a class, pass values to the parent with `super.` parameters (Dart 2.17+):
+
+```dart
+class Animal {
+  Animal(this.name);
+  final String name;
+}
+
+class Dog extends Animal {
+  Dog(super.name, {required this.breed});
+  final String breed;
+}
+```
+
+## Const constructors
+If all fields are `final` and the constructor has no body, mark it `const`. Then instances can be compile-time constants and are canonicalised:
+
+```dart
+class Point {
+  const Point(this.x, this.y);
+  final int x;
+  final int y;
+}
+
+void main() {
+  const a = Point(1, 2);
+  const b = Point(1, 2);
+  print(identical(a, b)); // true
+}
+```
+
+This is why almost every Flutter widget has a `const` constructor.
+
+## Redirecting constructors
+A constructor can delegate to another one with `: this(...)`:
+
+```dart
+class Color {
+  const Color(this.red, this.green, this.blue);
+  const Color.grey(int level) : this(level, level, level);
+  final int red, green, blue;
+}
+```
+
+> NOTE: If you declare no constructor, Dart provides a default unnamed constructor with no parameters.
+
+:::check When does an assert in an initializer list run?
+Only when assertions are enabled: in debug mode and tests, not in release builds.
+:::
+
+## Common mistakes
+- Trying to assign `final` fields in the constructor body; use initialising formals or the initializer list.
+- Relying on `assert` for validation that must happen in production.
+
+## Summary
+- `ClassName(this.field)` assigns parameters to fields concisely.
+- Initializer lists compute fields and run asserts before the body.
+- `super.param` forwards values to the superclass constructor.
+- `const` constructors enable compile-time constants; redirecting constructors reuse logic.
+
+## Further learning
+- dart.dev ▸ Language ▸ Constructors
+@quiz
+? fill: The shorthand `User(this.name)` uses an ___ formal parameter.
+= initializing | initialising
+> Initialising formals assign the argument directly to the field.
+? tf: `assert` statements in constructors run in release builds.
+= false
+> Assertions are only enabled in debug mode and tests.
+? mcq: What is required for a constructor to be const?
++ All instance fields are final and the constructor has no body
+- The class must be abstract
+- The constructor must be named
+- All fields must be static
+> const constructors require final fields and no body.
+? output: What does this print?
+```dart
+class V {
+  const V(this.n);
+  final int n;
+}
+
+void main() {
+  print(identical(const V(1), const V(1)));
+}
+```
++ true
+- false
+- A compile error
+- 1
+> Equal const instances are canonicalised into one object.
+? mcq: How does a subclass constructor pass `name` to its parent most concisely?
++ Dog(super.name)
+- Dog(name) : super()
+- Dog(this.super.name)
+- Dog(parent.name)
+> Super parameters forward arguments to the superclass constructor.
+? scenario: A Rectangle must compute `area` once from width and height and store it in a final field. Where should that assignment happen?
++ In the initializer list
+- In the constructor body
+- In a setter
+- In toString
+> Final fields must be initialised before the body runs, which the initializer list allows.
+
+@lesson dart-m06-l04 | Named constructors | 10
+## Learning objectives
+- Declare named constructors for alternative ways to create objects
+- Write `fromJson` style constructors
+- Combine named constructors with redirection and const
+
+## Multiple ways to build an object
+Dart doesn't support overloading constructors by parameter types. Instead you give extra constructors **names**: `ClassName.name(...)`.
+
+```dart
+class Duration2 {
+  const Duration2(this.seconds);
+  const Duration2.minutes(int m) : seconds = m * 60;
+  const Duration2.hours(int h) : seconds = h * 3600;
+  const Duration2.zero() : seconds = 0;
+  final int seconds;
+}
+
+void main() {
+  print(const Duration2.minutes(5).seconds); // 300
+  print(const Duration2.hours(1).seconds);   // 3600
+}
+```
+
+The Dart SDK uses this pattern everywhere: `DateTime.now()`, `DateTime.utc(...)`, `List.filled(...)`, `List.generate(...)`, `Uri.parse(...)`.
+
+## fromJson
+The most common named constructor in app code converts decoded JSON into a model:
+
+```dart
+class Course {
+  Course({required this.id, required this.title, this.lessons = 0});
+
+  Course.fromJson(Map<String, dynamic> json)
+      : id = json['id'] as String,
+        title = json['title'] as String,
+        lessons = (json['lessons'] as int?) ?? 0;
+
+  final String id;
+  final String title;
+  final int lessons;
+
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'lessons': lessons};
+}
+
+void main() {
+  final course = Course.fromJson({'id': 'dart', 'title': 'Complete Dart'});
+  print('${course.title} has ${course.lessons} lessons');
+  print(course.toJson());
+}
+```
+
+## Named constructors and inheritance
+Constructors are **not inherited**. A subclass that wants `fromJson` must declare its own and call the appropriate superclass constructor.
+
+## Naming
+Choose names that describe *how* the object is made or *what* it represents: `Point.origin()`, `Color.fromHex()`, `User.guest()`, `Rect.fromLTWH()`.
+
+> TIP: Use a named constructor when the alternative way of creating the object is obvious from its name. When creation needs logic like caching or choosing a subtype, use a factory constructor (next lesson).
+
+:::check Can Dart have two unnamed constructors with different parameter types?
+No. Dart has no constructor overloading; use named constructors instead.
+:::
+
+## Common mistakes
+- Expecting a subclass to inherit its parent's named constructors.
+- Using unchecked casts in `fromJson` on untrusted data; validate or use patterns for robustness.
+
+## Summary
+- Named constructors (`Class.name()`) provide alternative creation paths.
+- They're ideal for `fromJson`, unit conversions and special values.
+- Constructors are not inherited.
+
+## Further learning
+- dart.dev ▸ Language ▸ Constructors ▸ Named constructors
+@quiz
+? mcq: How do you call a named constructor `guest` on class `User`?
++ User.guest()
+- User->guest()
+- new guest User()
+- User::guest()
+> Named constructors are invoked as ClassName.name().
+? tf: Subclasses automatically inherit their superclass's named constructors.
+= false
+> Constructors are never inherited in Dart.
+? output: What does this print?
+```dart
+class Distance {
+  Distance.km(double km) : meters = km * 1000;
+  final double meters;
+}
+
+void main() {
+  print(Distance.km(1.5).meters);
+}
+```
++ 1500.0
+- 1.5
+- 1500
+- 15000.0
+> 1.5 km multiplied by 1000 is 1500.0 meters.
+? fill: A constructor commonly used to build a model from a decoded JSON map is named `fromJ___`.
+= son
+> fromJson is the conventional name.
+? scenario: You need to create a `Color` from either RGB values or a hex string like "#6750F5". What design fits Dart?
++ An unnamed constructor for RGB and a named constructor Color.fromHex
+- Two unnamed constructors with different parameter types
+- A global variable
+- A setter named hex
+> Dart uses named constructors instead of overloading.
+
+@lesson dart-m06-l05 | Factory constructors | 12
+## Learning objectives
+- Write factory constructors that can return existing or subtype instances
+- Implement caching and validation with factories
+- Know the difference between factories and static methods
+
+## Constructors that don't have to create
+A normal (generative) constructor always creates a new instance of exactly its class. A **factory** constructor is a constructor whose body decides what to return: a new instance, a cached one, or an instance of a subtype.
+
+```dart
+class Logger {
+  factory Logger(String name) => _cache.putIfAbsent(name, () => Logger._internal(name));
+  Logger._internal(this.name);
+
+  final String name;
+  static final _cache = <String, Logger>{};
+
+  void log(String message) => print('[$name] $message');
+}
+
+void main() {
+  final a = Logger('network');
+  final b = Logger('network');
+  print(identical(a, b)); // true – cached
+  a.log('connected');
+}
+```
+
+`Logger._internal` is a private named constructor that only the factory uses.
+
+## Returning a subtype
+```dart
+abstract class Shape {
+  factory Shape(String type, double size) => switch (type) {
+        'circle' => Circle(size),
+        'square' => Square(size),
+        _ => throw ArgumentError('Unknown shape: $type'),
+      };
+  double get area;
+}
+
+class Circle implements Shape {
+  Circle(this.radius);
+  final double radius;
+  @override
+  double get area => 3.14159 * radius * radius;
+}
+
+class Square implements Shape {
+  Square(this.side);
+  final double side;
+  @override
+  double get area => side * side;
+}
+
+void main() {
+  final s = Shape('square', 3);
+  print('${s.runtimeType} ${s.area}'); // Square 9.0
+}
+```
+
+## Validation
+Factories can validate input and throw in production (unlike `assert`):
+
+```dart
+class Email {
+  factory Email(String value) {
+    final trimmed = value.trim();
+    if (!trimmed.contains('@')) throw FormatException('Invalid email', value);
+    return Email._(trimmed.toLowerCase());
+  }
+  const Email._(this.value);
+  final String value;
+}
+```
+
+## fromJson as a factory
+Many codebases write `factory User.fromJson(Map<String, dynamic> json) => User(...)`, which lets the body run arbitrary logic before calling the real constructor.
+
+## Factory vs static method
+Both can return instances. A factory is called like a constructor (`Logger('x')`), can be `const`-redirecting, and keeps the "constructor" API shape. A static method (`Logger.create('x')`) can be `async` and can return `null` or a `Future`. Factories cannot be async.
+
+> NOTE: A factory has no access to `this`; it must return an object explicitly.
+
+:::check Can a factory constructor return a cached instance?
+Yes. That is one of its main uses.
+:::
+
+## Common mistakes
+- Trying to use `this` inside a factory.
+- Making a factory async; use a static method returning a `Future` instead.
+
+## Summary
+- Factory constructors control what instance is returned.
+- Use them for caching, returning subtypes and validation.
+- Private named constructors (`_internal`) often back a public factory.
+- Use static methods when you need async creation.
+
+## Further learning
+- dart.dev ▸ Language ▸ Constructors ▸ Factory constructors
+@quiz
+? tf: A factory constructor can return an instance of a subclass.
+= true
+> Factories may return any instance of the class's type, including subtypes.
+? mcq: Which can a factory constructor NOT do?
+- Return a cached instance
+- Throw an exception for invalid input
++ Use `this` to access the new instance's fields
+- Call a private named constructor
+> There is no `this` inside a factory; it must return an object.
+? fill: A factory constructor is declared with the keyword ___.
+= factory
+> The factory keyword marks constructors that return an instance explicitly.
+? output: What does this print?
+```dart
+class Config {
+  factory Config() => _instance;
+  Config._();
+  static final _instance = Config._();
+}
+
+void main() {
+  print(identical(Config(), Config()));
+}
+```
++ true
+- false
+- A compile error
+- null
+> The factory always returns the same cached instance.
+? scenario: Creating a `Database` object requires awaiting a file open. How should you expose creation?
++ A static async method like `static Future<Database> open()`
+- An async factory constructor
+- A const constructor
+- A getter
+> Constructors, including factories, cannot be async.
+
+@lesson dart-m06-l06 | Inheritance | 14
+## Learning objectives
+- Extend classes and override members
+- Call superclass members with `super`
+- Know when to prefer composition over inheritance
+
+## extends
+A class can **inherit** fields and methods from another with `extends`. Dart supports single inheritance: one superclass per class.
+
+```dart
+class Vehicle {
+  Vehicle(this.wheels);
+  final int wheels;
+  String describe() => 'A vehicle with $wheels wheels';
+  void honk() => print('Beep!');
+}
+
+class Bicycle extends Vehicle {
+  Bicycle() : super(2);
+
+  @override
+  String describe() => '${super.describe()} that you pedal';
+}
+
+void main() {
+  final bike = Bicycle();
+  print(bike.describe()); // A vehicle with 2 wheels that you pedal
+  bike.honk();            // Beep! (inherited)
+  print(bike is Vehicle); // true
+}
+```
+
+- `@override` marks a member that replaces an inherited one; the analyzer checks it really overrides something.
+- `super.describe()` calls the parent's implementation.
+- Constructors aren't inherited; subclasses call a superclass constructor via `super(...)` or super parameters.
+
+## Overriding rules
+An override must be compatible: same or more general parameter types, same or more specific return type. This ensures a `Bicycle` can be used anywhere a `Vehicle` is expected (the Liskov substitution principle).
+
+## Every class extends Object
+If you don't write `extends`, the class extends `Object`, which provides `toString`, `==`, `hashCode`, `runtimeType` and `noSuchMethod`.
+
+## Composition over inheritance
+Inheritance creates tight coupling: changes in the parent ripple into every child. Often it's better to **compose** objects:
+
+```dart
+class Engine {
+  void start() => print('Engine started');
+}
+
+class Car {
+  Car(this.engine);
+  final Engine engine;          // has-an engine
+  void drive() {
+    engine.start();
+    print('Driving');
+  }
+}
+```
+
+Flutter itself favours composition: you build UIs by *combining* small widgets rather than subclassing big ones. You extend `StatelessWidget` or `StatefulWidget`, but almost never extend concrete widgets like `ElevatedButton`.
+
+> TIP: Ask "is a" vs "has a". A Bicycle *is a* Vehicle (inheritance may fit). A Car *has an* Engine (composition fits).
+
+:::check What does super.describe() do?
+It calls the superclass's implementation of describe.
+:::
+
+## Common mistakes
+- Deep inheritance hierarchies that are hard to change.
+- Forgetting `@override`, which hides typos such as `toSting()`.
+
+## Summary
+- `extends` inherits members from one superclass; `@override` replaces them.
+- `super` accesses the parent's members and constructors.
+- Prefer composition for "has-a" relationships and flexible design.
+
+## Further learning
+- dart.dev ▸ Language ▸ Extend a class
+@quiz
+? output: What does this print?
+```dart
+class A {
+  String hi() => 'A';
+}
+
+class B extends A {
+  @override
+  String hi() => 'B${super.hi()}';
+}
+
+void main() {
+  print(B().hi());
+}
+```
++ BA
+- AB
+- B
+- A
+> B's override prepends 'B' to the result of A.hi().
+? tf: A Dart class can extend two classes at once.
+= false
+> Dart has single inheritance; use mixins or interfaces for more.
+? mcq: What is the main purpose of the @override annotation?
++ To make the analyzer verify that a member really overrides an inherited one
+- To make the method faster
+- To make the method private
+- To allow multiple inheritance
+> @override catches typos and signature mismatches.
+? fill: Every Dart class that doesn't declare a superclass implicitly extends ___.
+= Object
+> Object is the root of the class hierarchy.
+? scenario: A `Car` class needs an engine, wheels and a radio. Which design is most flexible?
++ Compose Car from Engine, Wheel and Radio objects
+- Make Car extend Engine, which extends Radio
+- Copy all engine code into Car
+- Make every part a mixin applied to Car
+> "Has-a" relationships are best modelled with composition.
+
+@lesson dart-m06-l07 | Encapsulation | 10
+## Learning objectives
+- Hide implementation details with library-private members
+- Expose behaviour through methods and read-only getters
+- Protect invariants and avoid leaking mutable state
+
+## Hiding details
+**Encapsulation** means keeping an object's internal state private and exposing a small, safe API. In Dart, privacy is **per library**: names starting with `_` are visible only inside the file that declares them.
+
+```dart
+class ShoppingCart {
+  final List<String> _items = [];
+
+  List<String> get items => List.unmodifiable(_items);
+  int get count => _items.length;
+
+  void add(String item) {
+    if (item.trim().isEmpty) return;
+    _items.add(item.trim());
+  }
+
+  void remove(String item) => _items.remove(item);
+}
+
+void main() {
+  final cart = ShoppingCart()
+    ..add('Book')
+    ..add('  ');
+  print(cart.count); // 1 – blank item rejected
+  // cart.items.add('Hack'); // throws UnsupportedError: list is unmodifiable
+}
+```
+
+The cart guarantees it never contains blank items (an **invariant**). Because outside code can't touch `_items` directly, the invariant can't be broken.
+
+## Don't leak mutable internals
+Returning `_items` directly would let callers modify it, bypassing your rules. Return an unmodifiable view or a copy.
+
+## Read-only properties
+A public `final` field or a getter without a setter is read-only from the outside:
+
+```dart
+class Account {
+  Account(this.id);
+  final String id;          // read-only
+  int _balance = 0;
+  int get balance => _balance;  // read-only view of private state
+}
+```
+
+## Library privacy in practice
+Because privacy is per file, you can keep helper classes private next to the class that uses them. Large apps rely on this together with a `src/` folder convention: files under `lib/src/` are considered implementation details of a package.
+
+> TIP: Start with everything private and make members public only when another file needs them. It is easy to widen an API later and hard to narrow it.
+
+:::check Can code in another file read a field named `_balance`?
+No. Identifiers starting with an underscore are private to their library (file).
+:::
+
+## Common mistakes
+- Exposing a mutable list via a public getter.
+- Writing trivial getters and setters for every private field (Java style); a public field is fine until you need logic.
+
+## Summary
+- Encapsulation hides state and exposes behaviour.
+- `_` makes members library-private.
+- Protect invariants with validation in methods; return unmodifiable views or copies.
+
+## Further learning
+- dart.dev ▸ Effective Dart ▸ Design ▸ Members
+@quiz
+? tf: In Dart, a member named `_secret` is private to its class.
+= false
+> Underscore privacy is per library (file), not per class.
+? mcq: What is the safest way to expose a private `_items` list?
++ Return List.unmodifiable(_items) from a getter
+- Make _items public
+- Return _items directly
+- Make _items dynamic
+> An unmodifiable view prevents callers from bypassing your rules.
+? fill: A rule that must always hold for an object, like "no blank items", is called an ___.
+= invariant
+> Encapsulation protects invariants.
+? scenario: Teammates keep setting `user.age = -5` directly. What change enforces valid ages?
++ Make the field private and expose a method or setter that validates the value
+- Add a comment saying "don't do this"
+- Make age dynamic
+- Rename the field
+> Encapsulation lets you validate changes in one place.
+? mcq: Effective Dart's advice on getters and setters is:
++ Use a public field until you need logic, then switch to a getter/setter
+- Always write getX and setX methods
+- Never use getters
+- Make every field static
+> Dart getters/setters can replace fields later without changing callers.
+
+@lesson dart-m06-l08 | Polymorphism | 12
+## Learning objectives
+- Use subtype polymorphism to write general code
+- Understand dynamic dispatch
+- Replace type checks with overridden methods or sealed types
+
+## One interface, many forms
+**Polymorphism** lets code work with a general type while each object supplies its own behaviour:
+
+```dart
+abstract class Notification {
+  String get title;
+  String render();
+}
+
+class EmailNotification implements Notification {
+  EmailNotification(this.subject);
+  final String subject;
+  @override
+  String get title => 'Email';
+  @override
+  String render() => '📧 $subject';
+}
+
+class PushNotification implements Notification {
+  PushNotification(this.text);
+  final String text;
+  @override
+  String get title => 'Push';
+  @override
+  String render() => '🔔 $text';
+}
+
+void showAll(List<Notification> notifications) {
+  for (final n in notifications) {
+    print('${n.title}: ${n.render()}'); // calls the right render()
+  }
+}
+
+void main() {
+  showAll([EmailNotification('Welcome'), PushNotification('New lesson unlocked')]);
+}
+```
+
+`showAll` doesn't know or care about concrete types. Adding a new `SmsNotification` requires **no changes** to `showAll`.
+
+## Dynamic dispatch
+At runtime, `n.render()` calls the implementation of the **actual object's** class, not the declared type. This is called dynamic dispatch, and it's what makes polymorphism work.
+
+## Replacing type switches
+Code full of `if (x is A) ... else if (x is B) ...` is often a sign that behaviour belongs in the classes themselves:
+
+```dart
+// Fragile: every new type needs another branch here
+double areaOf(Object s) {
+  if (s is Circle2) return 3.14 * s.r * s.r;
+  if (s is Square2) return s.side * s.side;
+  throw ArgumentError();
+}
+
+class Circle2 { Circle2(this.r); final double r; }
+class Square2 { Square2(this.side); final double side; }
+```
+
+Better: give each shape an `area` getter. When you *do* need an external switch (for example, rendering a UI per state), use a **sealed class** (Module 7) so the compiler checks you've handled every subtype.
+
+## Polymorphism in Flutter
+Every widget is a `Widget`. A `Column` holds `List<Widget>` children and calls `build`/`createElement` on each without knowing whether it's a `Text`, an `Image` or your own `LessonCard`.
+
+> TIP: Program to an interface (abstract type), not an implementation. It keeps code flexible and testable: in tests you can pass a fake implementation.
+
+:::check What determines which render() runs: the variable's declared type or the object's runtime type?
+The object's runtime type (dynamic dispatch).
+:::
+
+## Common mistakes
+- Long chains of `is` checks instead of polymorphic methods.
+- Depending on concrete classes everywhere, making testing hard.
+
+## Summary
+- Polymorphism lets one piece of code work with many types.
+- Dynamic dispatch selects the implementation of the runtime type.
+- Prefer overridden methods (or sealed types with exhaustive switches) over manual type checks.
+
+## Further learning
+- dart.dev ▸ Language ▸ Classes ▸ Implicit interfaces
+@quiz
+? output: What does this print?
+```dart
+class Animal {
+  String sound() => '...';
+}
+
+class Cat extends Animal {
+  @override
+  String sound() => 'meow';
+}
+
+void main() {
+  Animal a = Cat();
+  print(a.sound());
+}
+```
++ meow
+- ...
+- A compile error
+- null
+> Dynamic dispatch calls the runtime type's override.
+? tf: Adding a new Notification subtype requires changing a function that only calls `notification.render()`.
+= false
+> Polymorphic code works with new subtypes automatically.
+? mcq: What is a common sign that polymorphism could improve your code?
++ Long chains of `if (x is SomeType)` checks
+- Using final fields
+- Having getters
+- Using const constructors
+> Type-check chains often mean behaviour belongs in the classes.
+? fill: Choosing the implementation based on the object's runtime type is called dynamic ___.
+= dispatch
+> Dynamic dispatch makes polymorphism work.
+? scenario: You want unit tests to use a fake payment gateway instead of the real one. Which design enables this?
++ Depend on an abstract PaymentGateway type and pass in an implementation
+- Hard-code the real gateway class everywhere
+- Use static methods only
+- Copy the gateway code into tests
+> Programming to an interface allows substituting fakes.
+
+@lesson dart-m06-l09 | Abstract classes | 10
+## Learning objectives
+- Declare abstract classes and abstract members
+- Mix abstract and concrete members
+- Use abstract classes to define contracts
+
+## Classes you can't instantiate
+An **abstract class** can't be instantiated directly. It may declare **abstract members** (no body) that subclasses must implement, alongside concrete members they inherit:
+
+```dart
+abstract class Exporter {
+  String get fileExtension;              // abstract getter
+  String encode(Map<String, Object> data); // abstract method
+
+  String fileName(String base) => '$base.$fileExtension'; // concrete, shared
+}
+
+class JsonExporter extends Exporter {
+  @override
+  String get fileExtension => 'json';
+
+  @override
+  String encode(Map<String, Object> data) =>
+      '{${data.entries.map((e) => '"${e.key}": "${e.value}"').join(', ')}}';
+}
+
+class CsvExporter extends Exporter {
+  @override
+  String get fileExtension => 'csv';
+
+  @override
+  String encode(Map<String, Object> data) =>
+      '${data.keys.join(',')}\n${data.values.join(',')}';
+}
+
+void main() {
+  final exporters = <Exporter>[JsonExporter(), CsvExporter()];
+  for (final e in exporters) {
+    print(e.fileName('progress'));
+    print(e.encode({'xp': 120, 'level': 3}));
+  }
+  // Exporter(); // Error: abstract classes can't be instantiated
+}
+```
+
+## Why abstract classes?
+- **Contracts**: they define what implementations must provide.
+- **Shared code**: concrete members (like `fileName`) are written once.
+- **Template method pattern**: a concrete method calls abstract steps that subclasses fill in.
+
+## Abstract classes as dependencies
+Repositories, services and data sources in clean architecture are typically declared as abstract classes:
+
+```dart
+abstract class LessonRepository {
+  Future<List<String>> lessonTitles();
+}
+
+class FakeLessonRepository implements LessonRepository {
+  @override
+  Future<List<String>> lessonTitles() async => ['Variables', 'Loops'];
+}
+```
+
+The rest of the app depends on `LessonRepository`; tests use `FakeLessonRepository`.
+
+## Abstract classes vs interfaces vs mixins
+- Use an **abstract class** when you want a contract plus shared implementation.
+- Use an **interface** (any class used with `implements`, or an `interface class`) when you only want the contract.
+- Use a **mixin** to share behaviour across unrelated classes.
+
+> NOTE: In Dart 3 you can write `abstract interface class` to declare a pure contract that can only be implemented, not extended.
+
+:::check Can an abstract class have methods with bodies?
+Yes. Abstract classes can mix abstract and concrete members.
+:::
+
+## Common mistakes
+- Trying to instantiate an abstract class.
+- Forgetting to implement an abstract member: the subclass must also be abstract or implement everything.
+
+## Summary
+- Abstract classes cannot be instantiated and may declare members without bodies.
+- Subclasses implement abstract members and inherit concrete ones.
+- They're ideal for contracts with shared behaviour and for dependency abstractions.
+
+## Further learning
+- dart.dev ▸ Language ▸ Classes ▸ Abstract classes
+@quiz
+? tf: You can create an instance of an abstract class with `Shape()` if it has a default constructor.
+= false
+> Abstract classes cannot be instantiated (only factories can return other instances).
+? mcq: What must a concrete subclass of an abstract class do?
++ Implement all abstract members
+- Override every method, including concrete ones
+- Declare a const constructor
+- Be private
+> Abstract members have no implementation and must be provided.
+? fill: A method declared without a body in an abstract class is called an ___ method.
+= abstract
+> Abstract methods only define the signature.
+? scenario: Several exporters share the same `fileName` logic but encode data differently. What structure fits?
++ An abstract class with a concrete fileName and an abstract encode
+- Copy fileName into each exporter
+- A single class with a big switch
+- A global function per exporter
+> Abstract classes combine shared code and required overrides.
+? mcq: Which Dart 3 declaration creates a pure contract that cannot be extended, only implemented?
++ abstract interface class Repo {}
+- sealed mixin Repo {}
+- final abstract Repo {}
+- interface Repo {}
+> abstract interface class declares an implement-only contract.
+
+@lesson dart-m06-l10 | Interfaces | 12
+## Learning objectives
+- Use any class as an interface with `implements`
+- Implement multiple interfaces
+- Use Dart 3 `interface class` and `abstract interface class`
+
+## Implicit interfaces
+Every class in Dart **implicitly defines an interface** made of its public members. Another class can promise to provide those members with `implements`, without inheriting any code:
+
+```dart
+class Printer {
+  void printDocument(String doc) => print('Printing $doc');
+}
+
+class Scanner {
+  String scan() => 'scanned page';
+}
+
+class OfficeMachine implements Printer, Scanner {
+  @override
+  void printDocument(String doc) => print('Office printing: $doc');
+
+  @override
+  String scan() => 'high-resolution scan';
+}
+
+void main() {
+  final machine = OfficeMachine();
+  Printer p = machine;
+  Scanner s = machine;
+  p.printDocument('report.pdf');
+  print(s.scan());
+}
+```
+
+Key differences from `extends`:
+- `implements` inherits **no implementation**: you must write every member.
+- A class can implement **many** interfaces but extend only one class.
+
+## Pure contracts with abstract interface class
+Dart 3's class modifiers let you state intent explicitly:
+
+```dart
+abstract interface class Cache {
+  String? read(String key);
+  void write(String key, String value);
+}
+
+class MemoryCache implements Cache {
+  final _data = <String, String>{};
+  @override
+  String? read(String key) => _data[key];
+  @override
+  void write(String key, String value) => _data[key] = value;
+}
+```
+
+`abstract interface class` can't be instantiated or extended outside its library; it can only be implemented. This is the clearest way to declare a dependency contract.
+
+## Implementing for testing
+Because any class is an interface, you can fake even concrete classes in tests:
+
+```dart
+class Clock {
+  DateTime now() => DateTime.now();
+}
+
+class FixedClock implements Clock {
+  FixedClock(this.fixed);
+  final DateTime fixed;
+  @override
+  DateTime now() => fixed;
+}
+```
+
+Bimo's own Android code uses this idea for its time provider, so streak logic can be tested with fixed dates.
+
+> TIP: Use `implements` to describe *capabilities* ("can be cached", "can be compared") and `extends` for genuine "is-a" relationships with shared code.
+
+:::check Does implementing an interface give you the interface's method bodies?
+No. With implements you must provide every member yourself.
+:::
+
+## Common mistakes
+- Using `implements` and then wondering why you must re-implement every member; use `extends` if you want inherited code.
+- Forgetting that implementing a class also requires implementing its getters and fields (as getters/setters).
+
+## Summary
+- Every class defines an implicit interface.
+- `implements` promises members without inheriting implementation; multiple interfaces are allowed.
+- `abstract interface class` declares an explicit, implement-only contract.
+
+## Further learning
+- dart.dev ▸ Language ▸ Classes ▸ Implicit interfaces
+- dart.dev ▸ Language ▸ Class modifiers
+@quiz
+? tf: A Dart class can implement several interfaces.
+= true
+> implements accepts a comma-separated list of types.
+? mcq: What does `class B implements A` inherit from A's methods?
+- Their implementations
++ Nothing; B must implement all of A's members
+- Only private methods
+- Only static methods
+> implements only adopts the interface, not the code.
+? fill: To use class A as an interface, write `class B ___ A`.
+= implements
+> implements declares that B satisfies A's interface.
+? scenario: Tests must control the current time used by streak calculations. What is the cleanest approach?
++ Depend on a Clock abstraction and pass a FixedClock implementation in tests
+- Change the device clock during tests
+- Call DateTime.now() directly and hope
+- Use a global mutable variable
+> An interface allows substituting a deterministic implementation.
+? mcq: Which declaration can only be implemented, not instantiated or extended (outside its library)?
++ abstract interface class Cache
+- class Cache
+- mixin Cache
+- enum Cache
+> abstract interface class is an implement-only contract.
+
+@lesson dart-m06-l11 | Mixins | 12
+## Learning objectives
+- Share behaviour across unrelated classes with mixins
+- Restrict mixins with `on`
+- Understand mixin application order
+
+## Reusing code without inheritance
+A **mixin** is a bundle of members that can be added to a class with `with`. It's Dart's answer to "I want this behaviour in several classes that don't share a parent".
+
+```dart
+mixin Loggable {
+  final _log = <String>[];
+  void log(String message) => _log.add('${DateTime.now().millisecondsSinceEpoch}: $message');
+  List<String> get history => List.unmodifiable(_log);
+}
+
+mixin Timestamped {
+  final createdAt = DateTime.now();
+}
+
+class Order with Loggable, Timestamped {
+  Order(this.id) {
+    log('Order $id created');
+  }
+  final String id;
+}
+
+class UserSession with Loggable {
+  void signIn() => log('Signed in');
+}
+
+void main() {
+  final order = Order('A-1');
+  final session = UserSession()..signIn();
+  print(order.history.length);   // 1
+  print(session.history.length); // 1
+  print(order is Loggable);      // true
+}
+```
+
+`Order` and `UserSession` are unrelated, yet both gain logging.
+
+## Restricting with on
+A mixin can require that the class it's applied to extends a certain type, so it can call that type's members:
+
+```dart
+abstract class Widget2 {
+  void markNeedsRepaint() => print('repaint');
+}
+
+mixin Blinking on Widget2 {
+  void blink() {
+    markNeedsRepaint(); // allowed: we know we're on a Widget2
+  }
+}
+
+class Cursor extends Widget2 with Blinking {}
+```
+
+## Order matters
+Mixins are applied left to right; later mixins override earlier ones, and `super` calls go to the previous one in the chain:
+
+```dart
+mixin A {
+  String hello() => 'A';
+}
+mixin B {
+  String hello() => 'B';
+}
+class C with A, B {}
+
+void main() => print(C().hello()); // B
+```
+
+## Mixins in Flutter
+You'll meet mixins like `SingleTickerProviderStateMixin` (for animations) and `WidgetsBindingObserver` (for app lifecycle events):
+
+```dart
+// class _MyAnimationState extends State<MyAnimation>
+//     with SingleTickerProviderStateMixin { ... }
+```
+
+> NOTE: A mixin can't have a generative constructor. Since Dart 3, a class can only be used as a mixin if it's declared with `mixin` or `mixin class`.
+
+:::check In `class C with A, B`, which mixin's method wins if both define hello()?
+B, because mixins are applied left to right and later ones override earlier ones.
+:::
+
+## Common mistakes
+- Using mixins to share *state-heavy* behaviour that would be clearer as a separate object (composition).
+- Forgetting `on` when the mixin calls members of a specific superclass.
+
+## Summary
+- `mixin` declares reusable members; `with` applies them.
+- `on` restricts which classes can use a mixin.
+- Later mixins override earlier ones.
+- Flutter uses mixins for tickers and lifecycle observation.
+
+## Further learning
+- dart.dev ▸ Language ▸ Mixins
+@quiz
+? output: What does this print?
+```dart
+mixin X {
+  String name() => 'X';
+}
+mixin Y {
+  String name() => 'Y';
+}
+class Z with Y, X {}
+
+void main() {
+  print(Z().name());
+}
+```
++ X
+- Y
+- XY
+- A compile error
+> Mixins apply left to right; X is applied last and wins.
+? fill: Mixins are added to a class with the keyword ___.
+= with
+> class Order with Loggable applies the mixin.
+? tf: A mixin can declare a generative constructor.
+= false
+> Mixins cannot have generative constructors.
+? mcq: What does `mixin Blinking on Widget2` mean?
++ Blinking can only be applied to classes that extend Widget2
+- Blinking extends Widget2 automatically
+- Widget2 must use Blinking
+- Blinking is abstract
+> on restricts the mixin's superclass so it can use Widget2 members.
+? scenario: An Order and a UserSession, which share no superclass, both need identical logging methods. What's the most idiomatic tool?
++ A Loggable mixin applied to both classes
+- Make Order extend UserSession
+- Copy-paste the methods
+- A sealed class
+> Mixins share behaviour across unrelated classes.
+
+@lesson dart-m06-l12 | Extension methods | 10
+## Learning objectives
+- Add methods and getters to existing types with extensions
+- Understand static resolution of extensions
+- Use extension types for zero-cost wrappers
+
+## Adding methods to types you don't own
+You can't edit `String` or `DateTime`, but you can **extend** them with new members:
+
+```dart
+extension StringX on String {
+  String get capitalized => isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
+  bool get isValidEmail => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(this);
+  String truncate(int max) => length <= max ? this : '${substring(0, max)}…';
+}
+
+extension DurationFormat on Duration {
+  String get mmss {
+    final m = inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+}
+
+void main() {
+  print('flutter'.capitalized);               // Flutter
+  print('ada@example.com'.isValidEmail);      // true
+  print('A very long lesson title'.truncate(10)); // A very lon…
+  print(const Duration(seconds: 125).mmss);   // 02:05
+}
+```
+
+Inside the extension, `this` is the value the member was called on.
+
+## Extensions on generic and nullable types
+```dart
+extension NullableStringX on String? {
+  bool get isNullOrBlank => this == null || this!.trim().isEmpty;
+}
+
+extension ListX<T> on List<T> {
+  T? get secondOrNull => length > 1 ? this[1] : null;
+}
+```
+
+## Static resolution
+Extensions are resolved using the **static type** of the expression, not the runtime type. They don't work on `dynamic` values, and they can't override existing members: if `String` already has a member with the same name, the class member wins.
+
+## Importing
+Extensions are available wherever their library is imported. If two extensions conflict, hide one or call it explicitly: `StringX('x').capitalized`.
+
+## Extension types (Dart 3.3)
+An **extension type** wraps an existing type with a new, compile-time-only interface. It costs nothing at runtime:
+
+```dart
+extension type UserId(String value) {
+  bool get isGuest => value.startsWith('guest-');
+}
+
+void main() {
+  final id = UserId('guest-42');
+  print(id.isGuest); // true
+  // String s = id;  // Error: UserId is not a String
+}
+```
+
+This prevents mixing up, say, a `UserId` and a `LessonId` that are both strings underneath.
+
+> TIP: Keep extensions small and focused. A `string_extensions.dart` file with dozens of unrelated helpers becomes hard to discover.
+
+:::check Can an extension method be called on a variable of type dynamic?
+No. Extensions are resolved statically, so dynamic receivers don't see them.
+:::
+
+## Common mistakes
+- Expecting an extension to override an existing method of the class.
+- Overusing extensions for business logic that belongs in a proper class.
+
+## Summary
+- `extension Name on Type { ... }` adds methods and getters to existing types.
+- Resolution is static; class members take precedence.
+- Extension types (Dart 3.3+) create zero-cost, type-safe wrappers.
+
+## Further learning
+- dart.dev ▸ Language ▸ Extension methods
+- dart.dev ▸ Language ▸ Extension types
+@quiz
+? output: What does this print?
+```dart
+extension on int {
+  int get doubled => this * 2;
+}
+
+void main() {
+  print(21.doubled);
+}
+```
++ 42
+- 21
+- 2121
+- A compile error
+> The extension getter multiplies the receiver by 2.
+? tf: Extension methods can override existing methods of the extended class.
+= false
+> If the class already has the member, the class member wins.
+? fill: Inside an extension, the receiver value is referred to as ___.
+= this
+> this is the value the extension member was called on.
+? mcq: Why don't extensions work on `dynamic` values?
++ Extensions are resolved using the static type at compile time
+- dynamic values are always null
+- Extensions only work on classes you own
+- The runtime removes extensions
+> Static resolution needs a known static type.
+? scenario: UserId and LessonId are both Strings, and developers keep passing one where the other is expected. What Dart 3 feature prevents this at zero runtime cost?
++ Extension types such as `extension type UserId(String value)`
+- Mixins
+- Factory constructors
+- dynamic
+> Extension types give distinct static types without wrapper objects.
+
+@lesson dart-m06-l13 | Generics | 14
+## Learning objectives
+- Write generic classes, functions and methods
+- Constrain type parameters with `extends`
+- Understand reified generics and type safety
+
+## Why generics?
+Generics let you write code that works with **many types** while staying type-safe. `List<String>` is a list that only holds strings; you wrote the list type once, and it works for any element type.
+
+```dart
+class Box<T> {
+  Box(this.value);
+  T value;
+  Box<R> map<R>(R Function(T) transform) => Box(transform(value));
+}
+
+void main() {
+  final age = Box<int>(36);
+  final label = age.map((v) => 'Age: $v'); // Box<String>
+  print(label.value); // Age: 36
+  // age.value = 'old'; // Error: a String isn't an int
+}
+```
+
+`T` is a **type parameter**: a placeholder filled in when the class is used.
+
+## Generic functions
+```dart
+T firstOr<T>(List<T> items, T fallback) => items.isEmpty ? fallback : items.first;
+
+void main() {
+  print(firstOr(<int>[], 0));          // 0
+  print(firstOr(['a', 'b'], 'none'));  // a – T inferred as String
+}
+```
+
+## Bounded type parameters
+Use `extends` to require that the type supports certain operations:
+
+```dart
+T maxOf<T extends Comparable<T>>(List<T> items) {
+  var best = items.first;
+  for (final item in items.skip(1)) {
+    if (item.compareTo(best) > 0) best = item;
+  }
+  return best;
+}
+
+void main() {
+  print(maxOf(['pear', 'apple', 'fig']));                    // pear
+  print(maxOf([DateTime(2024, 5, 1), DateTime(2025, 1, 9)])); // 2025-01-09 00:00:00.000
+}
+```
+
+Without the bound, `compareTo` wouldn't be available on `T`.
+
+> NOTE: `int` implements `Comparable<num>`, not `Comparable<int>`, so `maxOf([3, 9, 4])` can't infer `T` with this bound. A common workaround is the bound `T extends Comparable<Object>`, or simply using `reduce(max)` from `dart:math` for numbers.
+
+## A practical generic: Result
+Generic result types make success and failure explicit:
+
+```dart
+sealed class Result<T> {
+  const Result();
+}
+
+class Ok<T> extends Result<T> {
+  const Ok(this.value);
+  final T value;
+}
+
+class Err<T> extends Result<T> {
+  const Err(this.message);
+  final String message;
+}
+
+Result<int> parseAge(String input) {
+  final n = int.tryParse(input);
+  return n == null ? Err('Not a number: $input') : Ok(n);
+}
+
+void main() {
+  final result = parseAge('42');
+  final text = switch (result) {
+    Ok(:final value) => 'Age $value',
+    Err(:final message) => 'Error: $message',
+  };
+  print(text);
+}
+```
+
+## Reified generics
+Dart keeps type arguments at runtime (they are **reified**), so `items is List<int>` really checks the element type. This is unlike Java, where generic types are erased.
+
+> TIP: Name type parameters with single capital letters by convention: `T` (type), `E` (element), `K`/`V` (key/value), `R` (result).
+
+:::check What does `<T extends num>` allow you to do inside the function?
+Call num members, such as arithmetic operators or `toDouble()`, on values of type T.
+:::
+
+## Common mistakes
+- Using `dynamic` instead of a type parameter, losing type safety.
+- Forgetting a bound and then being unable to call needed methods on `T`.
+
+## Summary
+- Generics parameterise classes and functions by type.
+- Bounds (`T extends X`) constrain what types are allowed and unlock members.
+- Dart generics are reified and checked at runtime.
+
+## Further learning
+- dart.dev ▸ Language ▸ Generics
+@quiz
+? output: What does this print?
+```dart
+T pick<T>(T a, T b, bool first) => first ? a : b;
+
+void main() {
+  print(pick('x', 'y', false));
+}
+```
++ y
+- x
+- false
+- A compile error
+> first is false, so b is returned.
+? fill: To require that T supports compareTo, declare `<T ___ Comparable<T>>`.
+= extends
+> Bounded type parameters use extends.
+? tf: Dart erases generic type arguments at runtime like Java does.
+= false
+> Dart generics are reified; type arguments exist at runtime.
+? output: What does this print?
+```dart
+void main() {
+  final List<Object> items = <int>[1, 2];
+  print(items is List<int>);
+}
+```
++ true
+- false
+- A compile error
+- null
+> The runtime type argument int is preserved and checked.
+? mcq: Which conventional type parameter name is used for collection elements?
++ E
+- X
+- Q
+- Z
+> E stands for element, as in List<E>.
+? scenario: A function currently takes and returns `dynamic` so it works for any type, but bugs slip through. What's the better signature?
++ A generic function such as `T identity<T>(T value)`
+- Object everywhere with casts
+- void return type
+- Separate functions for every type
+> Generics keep type safety while staying reusable.
+
+@lesson dart-m06-l14 | Enums | 12
+## Learning objectives
+- Declare simple and enhanced enums
+- Add fields, constructors, getters and methods to enums
+- Use enums in exhaustive switches and serialisation
+
+## A fixed set of values
+An **enum** defines a type with a fixed set of named values:
+
+```dart
+enum Difficulty { easy, medium, hard }
+
+void main() {
+  const d = Difficulty.medium;
+  print(d);                 // Difficulty.medium
+  print(d.name);            // medium
+  print(d.index);           // 1
+  print(Difficulty.values); // [Difficulty.easy, Difficulty.medium, Difficulty.hard]
+  print(Difficulty.values.byName('hard')); // Difficulty.hard
+}
+```
+
+Enums replace "magic strings" like `'medium'`, which are easy to misspell and impossible for the compiler to check.
+
+## Enhanced enums
+Since Dart 2.17, enums can have fields, constructors, getters and methods, as long as everything is `final`/`const`:
+
+```dart
+enum Plan {
+  free(priceCents: 0, adFree: false),
+  monthly(priceCents: 799, adFree: true),
+  yearly(priceCents: 4999, adFree: true);
+
+  const Plan({required this.priceCents, required this.adFree});
+
+  final int priceCents;
+  final bool adFree;
+
+  String get price => priceCents == 0 ? 'Free' : '\$${(priceCents / 100).toStringAsFixed(2)}';
+  bool get isPaid => priceCents > 0;
+}
+
+void main() {
+  for (final plan in Plan.values) {
+    print('${plan.name}: ${plan.price}, ad-free: ${plan.adFree}');
+  }
+}
+```
+
+Bimo's premium plans and achievement tiers are modelled exactly like this.
+
+## Exhaustive switches
+Because the set of values is fixed, switches over enums are checked for exhaustiveness:
+
+```dart
+enum TrafficLight { red, amber, green }
+
+String action(TrafficLight light) => switch (light) {
+  TrafficLight.red => 'Stop',
+  TrafficLight.amber => 'Get ready',
+  TrafficLight.green => 'Go',
+};
+```
+
+Add `TrafficLight.flashing` and every non-exhaustive switch becomes a compile error, guiding you to all the places that need updating.
+
+## Implementing interfaces
+Enums can implement interfaces and use mixins:
+
+```dart
+enum Size implements Comparable<Size> {
+  small(1), medium(2), large(3);
+  const Size(this.rank);
+  final int rank;
+  @override
+  int compareTo(Size other) => rank - other.rank;
+}
+```
+
+## Persisting enums
+Store `enum.name` (a stable string) in databases or JSON and read it back with `values.byName`. Avoid storing `index`: reordering values would silently corrupt saved data.
+
+> WARNING: `values.byName` throws if the name isn't found. When reading untrusted data, use `Plan.values.where((p) => p.name == raw).firstOrNull` and handle null.
+
+:::check Why is storing `enum.index` in a database risky?
+If someone reorders or inserts enum values, the stored numbers map to different values.
+:::
+
+## Common mistakes
+- Using strings or ints instead of enums for fixed sets of options.
+- Adding a `default`/`_` case to enum switches, which disables exhaustiveness checks.
+
+## Summary
+- Enums define fixed sets of values with `name`, `index` and `values`.
+- Enhanced enums add const fields, constructors, getters and methods.
+- Enum switches are exhaustive; persist enums by `name`.
+
+## Further learning
+- dart.dev ▸ Language ▸ Enumerations
+@quiz
+? output: What does this print?
+```dart
+enum Color { red, green, blue }
+
+void main() {
+  print(Color.blue.index);
+}
+```
++ 2
+- 3
+- blue
+- 1
+> Indexes start at 0, so blue is 2.
+? output: What does this print?
+```dart
+enum Color { red, green, blue }
+
+void main() {
+  print(Color.green.name);
+}
+```
++ green
+- Color.green
+- 1
+- GREEN
+> name returns the declared identifier as a String.
+? tf: Enhanced enums can have mutable (non-final) instance fields.
+= false
+> Enum instance fields must be final and constructors const.
+? fill: To look up an enum value from the string "hard", call `Difficulty.values.by___('hard')`.
+= Name
+> byName finds the value with the given name.
+? scenario: You save a user's plan to local storage. Which value should you store?
++ plan.name, read back with Plan.values.byName
+- plan.index
+- plan.hashCode
+- plan.toString().length
+> Names stay stable when values are reordered.
+? mcq: What is the benefit of switching over an enum without a default case?
++ The compiler reports missing cases when new values are added
+- The code runs faster
+- It allows null values
+- It hides warnings
+> Exhaustiveness checking keeps switches up to date.
