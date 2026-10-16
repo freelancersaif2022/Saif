@@ -1,7 +1,7 @@
 name: ghost_city
 description: "Ghost City: see any street as it was, through real archive photos over your live camera."
 publish_to: 'none'
-version: 1.0.0+8
+version: 1.0.0+9
 
 environment:
   sdk: ^3.13.5
