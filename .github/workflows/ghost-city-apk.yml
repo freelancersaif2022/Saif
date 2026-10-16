@@ -29,23 +29,72 @@ jobs:
           channel: stable
           cache: true
 
+      # Keep one release key across builds so new versions install over old ones.
+      # If the ANDROID_KEYSTORE_BASE64 secret is set it is used; otherwise a key is
+      # generated once and kept in the Actions cache.
+      - name: Restore release key
+        id: keycache
+        uses: actions/cache@v4
+        with:
+          path: ghost_city/android/app/upload-keystore.jks
+          key: ghost-city-release-key-v1
+
+      - name: Prepare release key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          PASS="${KEYSTORE_PASSWORD:-ghostcity-release}"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          elif [ ! -f android/app/upload-keystore.jks ]; then
+            keytool -genkeypair -v -keystore android/app/upload-keystore.jks \
+              -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias upload -storepass "$PASS" -keypass "$PASS" \
+              -dname "CN=Ghost City, OU=Mobile, O=Ghost City, C=US"
+          fi
+          cat > android/key.properties <<EOF
+          storePassword=$PASS
+          keyPassword=$PASS
+          keyAlias=upload
+          storeFile=upload-keystore.jks
+          EOF
+          sed -i 's/^ *//' android/key.properties
+
       - name: Install packages
         run: flutter pub get
 
       - name: Analyze
         run: flutter analyze
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APKs
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../GhostCity.apk
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../GhostCity-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../GhostCity-armv7.apk
 
-      - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/GhostCity.apk
+      - name: Verify APK signatures
+        working-directory: .
+        run: |
+          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)apksigner
+          for f in GhostCity.apk GhostCity-arm64.apk GhostCity-armv7.apk; do
+            echo "== $f"
+            "$APKSIGNER" verify --verbose "$f" | tee /tmp/verify.txt
+            grep -q "Verified using v1 scheme (JAR signing): true" /tmp/verify.txt
+            grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/verify.txt
+            unzip -tq "$f"
+          done
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: GhostCity-apk
-          path: ghost_city/build/app/outputs/flutter-apk/GhostCity.apk
+          path: |
+            GhostCity.apk
+            GhostCity-arm64.apk
+            GhostCity-armv7.apk
 
       - name: Publish release for phone download
         uses: softprops/action-gh-release@v2
@@ -53,5 +102,12 @@ jobs:
           tag_name: ghost-city-build-${{ github.run_number }}
           name: Ghost City (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
-          body: Android APK for Ghost City. Download GhostCity.apk on your phone and open it to install.
-          files: ghost_city/build/app/outputs/flutter-apk/GhostCity.apk
+          body: |
+            Android APK for Ghost City (Android 7.0 or newer).
+            - GhostCity-arm64.apk: most phones from 2017 onward (recommended, smaller).
+            - GhostCity-armv7.apk: older 32-bit phones.
+            - GhostCity.apk: works on every phone (larger).
+          files: |
+            GhostCity-arm64.apk
+            GhostCity-armv7.apk
+            GhostCity.apk
