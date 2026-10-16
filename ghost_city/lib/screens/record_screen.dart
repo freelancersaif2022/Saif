@@ -10,24 +10,30 @@ import 'package:record/record.dart';
 import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
+import '../services/location.dart';
 import '../widgets/common.dart';
 import '../widgets/feedback.dart';
 import 'paywall_screen.dart';
 
 /// Opens the recorder, or the upgrade screen when the free limit is reached.
-void openRecorder(BuildContext context, {Place? place}) {
+void openRecorder(BuildContext context, {Place? place, String? placeName}) {
   final state = AppScope.read(context);
   Navigator.of(context).push(MaterialPageRoute(
     fullscreenDialog: true,
-    builder: (_) => state.canRecordMore ? RecordScreen(place: place) : const PaywallScreen(reason: 'You’ve used your 3 free memories.'),
+    builder: (_) => state.canRecordMore
+        ? RecordScreen(place: place, placeName: placeName ?? place?.name)
+        : const PaywallScreen(reason: 'You’ve used your 3 free memories.'),
   ));
 }
 
 enum _Phase { ready, recording, recorded }
 
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, this.place});
+  const RecordScreen({super.key, this.place, this.placeName});
   final Place? place;
+
+  /// The place the user opened the recorder from, if any.
+  final String? placeName;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -45,15 +51,26 @@ class _RecordScreenState extends State<RecordScreen> {
   String? _path;
   Duration _elapsed = Duration.zero;
   bool _previewing = false;
-  late String? _placeId = widget.place?.id;
-  int _decade = 1990;
+  final _location = LocationService.instance;
+  late String? _where = widget.placeName ?? _location.name;
+  bool _picked = false;
+  int _year = DateTime.now().year;
 
-  static const _decades = [1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020];
+  /// This year back to 30 years ago, newest first.
+  static final _years = [for (var y = DateTime.now().year; y >= DateTime.now().year - 30; y--) y];
   static const _maxLength = Duration(minutes: 5);
+
+  void _onLocation() {
+    if (!mounted) return;
+    setState(() {
+      if (!_picked && widget.placeName == null && _location.name != null) _where = _location.name;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _location.addListener(_onLocation);
     _title.addListener(() => setState(() {}));
     _preview.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _previewing = false);
@@ -62,6 +79,7 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   void dispose() {
+    _location.removeListener(_onLocation);
     _timer?.cancel();
     _ampSub?.cancel();
     _recorder.dispose();
@@ -157,12 +175,13 @@ class _RecordScreenState extends State<RecordScreen> {
     await _preview.stop();
     if (!mounted) return;
     final state = AppScope.read(context);
-    final title = _title.text.trim().isEmpty ? 'Memory from the ${_decade}s' : _title.text.trim();
+    final title = _title.text.trim().isEmpty ? 'Memory from $_year' : _title.text.trim();
     await state.addMemory(Memory(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: title,
-      placeId: _placeId,
-      decade: _decade,
+      placeId: widget.place?.id,
+      placeName: _where,
+      decade: _year,
       audioPath: _path!,
       seconds: _elapsed.inSeconds,
       createdAt: DateTime.now(),
@@ -242,11 +261,31 @@ class _RecordScreenState extends State<RecordScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
-                  for (final p in places) ...[
-                    ChoiceChipX(label: p.name, selected: _placeId == p.id, solid: true, onTap: () => setState(() => _placeId = p.id)),
+                  for (final name in {?widget.placeName, ?_location.name}) ...[
+                    ChoiceChipX(label: name, selected: _where == name, solid: true, onTap: () => setState(() {
+                        _picked = true;
+                        _where = name;
+                      })),
                     const SizedBox(width: 8),
                   ],
-                  ChoiceChipX(label: 'Somewhere else', selected: _placeId == null, solid: true, onTap: () => setState(() => _placeId = null)),
+                  if (widget.placeName == null && _location.name == null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChipX(
+                        label: _location.locating ? 'Finding your location…' : 'Use my location',
+                        selected: false,
+                        solid: true,
+                        onTap: () async {
+                          _location.ensureStarted();
+                          await _location.locate();
+                          if (mounted && _location.name != null) setState(() => _where = _location.name);
+                        },
+                      ),
+                    ),
+                  ChoiceChipX(label: 'Somewhere else', selected: _where == null, solid: true, onTap: () => setState(() {
+                    _picked = true;
+                    _where = null;
+                  })),
                 ],
               ),
             ),
@@ -257,13 +296,13 @@ class _RecordScreenState extends State<RecordScreen> {
               height: 40,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: _decades.length,
+                itemCount: _years.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => ChoiceChipX(
-                  label: '${_decades[i]}s',
-                  selected: _decade == _decades[i],
+                  label: '${_years[i]}',
+                  selected: _year == _years[i],
                   solid: true,
-                  onTap: () => setState(() => _decade = _decades[i]),
+                  onTap: () => setState(() => _year = _years[i]),
                 ),
               ),
             ),

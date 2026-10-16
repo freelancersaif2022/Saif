@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Splash before Android 12: rounded app icon in the middle, app name at the bottom. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_background" />
     <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/launch_logo" />
+        <bitmap android:gravity="center" android:src="@drawable/launch_logo" />
+    </item>
+    <item android:bottom="56dp">
+        <bitmap android:gravity="bottom|center_horizontal" android:src="@drawable/splash_branding" />
     </item>
 </layer-list>

@@ -18,7 +18,7 @@ Use a real phone. The Time Lens needs a camera and memories need a microphone.
 
 ## Near me (automatic, any place)
 
-Open the **Near me** tab (or long-press anywhere on the Map) and Ghost City finds the past of that exact spot by itself:
+Open the **Near me** tab and Ghost City finds the past of that exact spot by itself:
 
 - **Street**: street-level photos from 5 to 25 years ago by Mapillary contributors.
 - **Photos**: dated photos taken nearby, from Wikimedia Commons.
@@ -29,12 +29,17 @@ Open the **Near me** tab (or long-press anywhere on the Map) and Ghost City find
 
 The Mapillary client token is built into the app. To use a different one, add a `MAPILLARY_TOKEN` repository secret; the build passes it with `--dart-define`.
 
+## Explore and Walks around you
+
+- **Explore** lists landmarks around your location from Wikipedia (2 km, then 10 km, then the wider area), with a featured place, all places and saved places.
+- **Walks** builds up to three routes from those landmarks, each stop read aloud. The first walk is free; distances are straight-line between stops and times assume 4.5 km/h plus five minutes per stop.
+- Turning location on in Settings and coming back to the app refreshes these screens by itself.
+
 ## Screens
 
 | Screen | What it does |
 | --- | --- |
 | Welcome | Three full-bleed archive photos (Paris 1914, Detroit 1915, New York 1931) |
-| Map | Live dark map with year pins, era filters, search and swipeable place cards |
 | Time Lens | Live camera with the old photo over it. Drag the divider, pinch to line the photo up, double-tap to reset, torch |
 | Place | Hero photo, history, facts, narrated stories, your memories, full-screen photo viewer, save |
 | Story | Narration from the phone's built-in voice, transcript that lights up as it is read, seek, three speeds |

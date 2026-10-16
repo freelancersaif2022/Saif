@@ -1,4 +1,6 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -36,7 +38,8 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
   bool _torch = false;
 
   LensMode _mode = LensMode.split;
-  double _split = 0.5;
+  // Only the clip, line and handle listen to this, so dragging never rebuilds the camera.
+  final _split = ValueNotifier<double>(0.5);
   double _ghost = 0.55;
 
   // Photo alignment (pinch to scale, drag to move).
@@ -57,6 +60,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _camera?.dispose();
+    _split.dispose();
     super.dispose();
   }
 
@@ -145,7 +149,6 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
     final premium = AppScope.of(context).premium;
-    final dividerX = size.width * _split;
 
     final photo = Transform.translate(
       offset: _offset,
@@ -176,7 +179,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
         body: Stack(
           children: [
             // Present: the live camera.
-            Positioned.fill(child: _CameraLayer(controller: _camera, error: _cameraError)),
+            Positioned.fill(child: RepaintBoundary(child: _CameraLayer(controller: _camera, error: _cameraError))),
 
             // Past: the archive photo, aligned by pinch and drag.
             Positioned.fill(
@@ -193,7 +196,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
                   _offset = _startOffset + (d.focalPoint - _startFocal);
                 }),
                 child: _mode == LensMode.split
-                    ? ClipRect(clipper: _FromLeft(dividerX), child: ColorFiltered(colorFilter: _film, child: photo))
+                    ? ClipRect(clipper: _FromLeft(_split), child: RepaintBoundary(child: ColorFiltered(colorFilter: _film, child: photo)))
                     : Opacity(opacity: _ghost, child: ColorFiltered(colorFilter: _film, child: photo)),
               ),
             ),
@@ -223,53 +226,65 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
               ),
             ),
 
-            if (_mode == LensMode.split) ...[
-              // Divider line and its drag handle.
-              Positioned(
-                left: dividerX - 1,
-                top: 0,
-                bottom: 0,
-                child: const IgnorePointer(child: ColoredBox(color: GC.text, child: SizedBox(width: 2))),
-              ),
-              Positioned(
-                left: dividerX - 32,
-                top: 0,
-                bottom: 0,
-                width: 64,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragStart: (_) => HapticFeedback.selectionClick(),
-                  onHorizontalDragUpdate: (d) =>
-                      setState(() => _split = ((dividerX + d.delta.dx) / size.width).clamp(0.0, 1.0)),
-                  child: Center(
-                    child: Semantics(
-                      label: 'Drag to compare then and now',
-                      slider: true,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: const BoxDecoration(
-                          color: GC.text,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Color(0x73000000), blurRadius: 20, offset: Offset(0, 6))],
+            if (_mode == LensMode.split)
+              Positioned.fill(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _split,
+                  builder: (context, split, _) {
+                    final x = size.width * split;
+                    return Stack(
+                      children: [
+                        // Divider line.
+                        Positioned(
+                          left: x - 1,
+                          top: 0,
+                          bottom: 0,
+                          child: const IgnorePointer(child: ColoredBox(color: GC.text, child: SizedBox(width: 2))),
                         ),
-                        child: const Icon(Icons.compare_arrows_rounded, color: GC.onAmber, size: 24),
-                      ),
-                    ),
-                  ),
+                        // Wide, invisible drag strip around the line; the line follows the finger exactly.
+                        Positioned(
+                          left: x - 48,
+                          top: pad.top + 120,
+                          bottom: 260,
+                          width: 96,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            dragStartBehavior: DragStartBehavior.down,
+                            onHorizontalDragStart: (_) => HapticFeedback.selectionClick(),
+                            onHorizontalDragUpdate: (d) => _split.value = (d.globalPosition.dx / size.width).clamp(0.0, 1.0),
+                            child: Center(
+                              child: Semantics(
+                                label: 'Drag to compare then and now',
+                                slider: true,
+                                child: Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: const BoxDecoration(
+                                    color: GC.text,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [BoxShadow(color: Color(0x73000000), blurRadius: 20, offset: Offset(0, 6))],
+                                  ),
+                                  child: const Icon(Icons.compare_arrows_rounded, color: GC.onAmber, size: 24),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: pad.top + 74,
+                          left: 16,
+                          child: IgnorePointer(child: _CornerTag(text: 'TODAY', dark: true, visible: split > 0.18)),
+                        ),
+                        Positioned(
+                          top: pad.top + 74,
+                          right: 16,
+                          child: IgnorePointer(child: _CornerTag(text: '$year', dark: false, visible: split < 0.82)),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
-              Positioned(
-                top: pad.top + 74,
-                left: 16,
-                child: IgnorePointer(child: _CornerTag(text: 'TODAY', dark: true, visible: _split > 0.18)),
-              ),
-              Positioned(
-                top: pad.top + 74,
-                right: 16,
-                child: IgnorePointer(child: _CornerTag(text: '$year', dark: false, visible: _split < 0.82)),
-              ),
-            ],
 
             // Top bar.
             Positioned(
@@ -480,14 +495,14 @@ class _CameraError extends StatelessWidget {
 }
 
 class _FromLeft extends CustomClipper<Rect> {
-  _FromLeft(this.x);
-  final double x;
+  _FromLeft(this.split) : super(reclip: split);
+  final ValueListenable<double> split;
 
   @override
-  Rect getClip(Size size) => Rect.fromLTRB(x, 0, size.width, size.height);
+  Rect getClip(Size size) => Rect.fromLTRB(size.width * split.value, 0, size.width, size.height);
 
   @override
-  bool shouldReclip(_FromLeft old) => old.x != x;
+  bool shouldReclip(_FromLeft old) => old.split != split;
 }
 
 class _CornerTag extends StatelessWidget {

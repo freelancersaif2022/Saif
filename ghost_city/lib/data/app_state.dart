@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/archive_api.dart';
+
 class Memory {
   Memory({
     required this.id,
@@ -14,6 +16,7 @@ class Memory {
     required this.seconds,
     required this.createdAt,
     required this.privacy,
+    this.placeName,
   });
 
   final String id;
@@ -25,6 +28,12 @@ class Memory {
   final DateTime createdAt;
   final String privacy;
 
+  /// Where it happened, as a readable name ("Mall Road, Lahore").
+  final String? placeName;
+
+  /// The year it happened. Older versions stored a decade here, which still reads fine.
+  int get year => decade;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -34,6 +43,7 @@ class Memory {
         'seconds': seconds,
         'createdAt': createdAt.toIso8601String(),
         'privacy': privacy,
+        'placeName': placeName,
       };
 
   static Memory fromJson(Map<String, dynamic> j) => Memory(
@@ -45,6 +55,7 @@ class Memory {
         seconds: j['seconds'] as int,
         createdAt: DateTime.parse(j['createdAt'] as String),
         privacy: j['privacy'] as String? ?? 'Only me',
+        placeName: j['placeName'] as String?,
       );
 }
 
@@ -55,6 +66,12 @@ class AppState extends ChangeNotifier {
     _premium = _prefs.getBool(_kPremium) ?? false;
     _saved = (_prefs.getStringList(_kSaved) ?? const []).toSet();
     _speechRate = _prefs.getDouble(_kRate) ?? 0.45;
+    for (final raw in _prefs.getStringList(_kSavedPlaces) ?? const <String>[]) {
+      try {
+        final p = NearbyPlace.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+        _savedPlaces[p.id] = p;
+      } catch (_) {}
+    }
     final raw = _prefs.getString(_kMemories);
     if (raw != null) {
       final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
@@ -68,6 +85,7 @@ class AppState extends ChangeNotifier {
   static const _kSaved = 'saved';
   static const _kMemories = 'memories';
   static const _kRate = 'speechRate';
+  static const _kSavedPlaces = 'savedNearbyPlaces';
 
   final SharedPreferences _prefs;
 
@@ -76,6 +94,16 @@ class AppState extends ChangeNotifier {
   late Set<String> _saved;
   late double _speechRate;
   List<Memory> _memories = [];
+  final Map<String, NearbyPlace> _savedPlaces = {};
+
+  List<NearbyPlace> get savedPlaces => _savedPlaces.values.toList();
+  bool isPlaceSaved(String id) => _savedPlaces.containsKey(id);
+
+  Future<void> togglePlace(NearbyPlace p) async {
+    _savedPlaces.containsKey(p.id) ? _savedPlaces.remove(p.id) : _savedPlaces[p.id] = p;
+    notifyListeners();
+    await _prefs.setStringList(_kSavedPlaces, _savedPlaces.values.map((p) => jsonEncode(p.toJson())).toList());
+  }
 
   bool get onboarded => _onboarded;
   bool get premium => _premium;

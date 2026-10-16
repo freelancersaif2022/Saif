@@ -20,7 +20,7 @@ const _slides = [
     'Paris · c. 1914',
     'Every street',
     'remembers.',
-    'Point your camera at a corner and see it 50, 100 or 150 years ago, in real photographs from the archives.',
+    'Point your camera at a corner and see it 5, 10 or 14 years ago, in real photographs of that exact spot.',
     Alignment(0, -0.35),
   ),
   _Slide(

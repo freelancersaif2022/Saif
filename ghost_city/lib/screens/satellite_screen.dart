@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -26,7 +28,7 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
   final _net = ConnectivityService.instance;
   late Release _then = widget.initial;
   late final Release _now = widget.releases.last;
-  double _split = 0.5;
+  final _split = ValueNotifier<double>(0.5);
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
   @override
   void dispose() {
     _net.removeListener(_onNet);
+    _split.dispose();
     super.dispose();
   }
 
@@ -46,7 +49,6 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
-    final x = size.width * _split;
     final years = DateTime.now().year - _then.date.year;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -81,7 +83,7 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
                     maxNativeZoom: 19,
                   ),
                   ClipRect(
-                    clipper: _LeftOf(x),
+                    clipper: _LeftOf(_split),
                     child: TileLayer(
                       key: ValueKey('then-${_then.urlTemplate}'),
                       urlTemplate: _then.urlTemplate,
@@ -106,28 +108,39 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
                   ]),
                 ],
               ),
-              Positioned(left: x - 1, top: 0, bottom: 0, child: const IgnorePointer(child: ColoredBox(color: Colors.white, child: SizedBox(width: 2)))),
-              Positioned(
-                left: x - 32,
-                top: 0,
-                bottom: 0,
-                width: 64,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragStart: (_) => HapticFeedback.selectionClick(),
-                  onHorizontalDragUpdate: (d) => setState(() => _split = ((x + d.delta.dx) / size.width).clamp(0.0, 1.0)),
-                  child: Center(
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Color(0x73000000), blurRadius: 20, offset: Offset(0, 6))],
+              Positioned.fill(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _split,
+                  builder: (context, split, _) {
+                    final x = size.width * split;
+                    return Stack(children: [
+                      Positioned(left: x - 1, top: 0, bottom: 0, child: const IgnorePointer(child: ColoredBox(color: Colors.white, child: SizedBox(width: 2)))),
+                      Positioned(
+                        left: x - 48,
+                        top: pad.top + 110,
+                        bottom: 230,
+                        width: 96,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          dragStartBehavior: DragStartBehavior.down,
+                          onHorizontalDragStart: (_) => HapticFeedback.selectionClick(),
+                          onHorizontalDragUpdate: (d) => _split.value = (d.globalPosition.dx / size.width).clamp(0.0, 1.0),
+                          child: Center(
+                            child: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: Color(0x73000000), blurRadius: 20, offset: Offset(0, 6))],
+                              ),
+                              child: const Icon(Icons.compare_arrows_rounded, color: GC.onAmber),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: const Icon(Icons.compare_arrows_rounded, color: GC.onAmber),
-                    ),
-                  ),
+                    ]);
+                  },
                 ),
               ),
               Positioned(top: pad.top + 70, left: 16, child: IgnorePointer(child: _Tag('${_then.date.year}', amber: true))),
@@ -224,14 +237,14 @@ class _SatelliteScreenState extends State<SatelliteScreen> {
 }
 
 class _LeftOf extends CustomClipper<Rect> {
-  _LeftOf(this.x);
-  final double x;
+  _LeftOf(this.split) : super(reclip: split);
+  final ValueListenable<double> split;
 
   @override
-  Rect getClip(Size size) => Rect.fromLTRB(0, 0, x, size.height);
+  Rect getClip(Size size) => Rect.fromLTRB(0, 0, size.width * split.value, size.height);
 
   @override
-  bool shouldReclip(_LeftOf old) => old.x != x;
+  bool shouldReclip(_LeftOf old) => old.split != split;
 }
 
 class _Tag extends StatelessWidget {

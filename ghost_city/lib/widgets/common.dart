@@ -211,13 +211,34 @@ class ArchivePhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const fallback = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3A2F1A), Color(0xFF1A1815)],
+        ),
+      ),
+      child: Center(child: Icon(Icons.account_balance_outlined, color: Color(0x80E9B44C), size: 34)),
+    );
+    if (asset.isEmpty) return fallback;
+    if (asset.startsWith('http')) {
+      return Image.network(
+        asset,
+        fit: fit,
+        alignment: alignment,
+        gaplessPlayback: true,
+        loadingBuilder: (context, child, progress) => progress == null ? child : const ColoredBox(color: GC.surface2),
+        errorBuilder: (context, error, stack) => fallback,
+      );
+    }
     return Image.asset(
       asset,
       fit: fit,
       alignment: alignment,
       filterQuality: FilterQuality.medium,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stack) => Container(color: GC.surface2),
+      errorBuilder: (context, error, stack) => fallback,
     );
   }
 }

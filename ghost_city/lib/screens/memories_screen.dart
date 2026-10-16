@@ -199,7 +199,7 @@ class _MemoryTileState extends State<MemoryTile> {
                 Text(m.title, style: GC.display(17, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(
-                  '${place?.name ?? 'Somewhere else'} · ${m.decade}s · ${formatDuration(_playing || _pos > Duration.zero ? _pos : total)}',
+                  '${m.placeName ?? place?.name ?? 'Somewhere else'} · ${m.decade < 2030 && m.decade % 10 == 0 && m.createdAt.year - m.decade > 9 ? '${m.decade}s' : m.decade} · ${formatDuration(_playing || _pos > Duration.zero ? _pos : total)}',
                   style: GC.body(12.5, color: GC.muted, height: 1.3),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

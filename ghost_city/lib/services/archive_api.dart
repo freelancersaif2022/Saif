@@ -70,6 +70,69 @@ class Release {
   final String urlTemplate;
 }
 
+/// A notable place near the user, from Wikipedia.
+class NearbyPlace {
+  NearbyPlace({
+    required this.id,
+    required this.title,
+    required this.point,
+    required this.distanceMeters,
+    this.description,
+    this.extract,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String title;
+  final LatLng point;
+  final double distanceMeters;
+  final String? description;
+  final String? extract;
+  final String? imageUrl;
+
+  String get url => 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title.replaceAll(' ', '_'))}';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'lat': point.latitude,
+        'lon': point.longitude,
+        'distance': distanceMeters,
+        'description': description,
+        'extract': extract,
+        'image': imageUrl,
+      };
+
+  static NearbyPlace fromJson(Map<String, dynamic> j) => NearbyPlace(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        point: LatLng((j['lat'] as num).toDouble(), (j['lon'] as num).toDouble()),
+        distanceMeters: (j['distance'] as num?)?.toDouble() ?? 0,
+        description: j['description'] as String?,
+        extract: j['extract'] as String?,
+        imageUrl: j['image'] as String?,
+      );
+
+  NearbyPlace withDistanceFrom(LatLng from) => NearbyPlace(
+        id: id,
+        title: title,
+        point: point,
+        distanceMeters: const Distance().as(LengthUnit.Meter, from, point),
+        description: description,
+        extract: extract,
+        imageUrl: imageUrl,
+      );
+}
+
+/// How far the place search had to go to find something.
+enum NearbyScope { around, near, region }
+
+class NearbyResult {
+  NearbyResult(this.places, this.scope);
+  final List<NearbyPlace> places;
+  final NearbyScope scope;
+}
+
 class PlaceResult {
   PlaceResult(this.name, this.detail, this.point);
   final String name;
@@ -145,7 +208,7 @@ class ArchiveApi {
       for (final (b, limit, withDates) in attempts) {
         final uri = Uri.https('graph.mapillary.com', '/images', {
           'access_token': mapillaryToken,
-          'fields': 'id,captured_at,compass_angle,computed_geometry,geometry,thumb_1024_url,thumb_2048_url,creator,is_pano',
+          'fields': 'id,captured_at,compass_angle,computed_geometry,geometry,thumb_1024_url,thumb_2048_url,creator,is_pano,camera_type',
           'bbox': b.map((v) => v.toStringAsFixed(6)).join(','),
           if (withDates) 'start_captured_at': _isoSeconds(start),
           if (withDates) 'end_captured_at': _isoSeconds(end),
@@ -180,7 +243,10 @@ class ArchiveApi {
     if (data is! List) return out;
     for (final item in data) {
       if (item is! Map) continue;
+      // 360° and fisheye shots look like a tiny planet in a flat frame: skip them.
       if (item['is_pano'] == true) continue;
+      final camera = '${item['camera_type'] ?? ''}'.toLowerCase();
+      if (camera.contains('spherical') || camera.contains('equirect') || camera.contains('fisheye')) continue;
       final captured = item['captured_at'];
       final ms = captured is num ? captured.toInt() : int.tryParse('$captured');
       final url = (item['thumb_2048_url'] ?? item['thumb_1024_url']) as String?;
@@ -226,7 +292,7 @@ class ArchiveApi {
         'prop': 'imageinfo|coordinates',
         'iiprop': 'url|extmetadata|timestamp|mime',
         'iiurlwidth': '1600',
-        'iiextmetadatafilter': 'DateTimeOriginal|DateTime|Artist|LicenseShortName|ObjectName',
+        'iiextmetadatafilter': 'DateTimeOriginal|DateTime|Artist|LicenseShortName|ObjectName|Categories|ImageDescription',
         'colimit': '200',
         'origin': '*',
       });
@@ -282,6 +348,10 @@ class ArchiveApi {
       if (date == null) continue;
 
       final title = (page['title'] as String? ?? '').replaceFirst('File:', '');
+      // Only ground-level photos of the place: no views from space, satellite
+      // scenes, maps or diagrams that happen to carry coordinates here.
+      final about = '$title ${metaValue('Categories') ?? ''} ${metaValue('ImageDescription') ?? ''}';
+      if (_notStreetPhoto.hasMatch(about)) continue;
       final niceTitle = metaValue('ObjectName')?.isNotEmpty == true
           ? metaValue('ObjectName')!
           : title.replaceAll(RegExp(r'\.(jpe?g|png|webp)$', caseSensitive: false), '').replaceAll('_', ' ');
@@ -299,6 +369,90 @@ class ArchiveApi {
         title: niceTitle,
         license: metaValue('LicenseShortName'),
         pageUrl: (info['descriptionurl'] as String?) ?? 'https://commons.wikimedia.org/wiki/${Uri.encodeComponent(page['title'] as String? ?? '')}',
+      ));
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------- Wikipedia
+
+  /// Notable places around [center]: within 2 km first, then 10 km, then the
+  /// wider region (four searches about 25 km away). Places with a photo first.
+  Future<NearbyResult> nearbyPlaces(LatLng center) async {
+    for (final (radius, scope) in const [(2000, NearbyScope.around), (10000, NearbyScope.near)]) {
+      final list = await _wikiGeo(center, radius, center);
+      if (list.length >= (scope == NearbyScope.around ? 4 : 1)) return NearbyResult(_rank(list), scope);
+    }
+    final found = <String, NearbyPlace>{};
+    const d = 0.22; // about 25 km
+    for (final (dLat, dLon) in const [(d, 0.0), (-d, 0.0), (0.0, d), (0.0, -d)]) {
+      final c = LatLng(center.latitude + dLat, center.longitude + dLon);
+      for (final p in await _wikiGeo(c, 10000, center)) {
+        found[p.id] = p;
+      }
+    }
+    return NearbyResult(_rank(found.values.toList()), NearbyScope.region);
+  }
+
+  List<NearbyPlace> _rank(List<NearbyPlace> list) {
+    list.sort((a, b) {
+      final ai = a.imageUrl == null ? 1 : 0, bi = b.imageUrl == null ? 1 : 0;
+      if (ai != bi) return ai - bi;
+      return a.distanceMeters.compareTo(b.distanceMeters);
+    });
+    return list.take(30).toList();
+  }
+
+  Future<List<NearbyPlace>> _wikiGeo(LatLng searchCenter, int radius, LatLng from) async {
+    final json = await _getJson(Uri.https('en.wikipedia.org', '/w/api.php', {
+      'action': 'query',
+      'format': 'json',
+      'formatversion': '2',
+      'generator': 'geosearch',
+      'ggscoord': '${searchCenter.latitude}|${searchCenter.longitude}',
+      'ggsradius': '$radius',
+      'ggslimit': '40',
+      'prop': 'coordinates|pageimages|description|extracts',
+      'piprop': 'thumbnail',
+      'pithumbsize': '1200',
+      'exintro': '1',
+      'explaintext': '1',
+      'exsentences': '5',
+      'exlimit': 'max',
+      'origin': '*',
+    }));
+    return parseWikipedia(json, from);
+  }
+
+  static List<NearbyPlace> parseWikipedia(dynamic json, LatLng from) {
+    final out = <NearbyPlace>[];
+    final query = json is Map ? json['query'] : null;
+    var pages = query is Map ? query['pages'] : null;
+    if (pages is Map) pages = pages.values.toList();
+    if (pages is! List) return out;
+    for (final page in pages) {
+      if (page is! Map) continue;
+      final coords = page['coordinates'];
+      if (coords is! List || coords.isEmpty || coords.first is! Map) continue;
+      final c = coords.first as Map;
+      final lat = (c['lat'] as num?)?.toDouble();
+      final lon = (c['lon'] as num?)?.toDouble();
+      final title = page['title'] as String?;
+      if (lat == null || lon == null || title == null) continue;
+      final description = page['description'] as String?;
+      // Skip pages that are not places people can visit.
+      if (description != null && _notAPlace.hasMatch(description)) continue;
+      final point = LatLng(lat, lon);
+      final thumb = page['thumbnail'] is Map ? (page['thumbnail'] as Map)['source'] as String? : null;
+      final extract = (page['extract'] as String?)?.trim();
+      out.add(NearbyPlace(
+        id: 'wp-${page['pageid'] ?? title}',
+        title: title,
+        point: point,
+        distanceMeters: const Distance().as(LengthUnit.Meter, from, point),
+        description: description,
+        extract: extract == null || extract.isEmpty ? null : extract,
+        imageUrl: thumb == null || thumb.toLowerCase().endsWith('.svg.png') ? null : thumb,
       ));
     }
     return out;
@@ -386,6 +540,19 @@ List<double> _bbox(LatLng c, double meters) {
   final dLon = meters / (111320.0 * math.cos(c.latitude * math.pi / 180).abs().clamp(0.01, 1.0));
   return [c.longitude - dLon, c.latitude - dLat, c.longitude + dLon, c.latitude + dLat];
 }
+
+final _notStreetPhoto = RegExp(
+  r'\b(ISS|International Space Station|Expedition \d+|astronaut|from space|satellite (image|photo|picture|view)|'
+  r'Landsat|Sentinel-?\d|MODIS|Terra|Aqua|NASA Earth|Earth observ|night lights|map|maps|locator|diagram|chart|'
+  r'logo|coat of arms|flag of|seal of)\b',
+  caseSensitive: false,
+);
+
+final _notAPlace = RegExp(
+  r'\b(human settlement|disambiguation|electoral|constituency|tehsil|union council|census|district of|'
+  r'administrative|television|radio station|company|organisation|organization|election)\b',
+  caseSensitive: false,
+);
 
 String _isoSeconds(DateTime d) => '${d.toIso8601String().split('.').first.replaceAll('Z', '')}Z';
 

@@ -49,10 +49,13 @@ class Place {
 }
 
 class WalkStop {
-  const WalkStop({required this.name, required this.year, required this.point, required this.narration});
+  const WalkStop({required this.name, this.year, required this.point, required this.narration, this.note});
 
   final String name;
-  final int year;
+  final int? year;
+
+  /// Small label shown above the stop name (for example "450 m from the start").
+  final String? note;
   final LatLng point;
   final String narration;
 }

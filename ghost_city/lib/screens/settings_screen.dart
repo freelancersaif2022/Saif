@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/theme.dart';
 import '../data/app_state.dart';
-import '../data/content.dart';
 import '../widgets/common.dart';
-import '../widgets/feedback.dart';
+import 'legal_screen.dart';
 import 'paywall_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -85,54 +84,22 @@ class SettingsScreen extends StatelessWidget {
           const SectionLabel('Your data'),
           const SizedBox(height: 10),
           _Card(children: [
-            _Row(icon: Icons.phone_iphone_rounded, title: 'Account', value: 'Not needed'),
-            const Divider(height: 22, color: GC.line),
             _Row(icon: Icons.mic_none_rounded, title: 'Memories', value: '${state.memories.length}'),
             const Divider(height: 22, color: GC.line),
-            _Row(icon: Icons.bookmark_border_rounded, title: 'Saved places', value: '${state.saved.length}'),
+            _Row(icon: Icons.bookmark_border_rounded, title: 'Saved places', value: '${state.savedPlaces.length}'),
           ]),
-          const SizedBox(height: 12),
-          GhostButton(
-            label: 'Erase everything and restart',
-            icon: Icons.restart_alt_rounded,
-            onPressed: () async {
-              final nav = Navigator.of(context);
-              final ok = await showGhostDialog(
-                context,
-                title: 'Erase everything?',
-                message: 'Your memories, saved places and settings will be deleted from this phone.',
-                icon: Icons.restart_alt_rounded,
-                confirmLabel: 'Erase',
-                cancelLabel: 'Cancel',
-                destructive: true,
-              );
-              if (ok == true) {
-                nav.popUntil((r) => r.isFirst);
-                await state.resetAll();
-              }
-            },
-          ),
           const SizedBox(height: 26),
-          const SectionLabel('Photo credits'),
+          const SectionLabel('About'),
           const SizedBox(height: 10),
           _Card(children: [
-            for (var i = 0; i < places.length; i++) ...[
-              if (i > 0) const Divider(height: 20, color: GC.line),
-              Text(places[i].name, style: GC.body(14, color: GC.text, weight: FontWeight.w700, height: 1.3)),
-              const SizedBox(height: 2),
-              Text(places[i].credit, style: GC.body(12.5, color: GC.muted, height: 1.35)),
-            ],
+            _LinkRow(icon: Icons.privacy_tip_outlined, title: 'Privacy policy', doc: LegalDoc.privacy),
+            const Divider(height: 22, color: GC.line),
+            _LinkRow(icon: Icons.gavel_rounded, title: 'Terms & conditions', doc: LegalDoc.terms),
+            const Divider(height: 22, color: GC.line),
+            _LinkRow(icon: Icons.copyright_rounded, title: 'Licences', doc: LegalDoc.licences),
           ]),
-          const SizedBox(height: 14),
-          Text('Map data © OpenStreetMap contributors, map tiles © CARTO.', style: GC.body(12, color: GC.faint)),
-          const SizedBox(height: 6),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: GC.amber, padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
-            onPressed: () => showLicensePage(context: context, applicationName: 'Ghost City', applicationVersion: '1.0.0'),
-            child: const Text('Open-source licences'),
-          ),
-          const SizedBox(height: 10),
-          Center(child: Text('Ghost City 1.0.0', style: GC.body(12, color: GC.faint))),
+          const SizedBox(height: 20),
+          Center(child: Text('Ghost City 1.2.0', style: GC.body(12, color: GC.faint))),
         ],
       ),
     );
@@ -153,6 +120,32 @@ class _Card extends StatelessWidget {
         border: Border.all(color: GC.line),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+    );
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({required this.icon, required this.title, required this.doc});
+  final IconData icon;
+  final String title;
+  final LegalDoc doc;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LegalScreen(doc: doc))),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(icon, color: GC.muted, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: GC.body(15, color: GC.text, height: 1.2))),
+            const Icon(Icons.chevron_right_rounded, color: GC.faint),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -26,6 +26,17 @@ Future<void> main() async {
       }
     }
   }
+  for (final e in spots.entries) {
+    try {
+      final r = await api.nearbyPlaces(e.value);
+      final withPhoto = r.places.where((p) => p.imageUrl != null).length;
+      stdout.writeln('${e.key} · wikipedia places: ${r.places.length} (${r.scope.name}, $withPhoto with photos), '
+          'e.g. ${r.places.take(3).map((p) => p.title).join(' / ')}');
+    } catch (err) {
+      failures++;
+      stdout.writeln('${e.key} · wikipedia places: FAILED $err');
+    }
+  }
   try {
     final r = await api.waybackReleases();
     stdout.writeln('Wayback: ${r.length} years, ${r.first.date.year}–${r.last.date.year}');

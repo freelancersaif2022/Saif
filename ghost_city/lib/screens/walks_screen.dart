@@ -1,38 +1,189 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
 import '../services/narrator.dart';
 import '../widgets/common.dart';
+import '../services/archive_api.dart';
+import '../services/location.dart';
+import '../services/places_store.dart';
+import '../widgets/feedback.dart';
+import '../widgets/location_gate.dart';
 import 'paywall_screen.dart';
 
-class WalksScreen extends StatelessWidget {
+class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final state = AppScope.of(context);
-    final pad = MediaQuery.paddingOf(context);
+  State<WalksScreen> createState() => _WalksScreenState();
+}
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(20, pad.top + 14, 20, 30),
+class _WalksScreenState extends State<WalksScreen> {
+  final _store = PlacesStore.instance;
+  final _loc = LocationService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loc.ensureStarted();
+    _store.load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = MediaQuery.paddingOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('TIME WALKS', style: GC.label(color: GC.amber)),
-        const SizedBox(height: 4),
-        Text('Guided routes through the past', style: GC.display(28)),
-        const SizedBox(height: 8),
-        Text('Each walk is narrated stop by stop. Put on headphones and let the city tell its own story.',
-            style: GC.body(15, color: GC.muted)),
-        const SizedBox(height: 22),
-        for (final w in walks) ...[
-          _WalkCard(walk: w, locked: w.premium && !state.premium),
-          const SizedBox(height: 16),
-        ],
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, pad.top + 14, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('TIME WALKS', style: GC.label(color: GC.amber)),
+              const SizedBox(height: 4),
+              Text('Walks around you', style: GC.display(28)),
+              const SizedBox(height: 8),
+              Text('Routes through the landmarks near you, narrated stop by stop. Put on headphones and go.',
+                  style: GC.body(15, color: GC.muted)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: LocationGate(
+            builder: (context) => ListenableBuilder(listenable: _store, builder: (context, _) => _content(context)),
+          ),
+        ),
       ],
     );
   }
+
+  Widget _content(BuildContext context) {
+    final state = AppScope.of(context);
+    final result = _store.result;
+    if ((_store.status == LoadStatus.idle || _store.status == LoadStatus.loading) && result == null) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+        children: [
+          for (var i = 0; i < 2; i++) ...[
+            Container(
+              height: 300,
+              decoration: BoxDecoration(
+                color: GC.surface2,
+                borderRadius: BorderRadius.circular(GC.radiusL + 2),
+                border: Border.all(color: GC.line),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ],
+      );
+    }
+    if (_store.status == LoadStatus.error && result == null) {
+      final e = _store.error!;
+      return Center(
+        child: e.failure == ApiFailure.offline
+            ? StatePanel.offline(onAction: () => _store.load(force: true))
+            : StatePanel(
+                icon: Icons.cloud_off_rounded,
+                title: 'Couldn’t plan walks',
+                message: e.message,
+                actionLabel: 'Try again',
+                onAction: () => _store.load(force: true),
+                color: GC.coral,
+              ),
+      );
+    }
+    final walks = buildWalks(result?.places ?? const [], _loc.name);
+    if (walks.isEmpty) {
+      return Center(
+        child: StatePanel(
+          icon: Icons.directions_walk_rounded,
+          title: 'No walks here yet',
+          message: 'A walk needs at least two landmarks within walking distance, and none are listed around this location.',
+          actionLabel: 'Try again',
+          onAction: () => _store.load(force: true),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: GC.amber,
+      backgroundColor: GC.surface,
+      onRefresh: () => _store.load(force: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+        children: [
+          for (final w in walks) ...[
+            _WalkCard(walk: w, locked: w.premium && !state.premium),
+            const SizedBox(height: 16),
+          ],
+          Text('Stops and descriptions from Wikipedia. Distances are measured between stops in a straight line.',
+              style: GC.body(12, color: GC.faint)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Turns nearby landmarks into up to three walks. Each walk starts at the nearest
+/// unused landmark and keeps adding the closest next stop within 1.5 km.
+/// The first walk is free; the others are part of Plus.
+List<Walk> buildWalks(List<NearbyPlace> places, String? areaName) {
+  const dist = Distance();
+  final pool = [...places]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+  final city = (areaName?.split(',').last.trim().isNotEmpty ?? false) ? areaName!.split(',').last.trim() : 'Near you';
+  final walks = <Walk>[];
+  while (pool.isNotEmpty && walks.length < 3) {
+    final route = <NearbyPlace>[pool.removeAt(0)];
+    while (route.length < 5) {
+      NearbyPlace? best;
+      var bestD = double.infinity;
+      for (final p in pool) {
+        final d = dist.as(LengthUnit.Meter, route.last.point, p.point);
+        if (d < bestD) {
+          bestD = d;
+          best = p;
+        }
+      }
+      if (best == null || bestD > 1500) break;
+      route.add(best);
+      pool.remove(best);
+    }
+    if (route.length < 2) continue;
+    var meters = 0.0;
+    final stops = <WalkStop>[];
+    for (var i = 0; i < route.length; i++) {
+      final p = route[i];
+      if (i > 0) meters += dist.as(LengthUnit.Meter, route[i - 1].point, p.point);
+      final note = i == 0 ? 'START' : '${meters < 1000 ? '${meters.round()} M' : '${(meters / 1000).toStringAsFixed(1)} KM'} FROM THE START';
+      stops.add(WalkStop(
+        name: p.title,
+        point: p.point,
+        note: note,
+        narration: p.extract ?? p.description ?? p.title,
+      ));
+    }
+    final km = meters / 1000;
+    // About 4.5 km/h on foot plus a few minutes at each stop.
+    final minutes = ((km / 4.5) * 60 + route.length * 5).round();
+    final cover = route.firstWhere((p) => p.imageUrl != null, orElse: () => route.first).imageUrl ?? '';
+    walks.add(Walk(
+      id: 'near-${route.first.id}',
+      title: '${route.first.title} to ${route.last.title}',
+      city: city,
+      cover: cover,
+      minutes: minutes,
+      distanceKm: km,
+      premium: walks.isNotEmpty,
+      intro: 'A ${route.length}-stop walk from ${route.first.title} to ${route.last.title}, with the story of each place read aloud.',
+      stops: stops,
+    ));
+  }
+  return walks;
 }
 
 class _WalkCard extends StatelessWidget {
@@ -406,7 +557,7 @@ class _StopRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${stop.year}', style: GC.label(color: GC.amber, size: 10.5)),
+                    Text(stop.note ?? (stop.year == null ? 'STOP ${index + 1}' : '${stop.year}'), style: GC.label(color: GC.amber, size: 10.5)),
                     const SizedBox(height: 3),
                     Text(stop.name, style: GC.display(18, height: 1.2)),
                     const SizedBox(height: 5),

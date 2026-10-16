@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app/theme.dart';
 import '../services/archive_api.dart';
 import '../services/connectivity.dart';
+import '../services/location.dart';
+import '../widgets/location_gate.dart';
 import '../widgets/common.dart';
 import '../widgets/feedback.dart';
 import 'photo_viewer_screen.dart';
@@ -60,8 +61,8 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
   String? _name;
   bool _fromGps = false;
 
-  bool _locating = false;
-  String? _locationProblem; // 'off' | 'denied' | 'forever' | 'failed'
+  final _loc = LocationService.instance;
+  bool get _locating => _loc.locating;
 
   _Tab _tab = _Tab.street;
   int _age = 0;
@@ -80,16 +81,19 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
   void initState() {
     super.initState();
     _net.addListener(_onNetwork);
+    _loc.addListener(_onLocation);
     if (widget.initialPoint != null) {
       _setPoint(widget.initialPoint!, name: widget.initialName, gps: false);
     } else {
-      _locate();
+      _loc.ensureStarted();
+      if (_loc.point != null) _setPoint(_loc.point!, name: _loc.name, gps: true);
     }
   }
 
   @override
   void dispose() {
     _net.removeListener(_onNetwork);
+    _loc.removeListener(_onLocation);
     super.dispose();
   }
 
@@ -105,40 +109,26 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
 
   // ------------------------------------------------------------- location
 
-  Future<void> _locate() async {
-    setState(() {
-      _locating = true;
-      _locationProblem = null;
-    });
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        setState(() => _locationProblem = 'off');
-        return;
-      }
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.deniedForever) {
-        setState(() => _locationProblem = 'forever');
-        return;
-      }
-      if (perm == LocationPermission.denied) {
-        setState(() => _locationProblem = 'denied');
-        return;
-      }
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null && _point == null) _setPoint(LatLng(last.latitude, last.longitude), gps: true);
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 15)),
-      );
-      final p = LatLng(pos.latitude, pos.longitude);
-      if (_point == null || const Distance().as(LengthUnit.Meter, _point!, p) > 60) _setPoint(p, gps: true);
-    } on TimeoutException {
-      if (_point == null) setState(() => _locationProblem = 'failed');
-    } catch (_) {
-      if (_point == null) setState(() => _locationProblem = 'failed');
-    } finally {
-      if (mounted) setState(() => _locating = false);
+  /// Follows the phone's position (and refreshes by itself when location is
+  /// switched on and the user comes back to the app), unless a place was searched.
+  int _seenVersion = -1;
+  void _onLocation() {
+    if (!mounted) return;
+    final gpsMode = widget.initialPoint == null && (_fromGps || _point == null);
+    if (gpsMode && _loc.point != null && _loc.version != _seenVersion) {
+      _seenVersion = _loc.version;
+      _setPoint(_loc.point!, name: _loc.name, gps: true);
+    } else if (_fromGps && _name == null && _loc.name != null) {
+      setState(() => _name = _loc.name);
+    } else {
+      setState(() {});
     }
+  }
+
+  Future<void> _locate() async {
+    _seenVersion = -1;
+    if (_loc.point != null) _setPoint(_loc.point!, name: _loc.name, gps: true);
+    await _loc.locate();
   }
 
   void _setPoint(LatLng p, {String? name, required bool gps}) {
@@ -147,7 +137,6 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
       _point = p;
       _name = name;
       _fromGps = gps;
-      _locationProblem = null;
       for (final l in [_street, _photos]) {
         l
           ..status = _Status.idle
@@ -155,7 +144,8 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
           ..error = null;
       }
     });
-    if (name == null) _loadName();
+    if (gps) _seenVersion = _loc.version;
+    if (name == null && !gps) _loadName();
     _loadCurrentTab();
   }
 
@@ -406,47 +396,8 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
     if (!_net.online) return [fill(StatePanel.offline(onAction: _refresh))];
 
     if (_point == null) {
-      if (_locating) return [fill(const _Searching(text: 'Finding your location…'))];
-      return [
-        fill(switch (_locationProblem) {
-          'off' => StatePanel(
-              icon: Icons.location_off_outlined,
-              title: 'Location is off',
-              message: 'Turn on location to see your street in the past, or search any place by name.',
-              actionLabel: 'Open settings',
-              onAction: () => Geolocator.openLocationSettings(),
-              secondaryLabel: 'Search a place',
-              onSecondary: _search,
-            ),
-          'forever' => StatePanel(
-              icon: Icons.location_disabled_outlined,
-              title: 'Location permission is blocked',
-              message: 'Allow location for Ghost City in your phone’s Settings, or search any place by name.',
-              actionLabel: 'Open app settings',
-              onAction: () => Geolocator.openAppSettings(),
-              secondaryLabel: 'Search a place',
-              onSecondary: _search,
-            ),
-          'denied' => StatePanel(
-              icon: Icons.near_me_disabled_outlined,
-              title: 'See where you stand',
-              message: 'Ghost City uses your location only to find old photos of the street you are on.',
-              actionLabel: 'Allow location',
-              onAction: _locate,
-              secondaryLabel: 'Search a place',
-              onSecondary: _search,
-            ),
-          _ => StatePanel(
-              icon: Icons.gps_off_rounded,
-              title: 'Couldn’t find you',
-              message: 'Your phone didn’t return a location. Step outside or search a place by name.',
-              actionLabel: 'Try again',
-              onAction: _locate,
-              secondaryLabel: 'Search a place',
-              onSecondary: _search,
-            ),
-        }),
-      ];
+      if (_locating || _loc.problem == null) return [fill(const _Searching(text: 'Finding your location…'))];
+      return [fill(LocationProblemPanel(problem: _loc.problem!, onSearch: _search))];
     }
 
     if (_tab == _Tab.satellite) return _satelliteBody();

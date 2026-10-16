@@ -126,4 +126,62 @@ void main() {
     expect(parseLooseDate('circa 2008')!.year, 2008);
     expect(parseLooseDate('unknown'), isNull);
   });
+
+  test('parses Wikipedia places and drops non-places', () {
+    final json = {
+      'query': {
+        'pages': [
+          {
+            'pageid': 1,
+            'title': 'Lahore Museum',
+            'description': 'museum in Lahore, Pakistan',
+            'extract': 'The Lahore Museum is a museum located in Lahore.',
+            'coordinates': [
+              {'lat': 31.5685, 'lon': 74.3082},
+            ],
+            'thumbnail': {'source': 'https://upload/museum.jpg'},
+          },
+          {
+            'pageid': 2,
+            'title': 'NA-123 (Lahore-VII)',
+            'description': 'constituency of the National Assembly of Pakistan',
+            'coordinates': [
+              {'lat': 31.56, 'lon': 74.31},
+            ],
+          },
+        ],
+      },
+    };
+    final out = ArchiveApi.parseWikipedia(json, center);
+    expect(out.single.title, 'Lahore Museum');
+    expect(out.single.imageUrl, 'https://upload/museum.jpg');
+    expect(out.single.distanceMeters, greaterThan(500));
+  });
+
+  test('skips Wikimedia photos taken from space', () {
+    final json = {
+      'query': {
+        'pages': [
+          {
+            'pageid': 9,
+            'title': 'File:Lahore from the ISS.jpg',
+            'coordinates': [
+              {'lat': 31.56, 'lon': 74.31},
+            ],
+            'imageinfo': [
+              {
+                'url': 'https://u/iss.jpg',
+                'mime': 'image/jpeg',
+                'timestamp': '2012-08-09T00:00:00Z',
+                'extmetadata': {
+                  'DateTimeOriginal': {'value': '2012-01-01'},
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(ArchiveApi.parseWikimedia(json, center), isEmpty);
+  });
 }
