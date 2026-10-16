@@ -99,7 +99,10 @@ jobs:
           APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)apksigner
           for f in GhostCity.apk GhostCity-arm64.apk GhostCity-armv7.apk; do
             echo "== $f"
-            "$APKSIGNER" verify --verbose "$f" | tee /tmp/verify.txt
+            # --min-sdk-version 21 makes apksigner check the v1 signature too
+            # (it skips v1 for apps whose minSdk is 24 or higher).
+            "$APKSIGNER" verify --verbose --min-sdk-version 21 "$f" | tee /tmp/verify.txt
+            unzip -l "$f" | grep -qE "META-INF/[^/]+\.(RSA|SF)$"
             grep -q "Verified using v1 scheme (JAR signing): true" /tmp/verify.txt
             grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/verify.txt
             unzip -tq "$f"
