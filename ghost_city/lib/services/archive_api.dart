@@ -129,33 +129,45 @@ class ArchiveApi {
     final end = DateTime.utc(now.year - minYearsAgo, now.month, now.day);
     final start = DateTime.utc(now.year - maxYearsAgo, 1, 1);
     final found = <String, PastPhoto>{};
+    final cutoff = end.millisecondsSinceEpoch;
     for (final radius in const [250.0, 700.0, 1500.0]) {
       final box = _bbox(center, radius);
-      // Busy places (Times Square, big squares) can make Mapillary answer HTTP 500
-      // for large pages, so retry the same area with a smaller page.
+      // Very busy places (Times Square, big squares) can make Mapillary answer
+      // HTTP 500. Fall back to a smaller page, then to a tight box without the
+      // date filter, keeping only old enough photos on the phone.
+      final attempts = <(List<double>, int, bool)>[
+        (box, 300, true),
+        (box, 80, true),
+        if (radius == 250.0) (_bbox(center, 90), 500, false),
+      ];
       dynamic json;
-      for (final limit in const [300, 80]) {
+      ApiException? lastError;
+      for (final (b, limit, withDates) in attempts) {
         final uri = Uri.https('graph.mapillary.com', '/images', {
           'access_token': mapillaryToken,
           'fields': 'id,captured_at,compass_angle,computed_geometry,geometry,thumb_1024_url,thumb_2048_url,creator,is_pano',
-          'bbox': box.map((v) => v.toStringAsFixed(6)).join(','),
-          'start_captured_at': _isoSeconds(start),
-          'end_captured_at': _isoSeconds(end),
+          'bbox': b.map((v) => v.toStringAsFixed(6)).join(','),
+          if (withDates) 'start_captured_at': _isoSeconds(start),
+          if (withDates) 'end_captured_at': _isoSeconds(end),
           'limit': '$limit',
         });
         try {
           json = await _getJson(uri);
+          lastError = null;
           break;
         } on ApiException catch (e) {
-          if (e.failure != ApiFailure.server || limit == 80) {
-            // Keep what the smaller searches already found.
-            if (found.isNotEmpty) return _spreadByYear(found.values.toList(), perYear: 6);
-            rethrow;
-          }
+          lastError = e;
+          if (e.failure != ApiFailure.server) break;
         }
       }
+      if (lastError != null) {
+        // Keep what the smaller searches already found.
+        if (found.isNotEmpty) break;
+        throw lastError;
+      }
       for (final p in parseMapillary(json, center)) {
-        found[p.id] = p;
+        final ms = p.date.millisecondsSinceEpoch;
+        if (ms <= cutoff && ms >= start.millisecondsSinceEpoch) found[p.id] = p;
       }
       if (found.length >= 12) break;
     }
