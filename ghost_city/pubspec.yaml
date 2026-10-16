@@ -1,0 +1,67 @@
+name: ghost_city
+description: "Ghost City: see any street as it was, through real archive photos over your live camera."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  camera: ^0.12.1
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  flutter_tts: ^4.2.5
+  record: ^7.1.2
+  audioplayers: ^6.8.1
+  path_provider: ^2.1.6
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/photos/
+
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope_400Regular.ttf
+        - asset: assets/fonts/Manrope_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope_700Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope_800ExtraBold.ttf
+          weight: 800
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces_400Regular.ttf
+        - asset: assets/fonts/Fraunces_400Regular_Italic.ttf
+          style: italic
+        - asset: assets/fonts/Fraunces_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Fraunces_600SemiBold.ttf
+          weight: 600
