@@ -11,7 +11,7 @@ Usage: python3 tools/validate_curriculum.py [--stats]
 import os, re, sys
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "assets", "curriculum")
-PLACEHOLDERS = re.compile(r"\b(TODO|TBD|lorem ipsum|placeholder text|coming soon)\b", re.I)
+PLACEHOLDERS = re.compile(r"\bTODO\b|\bTBD\b|(?i:lorem ipsum|placeholder text|coming soon)")
 errors, stats = [], {"lessons": 0, "questions": 0, "words": 0, "code_blocks": 0}
 seen_ids = set()
 
@@ -75,6 +75,7 @@ def check_body(body, lid, is_project):
     if "## Summary" not in text: err(f"{lid}: missing '## Summary'")
     if text.count("```") % 2: err(f"{lid}: unbalanced code fences")
     if PLACEHOLDERS.search(text): err(f"{lid}: placeholder text found")
+    if re.search(r"^\|", text, re.M): err(f"{lid}: Markdown tables are not supported by the lesson renderer")
 
 def check_module(path, course):
     lines = open(path, encoding="utf-8").read().split("\n")
