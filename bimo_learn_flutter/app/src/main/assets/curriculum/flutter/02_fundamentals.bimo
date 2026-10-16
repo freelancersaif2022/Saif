@@ -1,0 +1,1135 @@
+@module flutter-m02 | Flutter Fundamentals
+@summary Widgets, stateless and stateful widgets, the widget tree, BuildContext, lifecycle, hot reload, MaterialApp and Scaffold.
+
+@lesson flutter-m02-l01 | Widgets | 12
+## Learning objectives
+- Explain what a widget is and why widgets are immutable
+- Compose small widgets into larger ones
+- Recognise layout, visual and interactive widgets
+
+## Widgets are descriptions
+A **widget** is an immutable description of part of the user interface. It doesn't *draw* anything itself; it's a lightweight configuration object that Flutter uses to create and update elements and render objects (Module 1).
+
+```dart
+import 'package:flutter/material.dart';
+
+class PriceTag extends StatelessWidget {
+  const PriceTag({super.key, required this.amount});
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '\$${amount.toStringAsFixed(2)}',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+```
+
+`PriceTag` is a custom widget made by **composing** `Container`, `BoxDecoration` (a description, not a widget) and `Text`.
+
+## Immutability
+All widget fields are `final`. To show something different, Flutter builds a **new** widget with new values. Because widgets are cheap, this is fast, and immutability makes UI predictable: a widget always looks the same for the same configuration.
+
+## Kinds of widgets
+- **Layout**: `Row`, `Column`, `Stack`, `Padding`, `Center`, `Expanded`, `ListView`
+- **Visual**: `Text`, `Image`, `Icon`, `Container`, `Card`, `DecoratedBox`
+- **Interactive**: `ElevatedButton`, `TextField`, `Checkbox`, `GestureDetector`, `InkWell`
+- **Structural**: `MaterialApp`, `Scaffold`, `AppBar`, `Navigator`
+- **Inherited/state**: `Theme`, `MediaQuery`, and widgets that provide data to descendants
+
+## Composition over configuration
+Flutter widgets do one thing each. Instead of a `Text` with a `padding` property, you wrap the `Text` in a `Padding`. This feels verbose at first, but it means any widget can be padded, centred or made tappable in exactly the same way.
+
+```dart
+import 'package:flutter/material.dart';
+
+Widget tappableCentredLabel(VoidCallback onTap) {
+  return Center(
+    child: InkWell(
+      onTap: onTap,
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Tap me'),
+      ),
+    ),
+  );
+}
+```
+
+> TIP: When a `build` method gets long, extract parts into new widget classes (not helper methods). Separate widgets can be `const`, rebuild independently, and appear in the Flutter Inspector by name.
+
+:::check Can you change a Text widget's text after it is created?
+No. Widgets are immutable; Flutter creates a new Text widget with the new string on the next build.
+:::
+
+## Common mistakes
+- Looking for properties like `padding` or `margin` on every widget instead of wrapping.
+- Writing giant `build` methods instead of composing small widgets.
+
+## Summary
+- Widgets are immutable configuration objects; Flutter builds UIs from widget trees.
+- Small widgets compose into larger ones.
+- Layout, visual, interactive and structural widgets cover most needs.
+
+## Further learning
+- docs.flutter.dev ▸ UI ▸ Widget catalog
+@quiz
+? tf: Widget fields are typically final because widgets are immutable.
+= true
+> Widgets are immutable configuration; changes produce new widgets.
+? mcq: How do you add padding around a Text widget?
++ Wrap it in a Padding widget
+- Set Text.padding
+- Call text.addPadding()
+- Use CSS
+> Flutter composes behaviour by wrapping widgets.
+? fill: Building UIs by nesting small widgets inside each other is called ___.
+= composition
+> Composition is the core idea of Flutter UI.
+? mcq: Which of these is primarily a layout widget?
+- Text
+- Icon
++ Column
+- Image
+> Column arranges children vertically.
+? scenario: A build method has grown to 300 lines. What is the recommended refactor?
++ Extract sections into separate widget classes
+- Move everything into one helper method
+- Make the widget stateful
+- Remove const keywords
+> Separate widgets are reusable, can be const and rebuild independently.
+
+@lesson flutter-m02-l02 | StatelessWidget | 12
+## Learning objectives
+- Create StatelessWidgets with constructor parameters
+- Use `const` constructors and keys
+- Know when a widget can be stateless
+
+## Widgets without internal state
+A `StatelessWidget` has no mutable state of its own. Everything it displays comes from its **constructor parameters** and from inherited data like the theme. Its `build` method returns the widgets to show.
+
+```dart
+import 'package:flutter/material.dart';
+
+class LessonTile extends StatelessWidget {
+  const LessonTile({
+    super.key,
+    required this.title,
+    required this.minutes,
+    this.completed = false,
+    this.onTap,
+  });
+
+  final String title;
+  final int minutes;
+  final bool completed;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(completed ? Icons.check_circle : Icons.play_circle_outline),
+      title: Text(title),
+      subtitle: Text('$minutes min'),
+      onTap: onTap,
+    );
+  }
+}
+```
+
+The parent decides what to pass in. When the parent rebuilds with different values (for example, `completed: true`), Flutter calls `LessonTile.build` again with the new configuration.
+
+## Anatomy
+- `extends StatelessWidget`
+- A `const` constructor with `super.key`
+- `final` fields for configuration
+- `@override Widget build(BuildContext context)`
+
+## const constructors
+Mark the constructor `const` whenever all fields are final (they always are for widgets). Then callers can write `const LessonTile(title: 'Intro', minutes: 5)`, letting Flutter reuse the instance and skip rebuilding it.
+
+## Keys
+`super.key` forwards an optional `Key` to the base class. Keys help Flutter match widgets with their elements when lists reorder (covered later). Always accept the key parameter so callers can pass one.
+
+## Stateless doesn't mean static
+A stateless widget can display changing data: the data just lives somewhere else (a parent's state, a state-management object, a stream). It can also contain stateful children.
+
+```dart
+import 'package:flutter/material.dart';
+
+class Greeting extends StatelessWidget {
+  const Greeting({super.key, required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.headlineSmall;
+    return Text('Welcome back, $name!', style: style);
+  }
+}
+```
+
+> TIP: Start every new widget as stateless. Convert it to stateful only when it truly needs to own changing data.
+
+:::check Where does a StatelessWidget get the data it displays?
+From its constructor parameters and inherited widgets such as Theme or MediaQuery.
+:::
+
+## Common mistakes
+- Adding non-final fields to a StatelessWidget to "store" changing values; they're lost on rebuild.
+- Forgetting `super.key` in the constructor.
+
+## Summary
+- StatelessWidgets render purely from their configuration and inherited data.
+- Use const constructors and accept `super.key`.
+- Prefer stateless widgets; keep mutable state elsewhere.
+
+## Further learning
+- api.flutter.dev ▸ StatelessWidget
+@quiz
+? mcq: Which method must every StatelessWidget implement?
++ build
+- createState
+- initState
+- dispose
+> build returns the widget's UI.
+? tf: A StatelessWidget can never show data that changes over time.
+= false
+> It can, as long as the changing data comes from its parent or another source.
+? fill: The constructor parameter that forwards a key to the base class is written `super.___`.
+= key
+> super.key passes the optional key to Widget.
+? scenario: A button label widget only shows a label and calls a callback when tapped. Which kind should it be?
++ A StatelessWidget with label and onPressed parameters
+- A StatefulWidget storing the label
+- A global variable
+- An InheritedWidget
+> It owns no changing state, so stateless is right.
+? mcq: Why mark a widget constructor const?
++ So instances can be compile-time constants that Flutter can reuse without rebuilding
+- So the widget can store mutable state
+- To make it run on another isolate
+- It is required for every widget
+> const widgets are canonicalised and skipped during rebuilds.
+
+@lesson flutter-m02-l03 | StatefulWidget | 14
+## Learning objectives
+- Create StatefulWidgets and their State classes
+- Update UI with `setState`
+- Decide what belongs in local widget state
+
+## Widgets that own changing data
+A `StatefulWidget` is split into two classes:
+1. The **widget**: immutable configuration (like a StatelessWidget).
+2. The **State**: a long-lived object that holds mutable data and builds the UI.
+
+```dart
+import 'package:flutter/material.dart';
+
+class FavoriteButton extends StatefulWidget {
+  const FavoriteButton({super.key, this.initiallyFavorite = false});
+  final bool initiallyFavorite;
+
+  @override
+  State<FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends State<FavoriteButton> {
+  late bool _isFavorite = widget.initiallyFavorite;
+  int _taps = 0;
+
+  void _toggle() {
+    setState(() {
+      _isFavorite = !_isFavorite;
+      _taps++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
+          color: Colors.red,
+          tooltip: _isFavorite ? 'Remove from favourites' : 'Add to favourites',
+          onPressed: _toggle,
+        ),
+        Text('$_taps taps'),
+      ],
+    );
+  }
+}
+```
+
+## Why two classes?
+The widget is recreated every time the parent rebuilds, but the **State object survives** (as long as the widget stays at the same place in the tree with the same type and key). That's how `_isFavorite` persists across rebuilds.
+
+## setState
+`setState(fn)` runs `fn` and then marks the widget as **dirty**, so Flutter calls `build` again in the next frame. Rules:
+- Change state *inside* the callback (or just before calling it).
+- Never call `setState` in `build`.
+- Don't call it after the widget is disposed (check `mounted` after `await`).
+
+```dart
+Future<void> _load() async {
+  final data = await Future.delayed(const Duration(seconds: 1), () => 42);
+  if (!mounted) return;          // the user may have left the screen
+  setState(() => _value = data);
+}
+```
+
+## What is local state?
+Good candidates for `setState`: whether a panel is expanded, the current tab, a text field's focus, an animation's progress. Data shared across screens (logged-in user, shopping cart, lesson progress) belongs in a state-management solution (Module 6).
+
+> TIP: The State class is private (`_FavoriteButtonState`) because nothing outside should touch it directly.
+
+:::check What survives when a StatefulWidget's parent rebuilds: the widget or the State?
+The State object survives; the widget instance is replaced with a new configuration.
+:::
+
+## Common mistakes
+- Calling `setState` after `await` without checking `mounted`.
+- Storing app-wide data in a single widget's State and passing it down ten levels.
+
+## Summary
+- StatefulWidget = immutable widget + long-lived State.
+- `setState` updates fields and schedules a rebuild.
+- Use local state for UI details; share app data with state management.
+
+## Further learning
+- api.flutter.dev ▸ StatefulWidget
+- docs.flutter.dev ▸ UI ▸ Interactivity
+@quiz
+? mcq: Which method of a StatefulWidget creates its State object?
++ createState
+- build
+- initState
+- setState
+> createState returns the State instance.
+? tf: You should call setState inside the build method to refresh the UI.
+= false
+> Calling setState during build causes errors and infinite rebuild loops.
+? fill: After an await in a State method, check the ___ property before calling setState.
+= mounted
+> mounted is false once the State is disposed.
+? mcq: How does a State object access its widget's configuration?
++ Through the widget property, e.g. widget.title
+- Through context.parent
+- Through a global variable
+- Through createState()
+> State.widget holds the current widget configuration.
+? scenario: Whether a FAQ answer is expanded only matters to that one card. Where should the expanded flag live?
++ In the card's State, updated with setState
+- In a global singleton
+- In the app's database
+- In the MaterialApp
+> Purely local UI state belongs in the widget's own State.
+
+@lesson flutter-m02-l04 | The widget tree | 12
+## Learning objectives
+- Read and design widget trees
+- Understand parent-child relationships and data flow
+- Use the Flutter Inspector to explore trees
+
+## Trees all the way down
+Every Flutter UI is a **tree**: `MaterialApp` at the root, screens below it, then layouts, then leaves like `Text` and `Icon`.
+
+```dart
+import 'package:flutter/material.dart';
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+            const SizedBox(height: 12),
+            Text('Ada Lovelace', style: Theme.of(context).textTheme.headlineSmall),
+            const Text('Level 7 • Widget Builder'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+```diagram
+Scaffold
+├── AppBar
+│   └── Text("Profile")
+└── Padding
+    └── Column
+        ├── CircleAvatar
+        │   └── Icon
+        ├── SizedBox
+        ├── Text("Ada Lovelace")
+        └── Text("Level 7 • Widget Builder")
+```
+
+## child vs children
+- Single-child widgets take `child:` (Padding, Center, Container, Card).
+- Multi-child widgets take `children:` with a list (Row, Column, Stack, ListView, Wrap).
+
+## Data flows down, events flow up
+- **Down**: parents pass data to children through constructor parameters.
+- **Up**: children notify parents through **callbacks** (`onPressed`, `onChanged`).
+
+```dart
+import 'package:flutter/material.dart';
+
+class QuantityPicker extends StatelessWidget {
+  const QuantityPicker({super.key, required this.value, required this.onChanged});
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(icon: const Icon(Icons.remove), onPressed: value > 1 ? () => onChanged(value - 1) : null),
+      Text('$value'),
+      IconButton(icon: const Icon(Icons.add), onPressed: () => onChanged(value + 1)),
+    ]);
+  }
+}
+```
+
+The picker doesn't own the number: the parent does, and it decides what to do when `onChanged` is called. This is called **lifting state up**.
+
+## Inspecting the tree
+Open the **Flutter Inspector** (DevTools or IDE) to see the live widget tree, select widgets on the device, and view layout details such as constraints and sizes.
+
+> TIP: Use trailing commas after the last argument. The formatter then lays nested widgets out vertically, making the tree shape visible in your code.
+
+:::check How does a child widget tell its parent that something happened?
+Through a callback passed down by the parent, such as onPressed or onChanged.
+:::
+
+## Common mistakes
+- Passing `children: [ ... ]` to single-child widgets or `child:` to multi-child ones.
+- Letting children mutate parent data directly instead of using callbacks.
+
+## Summary
+- Flutter UIs are widget trees with `child`/`children` relationships.
+- Data flows down via constructors; events flow up via callbacks.
+- Use the Flutter Inspector and trailing commas to see the tree clearly.
+
+## Further learning
+- docs.flutter.dev ▸ UI ▸ Layout ▸ Lay out a widget
+@quiz
+? mcq: Which property does Column use for its widgets?
+- child
++ children
+- items
+- body
+> Multi-child widgets use a children list.
+? tf: In Flutter, data typically flows down the tree through constructor parameters.
+= true
+> Parents configure children; children report back with callbacks.
+? fill: Moving state from a child to a shared parent so siblings can use it is called lifting state ___.
+= up
+> Lifting state up lets the parent own and distribute data.
+? mcq: What type is commonly used for a callback that receives the new value?
++ ValueChanged<T>
+- VoidCallback
+- Future<T>
+- Stream<T>
+> ValueChanged<T> is void Function(T value).
+? scenario: Two sibling widgets must show the same counter. Where should the counter live?
++ In their closest common ancestor, passed down to both
+- Duplicated in each sibling's state
+- In a const variable
+- In the AppBar
+> Shared state belongs in a common ancestor (or a state-management object).
+
+@lesson flutter-m02-l05 | BuildContext | 12
+## Learning objectives
+- Explain what BuildContext represents
+- Look up inherited data with `Theme.of`, `MediaQuery.of` and others
+- Avoid common context mistakes
+
+## Your position in the tree
+Every `build` method receives a `BuildContext`. It is a handle to the widget's **location in the element tree**. Through it, a widget can look **up** the tree to find ancestors and inherited data.
+
+```dart
+import 'package:flutter/material.dart';
+
+class ScreenInfo extends StatelessWidget {
+  const ScreenInfo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);            // nearest Theme
+    final size = MediaQuery.sizeOf(context);    // screen size
+    final colors = theme.colorScheme;
+    return Container(
+      color: colors.primaryContainer,
+      padding: const EdgeInsets.all(16),
+      child: Text(
+        'Width: ${size.width.toStringAsFixed(0)} dp',
+        style: theme.textTheme.titleMedium?.copyWith(color: colors.onPrimaryContainer),
+      ),
+    );
+  }
+}
+```
+
+## The `.of(context)` pattern
+Many Flutter APIs follow the pattern `Something.of(context)`:
+- `Theme.of(context)`: colours and text styles
+- `MediaQuery.sizeOf(context)`, `MediaQuery.paddingOf(context)`: screen metrics
+- `Navigator.of(context)`: push and pop routes
+- `ScaffoldMessenger.of(context)`: show SnackBars
+- `DefaultTextStyle.of(context)`, `Localizations.localeOf(context)`
+
+These find the **nearest ancestor** of that type. Widgets that call `Theme.of(context)` are also **registered as dependents**, so they rebuild automatically when the theme changes.
+
+## Context mistakes
+**1. Using a context above the widget you're looking for.**
+
+```dart
+import 'package:flutter/material.dart';
+
+class BadExample extends StatelessWidget {
+  const BadExample({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        // Builder gives us a context *below* Scaffold.
+        child: Builder(
+          builder: (innerContext) => ElevatedButton(
+            onPressed: () => ScaffoldMessenger.of(innerContext)
+                .showSnackBar(const SnackBar(content: Text('Saved'))),
+            child: const Text('Save'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+(`ScaffoldMessenger` is provided by `MaterialApp`, so this particular call works with either context, but the same issue applies to `Scaffold.of(context)` or a provider created in the same `build`: you need a context below it, which `Builder` or a separate widget gives you.)
+
+**2. Using a context after an `await` when the widget may be gone.** Check `context.mounted` first:
+
+```dart
+import 'package:flutter/material.dart';
+
+Future<void> saveAndClose(BuildContext context) async {
+  await Future.delayed(const Duration(milliseconds: 300));
+  if (!context.mounted) return;
+  Navigator.of(context).pop();
+}
+```
+
+> TIP: `MediaQuery.sizeOf(context)` rebuilds only when the size changes, unlike `MediaQuery.of(context).size`, which rebuilds on any MediaQuery change (keyboard, padding...). Prefer the specific methods.
+
+:::check What does Theme.of(context) return when there are two Themes above the widget?
+The nearest one (closest ancestor).
+:::
+
+## Common mistakes
+- Looking up something that is created in the same build method with that build's own context.
+- Using a stale context after async gaps without checking `context.mounted`.
+
+## Summary
+- BuildContext is a widget's location in the tree.
+- `X.of(context)` finds the nearest ancestor and registers a dependency.
+- Use `Builder` or a child widget for a context below a newly created ancestor; check `context.mounted` after `await`.
+
+## Further learning
+- api.flutter.dev ▸ BuildContext
+@quiz
+? mcq: What does BuildContext represent?
++ The widget's location in the element tree
+- The current screen's pixels
+- The app's database
+- A copy of the widget
+> Context is a handle to the element for that widget.
+? tf: Theme.of(context) searches down the tree for the nearest Theme.
+= false
+> It looks up the tree for the nearest ancestor.
+? fill: After an await, check `context.___` before using the context.
+= mounted
+> context.mounted tells you whether the element is still in the tree.
+? mcq: Which call is the most efficient way to read only the screen size?
++ MediaQuery.sizeOf(context)
+- MediaQuery.of(context).size
+- Theme.of(context).size
+- context.size()
+> sizeOf only rebuilds when the size changes.
+? scenario: Scaffold.of(context) fails with "no Scaffold found" when called from a button created in the same build method that creates the Scaffold. What fixes it?
++ Use a Builder (or a separate child widget) to get a context below the Scaffold
+- Call setState first
+- Make the widget const
+- Use a GlobalKey on the button
+> The original context is above the Scaffold being created.
+
+@lesson flutter-m02-l06 | The State lifecycle | 14
+## Learning objectives
+- Know the order of State lifecycle methods
+- Initialise and dispose resources correctly
+- React to configuration changes with didUpdateWidget
+
+## Lifecycle at a glance
+```diagram
+createState()
+     │
+initState()            ← once: set up controllers, listeners
+     │
+didChangeDependencies()← after initState and when inherited data changes
+     │
+build()  ◀──────────── setState() / parent rebuild / dependency change
+     │
+didUpdateWidget(old)   ← parent rebuilt with a new widget configuration
+     │
+deactivate()           ← removed from the tree (may be reinserted)
+     │
+dispose()              ← permanently removed: release resources
+```
+
+## A complete example
+```dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+class CountdownText extends StatefulWidget {
+  const CountdownText({super.key, required this.seconds});
+  final int seconds;
+
+  @override
+  State<CountdownText> createState() => _CountdownTextState();
+}
+
+class _CountdownTextState extends State<CountdownText> {
+  late int _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();               // always call super first
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(CountdownText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.seconds != widget.seconds) _start(); // config changed: restart
+  }
+
+  void _start() {
+    _timer?.cancel();
+    _remaining = widget.seconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_remaining <= 1) t.cancel();
+      setState(() => _remaining--);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();                // release resources
+    super.dispose();                 // always call super last
+  }
+
+  @override
+  Widget build(BuildContext context) => Text('$_remaining s');
+}
+```
+
+## What goes where
+- **initState**: create controllers (`TextEditingController`, `AnimationController`), subscribe to streams, start timers. You can't use `Theme.of(context)` or other inherited lookups here.
+- **didChangeDependencies**: work that depends on inherited widgets (for example, reading `Localizations` or a provider once).
+- **build**: describe UI only. No side effects, no network calls.
+- **didUpdateWidget**: compare `oldWidget` with `widget` and react to changed parameters.
+- **dispose**: cancel timers and subscriptions, dispose controllers and focus nodes.
+
+> IMPORTANT: Call `super.initState()` first and `super.dispose()` last.
+
+## Async work in initState
+`initState` can't be `async`, but it can start async work:
+
+```dart
+// inside a State class
+// @override
+// void initState() {
+//   super.initState();
+//   _loadProfile(); // async method; check `mounted` before setState inside it
+// }
+```
+
+:::check Can you call Theme.of(context) inside initState?
+No. Inherited lookups aren't allowed in initState; use didChangeDependencies or build.
+:::
+
+## Common mistakes
+- Forgetting to dispose controllers and cancel timers, leaking memory.
+- Doing heavy work or network calls in `build`.
+
+## Summary
+- `initState` sets up, `didChangeDependencies` reacts to inherited data, `build` renders, `didUpdateWidget` handles new configs, `dispose` cleans up.
+- Call `super` first in initState and last in dispose.
+- Keep `build` pure; start async work from initState.
+
+## Further learning
+- api.flutter.dev ▸ State class ▸ Lifecycle
+@quiz
+? order: Put these lifecycle methods in the order they first run.
+~ createState
+~ initState
+~ didChangeDependencies
+~ build
+> The State is created, initialised, receives dependencies, then builds.
+? mcq: Where should you dispose a TextEditingController?
++ In dispose()
+- In build()
+- In initState()
+- Nowhere; it disposes itself
+> Controllers hold resources that must be released in dispose.
+? tf: initState can be marked async so you can await inside it.
+= false
+> initState must be synchronous; start async work from it without awaiting.
+? fill: The lifecycle method called when the parent rebuilds with a new configuration is did___Widget.
+= Update
+> didUpdateWidget(oldWidget) lets you compare configurations.
+? scenario: A countdown widget's `seconds` parameter changes from 10 to 30, but the timer keeps counting from the old value. Which method should handle this?
++ didUpdateWidget, comparing oldWidget.seconds with widget.seconds
+- dispose
+- createState
+- build, by restarting the timer every frame
+> didUpdateWidget reacts to configuration changes.
+
+@lesson flutter-m02-l07 | Hot reload | 10
+## Learning objectives
+- Explain how hot reload works
+- Know which changes hot reload can and can't apply
+- Use hot reload effectively during UI development
+
+## Change code, keep state
+**Hot reload** injects updated Dart source into the running app (using the JIT-compiled Dart VM in debug mode), then rebuilds the widget tree. Your app **keeps its state**: you stay on the same screen with the same data, and see your change in about a second.
+
+Trigger it by saving in your IDE, pressing the ⚡ button, or typing `r` in the `flutter run` terminal.
+
+## What hot reload applies
+After reload, Flutter calls `build` again on widgets, so anything evaluated **during build** reflects your changes:
+
+```dart
+import 'package:flutter/material.dart';
+
+class Banner2 extends StatelessWidget {
+  const Banner2({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Change the text or colour, save, and you'll see it immediately.
+    return Container(
+      color: Colors.indigo,
+      padding: const EdgeInsets.all(24),
+      child: const Text('Learn Flutter', style: TextStyle(color: Colors.white, fontSize: 24)),
+    );
+  }
+}
+```
+
+## What hot reload can't apply
+Code that already ran and won't run again isn't affected:
+- Changes to `main()` or code that runs before `runApp`
+- Changes to `initState()` for widgets already created
+- Initialisers of global or static variables (they keep their old values)
+- Changing a StatelessWidget to a StatefulWidget (or vice versa) may require a restart
+- Changes to enum or generic type declarations in some cases
+- Native code (Kotlin, Swift, Gradle, Info.plist) or new plugins
+
+In these cases use **hot restart** (next lesson) or a full rebuild.
+
+## Debug only
+Hot reload works only in **debug mode** (JIT). Profile and release builds are AOT-compiled for speed and don't support it.
+
+## Tips for fast UI iteration
+- Keep the screen you're working on open; hot reload preserves navigation state.
+- Temporarily set your screen as `home:` while designing it.
+- Use the Inspector's "Select widget" mode to jump from a widget on screen to its code.
+
+> TIP: If hot reload prints "Reloaded 0 libraries", the file you edited wasn't saved or isn't part of the app.
+
+:::check Why doesn't hot reload show a change you made inside initState?
+initState already ran for the existing State; hot reload rebuilds widgets but doesn't re-run initState.
+:::
+
+## Common mistakes
+- Expecting hot reload to reset counters or reload data; it intentionally keeps state.
+- Debugging "bugs" that are actually stale state from many reloads; hot restart to get a clean slate.
+
+## Summary
+- Hot reload injects new code and rebuilds while keeping state.
+- It doesn't re-run main, initState or global initialisers, nor apply native changes.
+- It works only in debug mode.
+
+## Further learning
+- docs.flutter.dev ▸ Tools ▸ Hot reload
+@quiz
+? tf: Hot reload preserves the current app state.
+= true
+> State is kept; widgets are rebuilt with new code.
+? mcq: Which change requires more than a hot reload?
+- Changing a Text widget's string
+- Changing a colour in build
++ Adding a new native plugin
+- Changing padding values
+> Native code changes need a full rebuild.
+? fill: In the flutter run terminal, press lowercase ___ for hot reload.
+= r
+> r hot reloads; R hot restarts.
+? mcq: In which build mode does hot reload work?
++ Debug
+- Profile
+- Release
+- All modes
+> Hot reload relies on the JIT compiler used in debug mode.
+? scenario: You changed a global `final apiUrl = ...` initialiser, but the app keeps using the old URL after hot reload. Why?
++ Global initialisers already ran and keep their values; hot restart is needed
+- The network is cached
+- Hot reload is broken
+- The variable must be const
+> Hot reload doesn't re-run initialisers of existing globals.
+
+@lesson flutter-m02-l08 | Hot restart | 8
+## Learning objectives
+- Distinguish hot restart from hot reload and full restart
+- Choose the right one for each change
+- Troubleshoot stale state
+
+## Restart the Dart side
+**Hot restart** reloads your code and **restarts the Dart application from `main()`**, clearing all state, without rebuilding the native app. It takes a few seconds, much faster than stopping and running again.
+
+Trigger it with `R` in the terminal, the restart button in your IDE, or `Ctrl+Shift+F5` / `⇧⌘F5` in VS Code.
+
+## The three levels
+- **Hot reload**: about a second. Applies code changes, keeps state. Use for UI tweaks and logic in build or event handlers.
+- **Hot restart**: a few seconds. Re-runs `main()`, resets all Dart state. Use for changes to `main`, `initState`, globals, enums, app initialisation, or when state is messed up.
+- **Full restart / rebuild**: tens of seconds or more. Recompiles native code. Use after adding plugins, editing Gradle/Kotlin/Swift, the manifest or Info.plist, or assets that require native packaging.
+
+## Example: when hot restart is needed
+```dart
+import 'package:flutter/material.dart';
+
+late final String flavour; // initialised once at startup
+
+void main() {
+  flavour = 'staging'; // change to 'production' → needs hot restart
+  runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Flavour: $flavour')))));
+}
+```
+
+Changing `'staging'` and hot reloading does nothing, because `main` doesn't run again. Hot restart runs it, so the new value appears.
+
+## Assets
+Adding a new image to an already-declared assets folder usually works with hot restart (sometimes even hot reload). Changing the `assets:` section of `pubspec.yaml` requires stopping and running the app again.
+
+> TIP: When behaviour seems impossible ("this should work!"), hot restart before debugging. Stale state from many hot reloads is a common source of confusion.
+
+:::check Does hot restart reinstall the native app?
+No. It restarts the Dart side only; native code isn't rebuilt.
+:::
+
+## Common mistakes
+- Running a full rebuild for every change, wasting minutes.
+- Expecting hot restart to pick up new plugins.
+
+## Summary
+- Hot restart re-runs `main()` and clears state without a native rebuild.
+- Use reload for UI tweaks, restart for startup/global changes, full rebuild for native changes.
+
+## Further learning
+- docs.flutter.dev ▸ Tools ▸ Hot reload ▸ Special cases
+@quiz
+? mcq: What does hot restart do?
++ Re-runs main() and resets Dart state without rebuilding native code
+- Rebuilds the native app from scratch
+- Keeps all state and injects code
+- Uninstalls the app
+> Hot restart restarts the Dart program.
+? fill: In the flutter run terminal, press uppercase ___ for hot restart.
+= R
+> Capital R triggers hot restart.
+? tf: After adding a new plugin that includes native code, hot restart is enough.
+= false
+> Native changes require stopping and rebuilding the app.
+? scenario: You changed code inside main() before runApp. What is the fastest way to see the effect?
++ Hot restart
+- Hot reload
+- Uninstall and reinstall
+- flutter clean then rebuild
+> Hot restart re-runs main quickly.
+? mcq: Which change requires a full rebuild?
++ Editing AndroidManifest.xml
+- Changing a widget's colour
+- Renaming a local variable in build
+- Changing a Text string
+> Native configuration is compiled into the native app.
+
+@lesson flutter-m02-l09 | MaterialApp | 12
+## Learning objectives
+- Configure MaterialApp: title, theme, dark theme, home and routes
+- Understand what MaterialApp provides to the tree
+- Set up debug options
+
+## The root of a Material app
+`MaterialApp` wraps your app with everything Material Design widgets need:
+- A `Navigator` for routes
+- `Theme` (light and dark), `MediaQuery`, `Localizations`
+- `ScaffoldMessenger` for SnackBars
+- Text direction, title for the OS task switcher, and more
+
+```dart
+import 'package:flutter/material.dart';
+
+void main() => runApp(const BimoDemoApp());
+
+class BimoDemoApp extends StatelessWidget {
+  const BimoDemoApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Bimo Demo',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6750F5)),
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6750F5),
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: ThemeMode.system,
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: Text('Welcome to Bimo')));
+}
+```
+
+## Key properties
+- `title`: app name shown by the OS (for example, in the recent apps list on Android).
+- `theme`, `darkTheme`, `themeMode`: light/dark themes and which to use (`system`, `light`, `dark`).
+- `home`: the first screen.
+- `routes`, `initialRoute`, `onGenerateRoute`: named routes (Module 5); for complex apps use `MaterialApp.router` with `go_router`.
+- `locale`, `supportedLocales`, `localizationsDelegates`: internationalisation (Module 13).
+- `debugShowCheckedModeBanner`: hides the red "DEBUG" banner.
+
+## Material 3
+Since Flutter 3.16, `useMaterial3` defaults to `true`. `ColorScheme.fromSeed` generates a complete, accessible palette from one colour. Module 4 dives into theming.
+
+## MaterialApp vs CupertinoApp vs WidgetsApp
+- `MaterialApp`: Material Design (Android and cross-platform look).
+- `CupertinoApp`: iOS-style widgets and navigation.
+- `WidgetsApp`: the minimal base without a design system.
+
+Most apps use `MaterialApp` and adapt specific widgets per platform when needed.
+
+> TIP: Create exactly one `MaterialApp` at the root. Nesting MaterialApps creates separate navigators and themes and causes confusing bugs.
+
+:::check Which property chooses between light and dark themes?
+themeMode (system, light or dark).
+:::
+
+## Common mistakes
+- Creating a new `MaterialApp` inside a screen.
+- Defining colours ad hoc throughout the app instead of in the theme.
+
+## Summary
+- MaterialApp provides navigation, theming, media queries, localisation and SnackBar support.
+- Configure `theme`, `darkTheme` and `themeMode`; set `home` or routes.
+- Use one MaterialApp at the root.
+
+## Further learning
+- api.flutter.dev ▸ MaterialApp
+@quiz
+? mcq: Which property sets the first screen of a MaterialApp?
++ home
+- start
+- body
+- firstRoute
+> home is the default route widget.
+? tf: Since Flutter 3.16, Material 3 is enabled by default.
+= true
+> useMaterial3 defaults to true.
+? fill: To generate a full palette from one colour, use `ColorScheme.from___(seedColor: ...)`.
+= Seed
+> ColorScheme.fromSeed creates an accessible scheme from a seed colour.
+? mcq: Which property hides the DEBUG banner?
++ debugShowCheckedModeBanner: false
+- showBanner: false
+- debug: false
+- banner: null
+> debugShowCheckedModeBanner controls the banner.
+? scenario: A developer wraps a settings screen in its own MaterialApp, and now Navigator.pop doesn't return to the previous screen. Why?
++ The nested MaterialApp created a separate Navigator
+- pop only works on iOS
+- The screen must be stateful
+- The theme is missing
+> One MaterialApp at the root avoids multiple navigators.
+
+@lesson flutter-m02-l10 | Scaffold | 12
+## Learning objectives
+- Build screens with Scaffold slots: appBar, body, FAB, navigation, drawer
+- Show SnackBars and bottom sheets
+- Handle safe areas and keyboard insets
+
+## A screen's skeleton
+`Scaffold` implements the basic Material screen layout and positions standard elements correctly:
+
+```dart
+import 'package:flutter/material.dart';
+
+class NotesScreen extends StatelessWidget {
+  const NotesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My notes'),
+        actions: [
+          IconButton(icon: const Icon(Icons.search), tooltip: 'Search', onPressed: () {}),
+        ],
+      ),
+      drawer: const Drawer(child: Center(child: Text('Menu'))),
+      body: ListView(
+        children: const [
+          ListTile(title: Text('Shopping list')),
+          ListTile(title: Text('Lesson ideas')),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('New note created')),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('New note'),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.notes), label: 'Notes'),
+          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Slots
+- `appBar`: top bar with title and actions
+- `body`: main content (takes the remaining space)
+- `floatingActionButton` (+ `floatingActionButtonLocation`)
+- `bottomNavigationBar`: `NavigationBar` or `BottomAppBar`
+- `drawer` / `endDrawer`: side menus (opened by the AppBar's menu icon or a swipe)
+- `bottomSheet`: a persistent bottom sheet
+- `backgroundColor`, `resizeToAvoidBottomInset`
+
+## SnackBars and bottom sheets
+```dart
+import 'package:flutter/material.dart';
+
+void showUndo(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text('Lesson removed'),
+      action: SnackBarAction(label: 'Undo', onPressed: () {}),
+    ),
+  );
+}
+
+Future<void> showOptions(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => const SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: Icon(Icons.share), title: Text('Share')),
+        ListTile(leading: Icon(Icons.delete), title: Text('Delete')),
+      ]),
+    ),
+  );
+}
+```
+
+## Safe areas and the keyboard
+`Scaffold` automatically avoids system bars for its app bar and handles the keyboard: with `resizeToAvoidBottomInset: true` (the default), the body shrinks when the keyboard opens so text fields stay visible. For content without an app bar (like a full-screen image), wrap it in `SafeArea` to avoid notches and status bars.
+
+> TIP: Each route (screen) usually has its own Scaffold. Don't nest Scaffolds inside each other unless you know why.
+
+:::check Which object shows SnackBars in modern Flutter?
+ScaffoldMessenger, via ScaffoldMessenger.of(context).showSnackBar(...).
+:::
+
+## Common mistakes
+- Nesting Scaffolds, producing double app bars or wrong keyboard handling.
+- Putting content under the status bar on screens without an AppBar; use SafeArea.
+
+## Summary
+- Scaffold provides slots for app bar, body, FAB, navigation bar, drawers and sheets.
+- Use ScaffoldMessenger for SnackBars and showModalBottomSheet for sheets.
+- Scaffold handles insets; use SafeArea where there's no app bar.
+
+## Further learning
+- api.flutter.dev ▸ Scaffold
+@quiz
+? mcq: Which Scaffold slot holds a NavigationBar?
++ bottomNavigationBar
+- appBar
+- drawer
+- body
+> NavigationBar goes in bottomNavigationBar.
+? tf: SnackBars should be shown with ScaffoldMessenger.of(context).
+= true
+> ScaffoldMessenger manages SnackBars across routes.
+? fill: To keep content clear of notches on a screen without an AppBar, wrap it in ___.
+= SafeArea
+> SafeArea adds padding for system UI intrusions.
+? mcq: What happens by default when the keyboard opens in a Scaffold?
++ The body resizes so focused fields stay visible
+- The keyboard covers everything
+- The app restarts
+- The AppBar disappears
+> resizeToAvoidBottomInset defaults to true.
+? scenario: A screen shows two app bars stacked on top of each other. What is the likely cause?
++ A Scaffold nested inside another Scaffold
+- A missing SafeArea
+- Using const widgets
+- A NavigationBar in the body
+> Nested Scaffolds each render their own app bar.

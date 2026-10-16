@@ -108,7 +108,7 @@ dependencies:
         print("pub get failed:", pg.stdout[-2000:], pg.stderr[-2000:])
     res = subprocess.run([tool, "analyze", "--no-fatal-warnings", "lib"], cwd=work, capture_output=True, text=True)
     out = res.stdout + res.stderr
-    problems = [l for l in out.splitlines() if l.strip().startswith("error")]
+    problems = [l for l in out.splitlines() if l.strip().startswith("error") or "deprecated_member_use" in l]
     for l in problems:
         m = re.search(r"(s\d{4}\.dart):(\d+)", l)
         where = index.get(m.group(1), "?") + f" +{m.group(2)}" if m else ""
