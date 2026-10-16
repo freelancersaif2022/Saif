@@ -1,0 +1,57 @@
+name: Build Ghost City APK
+
+on:
+  push:
+    paths:
+      - 'ghost_city/**'
+      - '.github/workflows/ghost-city-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ghost_city
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/GhostCity.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GhostCity-apk
+          path: ghost_city/build/app/outputs/flutter-apk/GhostCity.apk
+
+      - name: Publish release for phone download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ghost-city-build-${{ github.run_number }}
+          name: Ghost City (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          body: Android APK for Ghost City. Download GhostCity.apk on your phone and open it to install.
+          files: ghost_city/build/app/outputs/flutter-apk/GhostCity.apk
