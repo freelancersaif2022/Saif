@@ -131,15 +131,29 @@ class ArchiveApi {
     final found = <String, PastPhoto>{};
     for (final radius in const [250.0, 700.0, 1500.0]) {
       final box = _bbox(center, radius);
-      final uri = Uri.https('graph.mapillary.com', '/images', {
-        'access_token': mapillaryToken,
-        'fields': 'id,captured_at,compass_angle,computed_geometry,geometry,thumb_256_url,thumb_1024_url,thumb_2048_url,creator,is_pano',
-        'bbox': box.map((v) => v.toStringAsFixed(6)).join(','),
-        'start_captured_at': _isoSeconds(start),
-        'end_captured_at': _isoSeconds(end),
-        'limit': '400',
-      });
-      final json = await _getJson(uri);
+      // Busy places (Times Square, big squares) can make Mapillary answer HTTP 500
+      // for large pages, so retry the same area with a smaller page.
+      dynamic json;
+      for (final limit in const [300, 80]) {
+        final uri = Uri.https('graph.mapillary.com', '/images', {
+          'access_token': mapillaryToken,
+          'fields': 'id,captured_at,compass_angle,computed_geometry,geometry,thumb_1024_url,thumb_2048_url,creator,is_pano',
+          'bbox': box.map((v) => v.toStringAsFixed(6)).join(','),
+          'start_captured_at': _isoSeconds(start),
+          'end_captured_at': _isoSeconds(end),
+          'limit': '$limit',
+        });
+        try {
+          json = await _getJson(uri);
+          break;
+        } on ApiException catch (e) {
+          if (e.failure != ApiFailure.server || limit == 80) {
+            // Keep what the smaller searches already found.
+            if (found.isNotEmpty) return _spreadByYear(found.values.toList(), perYear: 6);
+            rethrow;
+          }
+        }
+      }
       for (final p in parseMapillary(json, center)) {
         found[p.id] = p;
       }
@@ -316,6 +330,7 @@ class ArchiveApi {
       'format': 'jsonv2',
       'limit': '8',
       'addressdetails': '0',
+      'accept-language': 'en',
     }));
     if (json is! List) return const [];
     return [
@@ -336,6 +351,7 @@ class ArchiveApi {
       'lon': '${p.longitude}',
       'format': 'jsonv2',
       'zoom': '17',
+      'accept-language': 'en',
     }));
     if (json is! Map) return null;
     final a = json['address'];
