@@ -55,6 +55,27 @@ const _licences = [
   _Section('Software', 'Built with Flutter and open-source packages under their own licences (BSD, MIT and Apache 2.0).'),
 ];
 
+const _highlights = {
+  LegalDoc.privacy: [
+    (Icons.person_off_outlined, 'No account'),
+    (Icons.block_rounded, 'No ads'),
+    (Icons.insights_rounded, 'No tracking'),
+    (Icons.phone_android_rounded, 'Stays on your phone'),
+  ],
+  LegalDoc.terms: [
+    (Icons.person_outline_rounded, 'Personal use'),
+    (Icons.directions_walk_rounded, 'Walk safely'),
+    (Icons.photo_library_outlined, 'Credited sources'),
+    (Icons.workspace_premium_outlined, 'Plus optional'),
+  ],
+  LegalDoc.licences: [
+    (Icons.streetview_rounded, 'Mapillary'),
+    (Icons.menu_book_rounded, 'Wikipedia'),
+    (Icons.satellite_alt_rounded, 'Esri Wayback'),
+    (Icons.map_outlined, 'OpenStreetMap'),
+  ],
+};
+
 class LegalScreen extends StatelessWidget {
   const LegalScreen({super.key, required this.doc});
   final LegalDoc doc;
@@ -62,32 +83,184 @@ class LegalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
-    final (title, sections) = switch (doc) {
-      LegalDoc.privacy => ('Privacy policy', _privacy),
-      LegalDoc.terms => ('Terms & conditions', _terms),
-      LegalDoc.licences => ('Licences', _licences),
+    final (title, intro, icon, sections) = switch (doc) {
+      LegalDoc.privacy => ('Privacy policy', 'How Ghost City handles your location, camera, microphone and memories.', Icons.privacy_tip_outlined, _privacy),
+      LegalDoc.terms => ('Terms & conditions', 'The rules for using Ghost City and the content it shows.', Icons.gavel_rounded, _terms),
+      LegalDoc.licences => ('Licences', 'Where every photo, text, map and font in Ghost City comes from.', Icons.copyright_rounded, _licences),
     };
+    final highlights = _highlights[doc]!;
+
     return Scaffold(
       backgroundColor: GC.ground,
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(22, pad.top + 10, 22, pad.bottom + 30),
-        children: [
-          Row(children: [
-            GlassIconButton(icon: Icons.arrow_back_rounded, tooltip: 'Back', onPressed: () => Navigator.of(context).pop()),
-          ]),
-          const SizedBox(height: 18),
-          Text(title, style: GC.display(32)),
-          const SizedBox(height: 6),
-          Text(_updated, style: GC.body(13, color: GC.faint)),
-          const SizedBox(height: 22),
-          for (final s in sections) ...[
-            Text(s.heading, style: GC.body(16, color: GC.text, weight: FontWeight.w700, height: 1.3)),
-            const SizedBox(height: 6),
-            Text(s.body, style: GC.body(15, height: 1.6)),
-            const SizedBox(height: 20),
-          ],
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: GC.ground,
+            surfaceTintColor: Colors.transparent,
+            automaticallyImplyLeading: false,
+            toolbarHeight: 68,
+            titleSpacing: 16,
+            title: Row(children: [
+              GlassIconButton(icon: Icons.arrow_back_rounded, tooltip: 'Back', onPressed: () => Navigator.of(context).pop()),
+              const SizedBox(width: 14),
+              Expanded(child: Text(title, style: GC.body(16, color: GC.text, weight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 6, 20, pad.bottom + 30),
+            sliver: SliverList.list(children: [
+              // Hero.
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF3A2F1A), Color(0xFF1A1815)],
+                  ),
+                  borderRadius: BorderRadius.circular(GC.radiusL + 4),
+                  border: Border.all(color: const Color(0x4DE9B44C)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFF3D9A1), GC.amber]),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [BoxShadow(color: Color(0x40E9B44C), blurRadius: 18, offset: Offset(0, 6))],
+                      ),
+                      child: Icon(icon, color: GC.onAmber, size: 28),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(title, style: GC.display(32, height: 1.1)),
+                    const SizedBox(height: 8),
+                    Text(intro, style: GC.body(15, color: GC.textSoft, height: 1.5)),
+                    const SizedBox(height: 16),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      _Chip(icon: Icons.event_rounded, text: _updated.replaceFirst('Last updated: ', 'Effective ')),
+                      const _Chip(icon: Icons.verified_outlined, text: 'Ghost City 1.0.0'),
+                    ]),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              // At a glance.
+              Text('AT A GLANCE', style: GC.label()),
+              const SizedBox(height: 10),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 2.9,
+                children: [
+                  for (final h in highlights)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: GC.surface,
+                        borderRadius: BorderRadius.circular(GC.radiusM),
+                        border: Border.all(color: GC.line),
+                      ),
+                      child: Row(children: [
+                        Icon(h.$1, color: GC.amber, size: 19),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(h.$2, maxLines: 2, overflow: TextOverflow.ellipsis,
+                              style: GC.body(13.5, color: GC.text, weight: FontWeight.w600, height: 1.25)),
+                        ),
+                      ]),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text('DETAILS', style: GC.label()),
+              const SizedBox(height: 10),
+              for (var i = 0; i < sections.length; i++) ...[
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                  decoration: BoxDecoration(
+                    color: GC.surface,
+                    borderRadius: BorderRadius.circular(GC.radiusL),
+                    border: Border.all(color: GC.line),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: GC.amberDeep,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0x66E9B44C)),
+                        ),
+                        child: Text('${i + 1}', style: GC.body(13, color: GC.amber, weight: FontWeight.w800, height: 1)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(sections[i].heading, style: GC.display(18, height: 1.2)),
+                            const SizedBox(height: 8),
+                            Text(sections[i].body, style: GC.body(14.5, color: GC.textSoft, height: 1.6)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(GC.radiusL),
+                  border: Border.all(color: const Color(0x4DE9B44C)),
+                  color: const Color(0x0FE9B44C),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.mark_email_unread_outlined, color: GC.amber),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Questions about this page? Contact the developer through the app’s store listing.',
+                        style: GC.body(13.5, color: GC.textSoft, height: 1.45)),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: const Color(0x660F0E0C), borderRadius: BorderRadius.circular(99), border: Border.all(color: GC.line)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: GC.amberLight),
+        const SizedBox(width: 6),
+        Text(text, style: GC.body(12, color: GC.amberLight, weight: FontWeight.w600, height: 1)),
+      ]),
     );
   }
 }

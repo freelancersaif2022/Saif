@@ -321,7 +321,15 @@ class _PlusBanner extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const PremiumBadge(),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFFF3D9A1), GC.amber]),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.workspace_premium_rounded, color: GC.onAmber, size: 22),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text('Unlock every walk, Ghost mode and unlimited memories.',

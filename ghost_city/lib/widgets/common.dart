@@ -193,7 +193,7 @@ class PremiumBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_awesome, size: compact ? 11 : 12, color: GC.onAmber),
+          Icon(Icons.workspace_premium_rounded, size: compact ? 12 : 13, color: GC.onAmber),
           const SizedBox(width: 4),
           Text('PLUS', style: GC.label(color: GC.onAmber, size: compact ? 9.5 : 10.5)),
         ],

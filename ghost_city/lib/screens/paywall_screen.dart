@@ -46,24 +46,76 @@ class _PaywallScreenState extends State<PaywallScreen> {
     HapticFeedback.mediumImpact();
     await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
-    await AppScope.read(context).setPremium(true);
+    await AppScope.read(context).activatePlan(_plan);
     if (!mounted) return;
     setState(() => _busy = false);
     await showGhostDialog(
       context,
       title: 'Welcome to Plus',
       message: 'Every story, walk and lens mode is now open. Enjoy the trip back in time.',
-      icon: Icons.auto_awesome,
+      icon: Icons.workspace_premium_rounded,
       confirmLabel: 'Start exploring',
     );
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _cancel() async {
+    final state = AppScope.read(context);
+    final lifetime = state.plan == 'life';
+    final ok = await showGhostDialog(
+      context,
+      title: lifetime ? 'Remove lifetime Plus?' : 'Cancel your plan?',
+      message: 'Plus features will lock again on this phone. Your memories and saved places stay.',
+      icon: Icons.workspace_premium_rounded,
+      confirmLabel: lifetime ? 'Remove Plus' : 'Cancel plan',
+      cancelLabel: 'Keep Plus',
+      destructive: true,
+    );
+    if (ok != true || !mounted) return;
+    await state.cancelPlan();
+    showToast('Plan cancelled', kind: ToastKind.info, message: 'You are back on the free plan.');
+  }
+
+  static String _date(DateTime d) =>
+      '${d.day} ${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1]} ${d.year}';
+
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     final h = MediaQuery.sizeOf(context).height;
-    final premium = AppScope.of(context).premium;
+    final state = AppScope.of(context);
+    final premium = state.premium;
+    final active = _plans.firstWhere((p) => p.id == (state.plan ?? 'year'));
+
+    final benefits = [
+      for (final b in _benefits)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: GC.amberDeep, borderRadius: BorderRadius.circular(12)),
+                child: Icon(b.$1, color: GC.amber, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(b.$2, style: GC.body(15.5, color: GC.text, weight: FontWeight.w700, height: 1.3)),
+                    const SizedBox(height: 2),
+                    Text(b.$3, style: GC.body(13.5, color: GC.muted, height: 1.4)),
+                  ],
+                ),
+              ),
+              if (premium) const Icon(Icons.check_circle_rounded, color: GC.amber, size: 20),
+            ],
+          ),
+        ),
+    ];
 
     return Scaffold(
       backgroundColor: GC.ground,
@@ -82,60 +134,75 @@ class _PaywallScreenState extends State<PaywallScreen> {
             children: [
               const Align(alignment: Alignment.centerLeft, child: PremiumBadge()),
               const SizedBox(height: 14),
-              Text.rich(
-                TextSpan(children: [
-                  const TextSpan(text: 'See the whole city\n'),
-                  TextSpan(text: 'as it was.', style: GC.display(36, color: GC.amber, style: FontStyle.italic)),
-                ]),
-                style: GC.display(36, height: 1.08),
-              ),
-              if (widget.reason != null) ...[
+              if (premium)
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'Your Plus\n'),
+                    TextSpan(text: 'membership.', style: GC.display(36, color: GC.amber, style: FontStyle.italic)),
+                  ]),
+                  style: GC.display(36, height: 1.08),
+                )
+              else
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'See the whole city\n'),
+                    TextSpan(text: 'as it was.', style: GC.display(36, color: GC.amber, style: FontStyle.italic)),
+                  ]),
+                  style: GC.display(36, height: 1.08),
+                ),
+              if (widget.reason != null && !premium) ...[
                 const SizedBox(height: 10),
                 Text(widget.reason!, style: GC.body(15, color: GC.amberLight)),
               ],
               const SizedBox(height: 22),
-              for (final b in _benefits)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Row(
+              if (premium) ...[
+                // Active plan.
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF3A2F1A), Color(0xFF221C12)],
+                    ),
+                    borderRadius: BorderRadius.circular(GC.radiusL),
+                    border: Border.all(color: GC.amber),
+                  ),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(color: GC.amberDeep, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(b.$1, color: GC.amber, size: 20),
+                      Row(
+                        children: [
+                          Text('${active.name} plan', style: GC.display(22, height: 1.1)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: GC.green.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(99)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Container(width: 7, height: 7, decoration: const BoxDecoration(color: GC.green, shape: BoxShape.circle)),
+                              const SizedBox(width: 6),
+                              Text('ACTIVE', style: GC.label(color: GC.green, size: 10.5)),
+                            ]),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(b.$2, style: GC.body(15.5, color: GC.text, weight: FontWeight.w700, height: 1.3)),
-                            const SizedBox(height: 2),
-                            Text(b.$3, style: GC.body(13.5, color: GC.muted, height: 1.4)),
-                          ],
-                        ),
+                      const SizedBox(height: 6),
+                      Text('${active.price} ${active.period}', style: GC.body(15, color: GC.amberLight, weight: FontWeight.w700)),
+                      const Divider(height: 26, color: GC.line),
+                      _InfoRow(label: 'Started', value: state.planSince == null ? '—' : _date(state.planSince!)),
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        label: state.plan == 'life' ? 'Access' : 'Renews on',
+                        value: state.plan == 'life' ? 'Lifetime, never expires' : (state.renewsOn == null ? '—' : _date(state.renewsOn!)),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 10),
-              if (premium)
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: GC.amberDeep,
-                    borderRadius: BorderRadius.circular(GC.radiusL),
-                    border: Border.all(color: GC.amber),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.check_circle_rounded, color: GC.amber),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('Plus is active on this phone.', style: GC.body(15, color: GC.amberLight, weight: FontWeight.w700))),
-                  ]),
-                )
-              else ...[
+                const SizedBox(height: 24),
+                const SectionLabel('Included'),
+                const SizedBox(height: 12),
+                ...benefits,
+              ] else ...[
                 for (final p in _plans)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -147,10 +214,43 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   icon: _busy ? null : Icons.lock_open_rounded,
                   onPressed: _busy ? null : _unlock,
                 ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text('Test mode: no payment is taken. Cancel anytime.',
-                      textAlign: TextAlign.center, style: GC.body(12, color: GC.faint)),
+                const SizedBox(height: 26),
+                ...benefits,
+              ],
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: GC.surface, borderRadius: BorderRadius.circular(GC.radiusM), border: Border.all(color: GC.line)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.event_repeat_rounded, color: GC.muted, size: 19),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Monthly and yearly plans renew automatically until you cancel. You can cancel anytime from '
+                        'Settings › Manage Plus. Lifetime is a single payment with no renewal.',
+                        style: GC.body(13, color: GC.muted, height: 1.45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (premium) ...[
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 52,
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _cancel,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: GC.coral,
+                      side: BorderSide(color: GC.coral.withValues(alpha: 0.5)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GC.radiusM)),
+                      textStyle: GC.body(15, weight: FontWeight.w700, height: 1),
+                    ),
+                    child: Text(state.plan == 'life' ? 'Remove lifetime Plus' : 'Cancel plan'),
+                  ),
                 ),
               ],
             ],
@@ -162,6 +262,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label, style: GC.body(14, color: GC.muted, height: 1.2)),
+        const Spacer(),
+        Text(value, style: GC.body(14, color: GC.text, weight: FontWeight.w700, height: 1.2)),
+      ],
     );
   }
 }

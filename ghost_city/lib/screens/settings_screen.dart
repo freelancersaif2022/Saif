@@ -36,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(color: GC.amberDeep, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.auto_awesome, color: GC.amber),
+                  child: const Icon(Icons.workspace_premium_rounded, color: GC.amber),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -46,7 +46,14 @@ class SettingsScreen extends StatelessWidget {
                       Text(state.premium ? 'Ghost City Plus' : 'Free plan',
                           style: GC.body(16, color: GC.text, weight: FontWeight.w700, height: 1.2)),
                       const SizedBox(height: 3),
-                      Text(state.premium ? 'Everything is unlocked.' : 'Upgrade for every story, walk and Ghost mode.',
+                      Text(
+                          state.premium
+                              ? switch (state.plan) {
+                                  'life' => 'Lifetime plan · active',
+                                  'month' => 'Monthly plan · active',
+                                  _ => 'Yearly plan · active',
+                                }
+                              : 'Upgrade for every story, walk and Ghost mode.',
                           style: GC.body(13, color: GC.muted, height: 1.3)),
                     ],
                   ),
@@ -55,10 +62,16 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (state.premium)
-              GhostButton(label: 'Turn off Plus (test mode)', height: 46, onPressed: () => state.setPremium(false))
+              GhostButton(
+                label: 'Manage Plus',
+                icon: Icons.workspace_premium_outlined,
+                height: 46,
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PaywallScreen())),
+              )
             else
               PrimaryButton(
-                label: 'See Plus',
+                label: 'Purchase Plus',
                 height: 46,
                 onPressed: () => Navigator.of(context)
                     .push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PaywallScreen())),
@@ -99,7 +112,7 @@ class SettingsScreen extends StatelessWidget {
             _LinkRow(icon: Icons.copyright_rounded, title: 'Licences', doc: LegalDoc.licences),
           ]),
           const SizedBox(height: 20),
-          Center(child: Text('Ghost City 1.2.0', style: GC.body(12, color: GC.faint))),
+          Center(child: Text('Ghost City 1.0.0', style: GC.body(12, color: GC.faint))),
         ],
       ),
     );

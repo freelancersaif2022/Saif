@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../app/theme.dart';
 import '../data/app_state.dart';
@@ -96,17 +95,7 @@ class NearbyPlaceScreen extends StatelessWidget {
                     place.extract ?? 'Wikipedia has no summary for this place yet.',
                     style: GC.body(16, height: 1.65),
                   ),
-                  const SizedBox(height: 14),
-                  TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: GC.amber, padding: EdgeInsets.zero),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: place.url));
-                      showToast('Link copied', context: context, kind: ToastKind.success, message: 'Paste it in your browser to read the full article.');
-                    },
-                    icon: const Icon(Icons.link_rounded, size: 18),
-                    label: const Text('Copy Wikipedia link'),
-                  ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 26),
                   SectionLabel('Your memories here', trailing: mine.isEmpty ? null : Text('${mine.length}', style: GC.label(color: GC.amber))),
                   const SizedBox(height: 12),
                   Material(
@@ -138,8 +127,6 @@ class NearbyPlaceScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 26),
-                  Text('Text and photo from Wikipedia and Wikimedia Commons (CC BY-SA).', style: GC.body(12.5, color: GC.faint)),
                   SizedBox(height: MediaQuery.paddingOf(context).bottom + 30),
                 ],
               ),

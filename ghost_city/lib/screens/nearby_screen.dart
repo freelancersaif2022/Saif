@@ -473,17 +473,13 @@ class _NearbyScreenState extends State<NearbyScreen> with AutomaticKeepAliveClie
           ),
         ),
       ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-        sliver: SliverToBoxAdapter(
-          child: Text(
-            _tab == _Tab.street
-                ? 'Street photos by Mapillary contributors, CC BY-SA 4.0.'
-                : 'Photos from Wikimedia Commons. Licences shown on each photo.',
-            style: GC.body(12, color: GC.faint),
+      if (_tab == _Tab.street)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: Text('Street photos by Mapillary contributors, CC BY-SA 4.0.', style: GC.body(12, color: GC.faint)),
           ),
         ),
-      ),
     ];
   }
 
