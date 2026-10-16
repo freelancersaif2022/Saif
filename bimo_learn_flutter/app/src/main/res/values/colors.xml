@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bimo_primary">#6750F5</color>
+    <color name="bimo_secondary">#03B6D4</color>
+    <color name="bimo_accent">#B9F34C</color>
+    <color name="bimo_background_light">#F8F9FD</color>
+    <color name="bimo_background_dark">#10121C</color>
+    <color name="bimo_surface_dark">#1B1E2B</color>
+    <color name="splash_background">#F8F9FD</color>
+    <color name="ic_launcher_background">#6750F5</color>
+</resources>

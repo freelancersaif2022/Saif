@@ -1,0 +1,10 @@
+id: projects
+title: Real-World Flutter Projects
+subtitle: 15 guided apps from counter to production
+level: Applied practice
+accent: #2E9E6A
+icon: build
+order: 3
+requires: flutter-m03
+projects: true
+description: Apply everything you learn by building fifteen complete apps step by step, each with architecture notes, dependencies, full example code, testing guidance and a completion assessment. Unlocks after Flutter Module 3 (Layout and UI).

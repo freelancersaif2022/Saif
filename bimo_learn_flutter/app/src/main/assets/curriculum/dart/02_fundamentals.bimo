@@ -1,0 +1,1238 @@
+@module dart-m02 | Dart Fundamentals
+@summary Types, strings, numbers, booleans, operators, conversions and sound null safety.
+
+@lesson dart-m02-l01 | Data types overview | 12
+## Learning objectives
+- List Dart's built-in types
+- Understand the type hierarchy rooted at `Object?`
+- Check and compare types at runtime
+
+## Built-in types
+Dart has special support for these types:
+
+- Numbers: `int`, `double` (both subtypes of `num`)
+- Text: `String`
+- Truth values: `bool`
+- Collections: `List`, `Set`, `Map`
+- `Record` for grouping values, `Runes` for Unicode, `Symbol` (rare)
+- The special value `null` (type `Null`)
+
+```dart
+void main() {
+  int age = 30;
+  double price = 9.99;
+  num anyNumber = 7;      // can hold int or double
+  String name = 'Ada';
+  bool isMember = true;
+  List<String> tags = ['dart', 'flutter'];
+  Map<String, int> stock = {'apples': 12};
+  (String, int) pair = ('score', 42); // a record
+
+  print(age.runtimeType);   // int
+  print(pair.$2);           // 42
+}
+```
+
+## The type hierarchy
+Every type in Dart is a subtype of `Object?`. Non-nullable types are subtypes of `Object`; `Null` sits beside them. Two other special types matter:
+
+- `void`: "this value is not meant to be used" (functions that return nothing).
+- `Never`: an expression that never completes normally, such as a function that always throws.
+
+```diagram
+                Object?
+              /         \
+          Object         Null
+         /   |    \
+      num  String  bool ...
+     /   \
+   int  double
+```
+
+## Checking types
+Use `is` to test a type and `as` to cast. After a successful `is` check, Dart **promotes** the variable so you can use the type's members without casting:
+
+```dart
+void describe(Object value) {
+  if (value is String) {
+    print('Text with ${value.length} characters'); // promoted to String
+  } else if (value is int) {
+    print('Whole number, even: ${value.isEven}');
+  } else {
+    print('Something else: ${value.runtimeType}');
+  }
+}
+```
+
+> TIP: Prefer `is` checks with promotion over `as` casts. A wrong `as` cast throws at runtime; an `is` check just returns false.
+
+:::check Is `int` a subtype of `num`?
+Yes. Both `int` and `double` are subtypes of `num`.
+:::
+
+## Common mistakes
+- Using `runtimeType` for logic. It is meant for debugging; use `is` checks instead.
+- Assuming `num` and `int` are interchangeable everywhere: a `num` might be a `double`.
+
+## Summary
+- Built-in types: numbers, strings, booleans, collections, records, null.
+- `Object?` is the top type; `Never` is the bottom type; `void` means "don't use".
+- `is` checks types and promotes variables; `as` casts and can throw.
+
+## Further learning
+- dart.dev ▸ Language ▸ Built-in types
+- dart.dev ▸ Language ▸ Type system
+@quiz
+? mcq: Which type can hold both `3` and `3.5`?
+- int
+- double
++ num
+- String
+> num is the supertype of int and double.
+? tf: After `if (value is String)`, Dart lets you call `value.length` without a cast inside the if block.
+= true
+> Type promotion narrows the variable's type after a successful is check.
+? mcq: What is the top type in Dart that every value belongs to?
+- dynamic
+- Object
++ Object?
+- Never
+> Object? includes all non-nullable objects plus null.
+? fill: The type of an expression that never completes normally, such as a function that always throws, is ___.
+= Never
+> Never is the bottom type in Dart's type system.
+? output: What does this print?
+```dart
+void main() {
+  (String, int) pair = ('score', 42);
+  print(pair.$1);
+}
+```
++ score
+- 42
+- (score, 42)
+- $1
+> Positional record fields are accessed with $1, $2 and so on.
+? scenario: You receive an `Object` and want to safely call a String method only when it is a String. What should you write?
++ if (value is String) { value.toUpperCase(); }
+- (value as String).toUpperCase(); without any check
+- value.toUpperCase(); and hope
+- if (value.runtimeType == 'String') {...}
+> An is check is safe and promotes the variable.
+
+@lesson dart-m02-l02 | Strings | 14
+## Learning objectives
+- Create single-line, multi-line and raw strings
+- Use common String methods
+- Build strings efficiently with StringBuffer
+
+## Creating strings
+Dart strings are sequences of UTF-16 code units. You can use single or double quotes; the official style prefers single quotes.
+
+```dart
+void main() {
+  final a = 'Single quotes';
+  final b = "Double quotes – useful when the text contains 'apostrophes'";
+  final c = 'It\'s escaped';
+  final multi = '''
+Line one
+Line two
+''';
+  final raw = r'C:\new\folder – backslashes are literal';
+  print(raw);
+}
+```
+
+- Triple quotes (`'''` or `"""`) create multi-line strings.
+- A leading `r` creates a **raw string** where backslashes are not escape characters, handy for file paths and regular expressions.
+- Adjacent string literals are concatenated automatically: `'Hello ' 'world'`.
+
+## Useful methods
+Strings are **immutable**: every method returns a new string.
+
+```dart
+void main() {
+  const title = '  Learn Flutter with Bimo  ';
+  final clean = title.trim();
+  print(clean.length);              // 23
+  print(clean.toUpperCase());       // LEARN FLUTTER WITH BIMO
+  print(clean.contains('Flutter')); // true
+  print(clean.startsWith('Learn')); // true
+  print(clean.indexOf('with'));     // 14
+  print(clean.substring(6, 13));    // Flutter
+  print(clean.replaceAll(' ', '-'));// Learn-Flutter-with-Bimo
+  print(clean.split(' '));          // [Learn, Flutter, with, Bimo]
+  print('ab' * 3);                  // ababab
+  print('7'.padLeft(3, '0'));       // 007
+}
+```
+
+## Comparing strings
+Use `==` to compare contents. Dart compares string values, not references:
+
+```dart
+final input = 'yes';
+print(input == 'yes');                       // true
+print('Dart'.compareTo('Flutter') < 0);     // true: alphabetical order
+print('DART'.toLowerCase() == 'dart');      // case-insensitive comparison
+```
+
+## StringBuffer for building text
+Concatenating with `+` in a loop creates many temporary strings. `StringBuffer` collects pieces efficiently:
+
+```dart
+final buffer = StringBuffer();
+for (var i = 1; i <= 3; i++) {
+  buffer.write('Item $i');
+  if (i < 3) buffer.write(', ');
+}
+print(buffer.toString()); // Item 1, Item 2, Item 3
+```
+
+> TIP: For joining list items, `['a', 'b', 'c'].join(', ')` is even simpler.
+
+:::check Does `name.toUpperCase()` change `name`?
+No. Strings are immutable; the method returns a new string.
+:::
+
+## Common mistakes
+- Expecting `trim()` or `replaceAll()` to modify the original string. Assign the result.
+- Forgetting `r` before a regular expression and double-escaping every backslash.
+
+## Exercise
+Given `final email = '  Ada.Lovelace@Example.COM ';`, produce a normalised version that is trimmed and lowercase, then print the part before the `@`.
+:::solution Example solution
+```dart
+void main() {
+  final email = '  Ada.Lovelace@Example.COM ';
+  final normalised = email.trim().toLowerCase();
+  final user = normalised.split('@').first;
+  print(normalised); // ada.lovelace@example.com
+  print(user);       // ada.lovelace
+}
+```
+:::
+
+## Summary
+- Use single quotes by convention; triple quotes for multi-line; `r''` for raw strings.
+- Strings are immutable; methods return new strings.
+- Compare with `==`; build large strings with `StringBuffer` or `join`.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ String
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  print('  hi  '.trim().length);
+}
+```
++ 2
+- 6
+- 4
+- 0
+> trim removes leading and trailing whitespace, leaving "hi".
+? mcq: Which literal creates a raw string where backslashes are kept as-is?
+- 'C:\\path'
++ r'C:\path'
+- raw'C:\path'
+- `C:\path`
+> A leading r makes a raw string.
+? tf: Calling `text.replaceAll('a', 'b')` modifies the variable `text`.
+= false
+> Strings are immutable; replaceAll returns a new string.
+? output: What does this print?
+```dart
+void main() {
+  print('5'.padLeft(3, '0'));
+}
+```
++ 005
+- 500
+- 5
+- 0005
+> padLeft pads on the left until the string reaches the given width.
+? fill: To efficiently build a long string in a loop, use the ___ class.
+= StringBuffer
+> StringBuffer appends pieces without creating many intermediate strings.
+? mcq: Which expression produces "ababab"?
++ 'ab' * 3
+- 'ab' + 3
+- 'ab'.repeat(3)
+- 3 * 'ab' + ''
+> The * operator repeats a string; the string must be on the left.
+
+@lesson dart-m02-l03 | Numbers | 12
+## Learning objectives
+- Work with `int`, `double` and `num`
+- Use arithmetic, rounding and formatting methods
+- Avoid floating-point surprises
+
+## int and double
+- `int`: whole numbers. On native platforms they are 64-bit; on the web they are JavaScript numbers.
+- `double`: 64-bit floating point numbers (IEEE 754).
+
+```dart
+void main() {
+  int apples = 7;
+  double kilos = 2.5;
+  num total = apples + kilos;   // 9.5, a double
+  var big = 1000000;
+  var readable = 1_000_000;     // digit separators (Dart 3.6+)
+  var hex = 0xFF;               // 255
+  var scientific = 1.5e3;       // 1500.0
+  print('$total $big $readable $hex $scientific');
+}
+```
+
+> NOTE: Digit separators (`1_000_000`) require Dart 3.6 or later. If your SDK is older, write `1000000`.
+
+## Division
+Dart has two division operators:
+
+```dart
+print(7 / 2);   // 3.5  – always returns a double
+print(7 ~/ 2);  // 3    – integer (truncating) division
+print(7 % 2);   // 1    – remainder
+print(-7 % 3);  // 2    – Dart's % is always non-negative (Euclidean)
+```
+
+## Rounding and formatting
+```dart
+const price = 19.987;
+print(price.round());            // 20
+print(price.floor());            // 19
+print(price.ceil());             // 20
+print(price.toStringAsFixed(2)); // 19.99 (a String)
+print(3.7.truncate());           // 3
+print((-4).abs());               // 4
+print(10.clamp(0, 5));           // 5
+```
+
+## Useful properties
+```dart
+print(5.isOdd);       // true
+print(8.isEven);      // true
+print(2.5.isFinite);  // true
+print((0 / 0).isNaN); // true
+```
+
+## Floating-point precision
+Doubles store binary approximations, so some decimals cannot be represented exactly:
+
+```dart
+print(0.1 + 0.2);            // 0.30000000000000004
+print(0.1 + 0.2 == 0.3);     // false
+print(((0.1 + 0.2) - 0.3).abs() < 1e-9); // true – compare with a tolerance
+```
+
+> WARNING: Never store money as `double`. Store the amount in cents as an `int` (for example `1999` for 19.99) or use a decimal package.
+
+:::check What is the result of `9 ~/ 4`?
+2. The ~/ operator performs integer division and discards the remainder.
+:::
+
+## Common mistakes
+- Expecting `/` to return an `int`. Use `~/` for integer division.
+- Comparing doubles with `==` after arithmetic.
+
+## Summary
+- `int` for whole numbers, `double` for decimals, `num` for either.
+- `/` returns a double; `~/` returns an int; `%` gives the remainder.
+- Use `round`, `floor`, `ceil`, `toStringAsFixed` for rounding and display.
+- Floating-point results are approximate; store money as integer cents.
+
+## Further learning
+- api.dart.dev ▸ dart:core ▸ num, int, double
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  print(7 ~/ 2);
+}
+```
++ 3
+- 3.5
+- 4
+- 1
+> ~/ is integer division, which truncates toward zero.
+? output: What does this print?
+```dart
+void main() {
+  print(10 / 4);
+}
+```
+- 2
++ 2.5
+- 2.0
+- 3
+> The / operator always returns a double.
+? tf: `0.1 + 0.2 == 0.3` evaluates to true in Dart.
+= false
+> Floating-point rounding makes the sum 0.30000000000000004.
+? fill: To format 3.14159 as "3.14", call `toStringAs___(2)`.
+= Fixed
+> toStringAsFixed(2) returns a string with two decimal places.
+? scenario: You are building a shopping cart. How should you store prices?
++ As integer cents, such as 1999 for 19.99
+- As doubles like 19.99 and compare with ==
+- As Strings and parse them on every calculation
+- As num so either type works
+> Integer cents avoid floating-point rounding errors.
+? mcq: Which property tells you whether an int is odd?
+- isOdd()
++ isOdd
+- odd
+- % 2 property
+> isOdd is a getter on int.
+
+@lesson dart-m02-l04 | Booleans | 8
+## Learning objectives
+- Use `bool` values and logical operators
+- Understand that Dart has no "truthy" values
+- Write readable conditions
+
+## true and false
+The `bool` type has exactly two values: `true` and `false`. Unlike JavaScript or Python, Dart has **no truthiness**: an `if` statement requires an actual `bool`.
+
+```dart
+void main() {
+  final items = <String>[];
+  // if (items.length) {}        // Error: int is not a bool
+  if (items.isEmpty) {
+    print('Your cart is empty');
+  }
+
+  String? name;
+  // if (name) {}                // Error: String? is not a bool
+  if (name != null && name.isNotEmpty) {
+    print('Hello $name');
+  }
+}
+```
+
+This strictness prevents subtle bugs such as treating `0` or an empty string as false by accident.
+
+## Logical operators
+```dart
+final isLoggedIn = true;
+final isAdmin = false;
+print(isLoggedIn && isAdmin); // false – AND
+print(isLoggedIn || isAdmin); // true  – OR
+print(!isAdmin);              // true  – NOT
+```
+
+`&&` and `||` are **short-circuiting**: the right side is evaluated only when needed. That is why `name != null && name.isNotEmpty` is safe: if `name` is null, `name.isNotEmpty` never runs.
+
+## Naming booleans
+Good boolean names read like yes/no questions: `isVisible`, `hasError`, `canSubmit`, `shouldRetry`. Avoid negative names like `isNotReady`, because `!isNotReady` is hard to read.
+
+```dart
+final canSubmit = formIsValid && !isSubmitting;
+if (canSubmit) submit();
+```
+
+Extracting a complex condition into a well-named boolean makes code self-documenting.
+
+> TIP: Don't compare with `true`: write `if (isReady)` instead of `if (isReady == true)`. The exception is a nullable bool: `if (flag == true)` is a concise way to treat null as false.
+
+:::check Is `if (0) {}` valid Dart?
+No. Conditions must be of type bool; Dart has no truthy or falsy values.
+:::
+
+## Common mistakes
+- Writing conditions with non-bool values out of habit from other languages.
+- Using `&` or `|` (bitwise, not short-circuiting) instead of `&&` or `||`.
+
+## Summary
+- `bool` has two values, `true` and `false`; conditions must be bools.
+- `&&`, `||` and `!` are the logical operators; `&&` and `||` short-circuit.
+- Name booleans as questions and extract complex conditions.
+
+## Further learning
+- dart.dev ▸ Language ▸ Operators ▸ Logical operators
+@quiz
+? tf: Dart treats an empty string as false in an if condition.
+= false
+> Dart has no truthiness; conditions must be bool values.
+? output: What does this print?
+```dart
+void main() {
+  final a = true;
+  final b = false;
+  print(a && !b);
+}
+```
++ true
+- false
+- null
+- A compile error
+> !b is true, and true && true is true.
+? mcq: Why is `name != null && name.isNotEmpty` safe when name is null?
++ && short-circuits, so the right side is not evaluated
+- Dart converts null to an empty string
+- isNotEmpty returns false for null
+- The compiler removes the check
+> When the left side of && is false, the right side is skipped.
+? fill: The logical NOT operator in Dart is ___.
+= !
+> ! negates a boolean.
+? scenario: Which variable name is clearest for "the form may be submitted"?
++ canSubmit
+- submitFlag2
+- notDisabled
+- s
+> Boolean names should read like a yes/no question.
+
+@lesson dart-m02-l05 | Type inference | 10
+## Learning objectives
+- Understand how Dart infers types for variables, collections and generics
+- Recognise when inference produces `dynamic`
+- Decide when to write explicit types
+
+## Static types without the noise
+Dart infers types from context, so you get full static checking without writing every type:
+
+```dart
+void main() {
+  var count = 3;                 // int
+  final names = ['Ada', 'Linus'];// List<String>
+  final ages = {'Ada': 36};      // Map<String, int>
+  final mixed = [1, 2.5];        // List<num>
+  final anything = [1, 'two'];   // List<Object>
+}
+```
+
+Inference picks the **most specific common type** of the elements. A list containing an `int` and a `double` becomes `List<num>`.
+
+## Empty collections need help
+An empty literal has nothing to infer from:
+
+```dart
+var tags = [];            // List<dynamic> – avoid
+var tags2 = <String>[];   // List<String> – good
+final List<int> scores = []; // also good: type comes from the declaration
+```
+
+## Inference flows both ways
+Dart also uses the **expected type** to infer what's on the right side:
+
+```dart
+List<double> prices = [1, 2, 3];   // the ints become doubles: [1.0, 2.0, 3.0]
+Future<int> answer = Future.value(42);
+```
+
+## Inferred function return types
+Local functions and closures get inferred return types:
+
+```dart
+final square = (int x) => x * x;   // int Function(int)
+print(square(4));                  // 16
+```
+
+For **public** functions and class members, Effective Dart recommends annotating parameter and return types explicitly so your API is clear.
+
+## Uninitialised var becomes dynamic
+```dart
+var later;      // dynamic! no initial value
+later = 5;
+later = 'five'; // allowed, because later is dynamic
+```
+
+Turn on the `strict-inference` and `strict-raw-types` analyzer options or the recommended lints to catch these cases.
+
+> TIP: Hover over a variable in your IDE to see its inferred type. It's a great way to learn how inference works.
+
+:::check What type does `final values = [1, 2.0];` infer?
+List<num>, the most specific common supertype of int and double.
+:::
+
+## Common mistakes
+- Declaring `var x;` without a value or type, which silently becomes `dynamic`.
+- Writing `[]` or `{}` without type arguments when the variable has no declared type.
+
+## Best practices
+- Let Dart infer local variable types.
+- Annotate public API signatures and fields.
+- Always give empty collection literals a type.
+
+## Summary
+- Dart infers types from initial values and from the expected type.
+- Mixed elements infer their common supertype.
+- Empty literals and `var x;` without a value infer `dynamic`; add types.
+
+## Further learning
+- dart.dev ▸ Language ▸ Type system ▸ Type inference
+@quiz
+? mcq: What is the inferred type of `var x = [1, 2, 3];`?
+- List<dynamic>
++ List<int>
+- List<num>
+- Iterable<int>
+> All elements are ints, so the list is List<int>.
+? mcq: What is the inferred type of `var y = [];`?
++ List<dynamic>
+- List<Object>
+- List<Never>
+- A compile error
+> Empty literals with no context infer dynamic elements.
+? tf: `var later;` declared without a value has the type dynamic.
+= true
+> Without an initialiser or type annotation, var infers dynamic.
+? fill: To create an empty list of strings, write `<___>[]`.
+= String
+> Type arguments on the literal tell Dart the element type.
+? output: What does this print?
+```dart
+void main() {
+  List<double> prices = [1, 2];
+  print(prices.first);
+}
+```
++ 1.0
+- 1
+- A compile error
+- 1.00
+> The expected type List<double> makes the integer literals doubles.
+
+@lesson dart-m02-l06 | Operators | 14
+## Learning objectives
+- Use arithmetic, equality, relational, assignment and type operators
+- Apply null-aware and cascade operators
+- Understand operator precedence
+
+## Arithmetic and assignment
+```dart
+var x = 10;
+x += 5;   // 15
+x -= 3;   // 12
+x *= 2;   // 24
+x ~/= 5;  // 4
+x++;      // 5 (postfix: returns old value, then increments)
+++x;      // 6 (prefix: increments, then returns new value)
+```
+
+The difference between prefix and postfix matters when you use the result:
+
+```dart
+var a = 1;
+print(a++); // prints 1, then a becomes 2
+print(++a); // a becomes 3, prints 3
+```
+
+## Equality and relational operators
+`==`, `!=`, `>`, `<`, `>=`, `<=`. In Dart, `==` calls the object's `==` method, so you can define equality for your own classes. To check whether two references point to the *same object*, use `identical(a, b)`.
+
+## Type test operators
+- `is`: true if the object has the type
+- `is!`: true if it does not
+- `as`: cast (throws if wrong)
+
+## Null-aware operators
+```dart
+String? nickname;
+print(nickname ?? 'Guest');   // ?? : use the right side if left is null
+nickname ??= 'Ace';           // ??= : assign only if currently null
+print(nickname?.length);      // ?. : call only if not null, else null
+```
+
+## Conditional expression
+```dart
+final age = 20;
+final label = age >= 18 ? 'adult' : 'minor';
+```
+
+## Cascades
+The cascade operator `..` performs several operations on the same object and returns the object itself:
+
+```dart
+final buffer = StringBuffer()
+  ..write('Hello')
+  ..write(', ')
+  ..write('Dart');
+print(buffer); // Hello, Dart
+
+final list = <int>[]
+  ..add(3)
+  ..add(1)
+  ..sort();
+print(list); // [1, 3]
+```
+
+Use `?..` to start a cascade on a nullable object.
+
+## Spread operators (preview)
+`...` inserts all elements of a collection into another: `[0, ...list]`. Collections are covered in Module 5.
+
+## Precedence
+Multiplication binds tighter than addition, comparisons tighter than `&&`, and `&&` tighter than `||`. When in doubt, add parentheses:
+
+```dart
+final ok = (score > 70 && attempts < 3) || isTeacher;
+```
+
+> TIP: Parentheses cost nothing and make intent obvious. Use them whenever mixing `&&` and `||`.
+
+:::check What does `x ??= 5` do when x is already 3?
+Nothing. ??= assigns only when the variable is null, so x stays 3.
+:::
+
+## Common mistakes
+- Confusing `=` (assignment) with `==` (comparison).
+- Using `as` to "convert" values; it only casts, it does not convert (for example, `'5' as int` throws).
+
+## Summary
+- Compound assignments (`+=`, `~/=`) and increments (`++`) update variables.
+- `is`, `is!`, `as` work with types; `identical` checks identity.
+- `??`, `??=`, `?.` handle null concisely; `?:` chooses between values.
+- `..` cascades operations on one object.
+
+## Further learning
+- dart.dev ▸ Language ▸ Operators
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  var a = 5;
+  print(a++);
+  print(a);
+}
+```
++ 5 then 6
+- 6 then 6
+- 5 then 5
+- 6 then 7
+> Postfix ++ returns the old value and then increments.
+? output: What does this print?
+```dart
+void main() {
+  String? city;
+  print(city ?? 'Unknown');
+}
+```
++ Unknown
+- null
+- city
+- An empty line
+> ?? returns the right side when the left side is null.
+? mcq: What does the cascade `..` return?
+- The result of the last method call
++ The original object it was applied to
+- void
+- A copy of the object
+> Cascades return the receiver, allowing a chain of operations on the same object.
+? fill: To assign a value only if a variable is currently null, use the ___ operator.
+= ??=
+> ??= assigns only when the left side is null.
+? tf: `'5' as int` converts the string "5" into the integer 5.
+= false
+> as only casts; it throws because a String is not an int. Use int.parse.
+? mcq: Which expression safely reads the length of a nullable String `s`?
++ s?.length
+- s.length!
+- s!length
+- length(s)
+> ?. returns null instead of throwing when s is null.
+
+@lesson dart-m02-l07 | Expressions and statements | 10
+## Learning objectives
+- Distinguish expressions from statements
+- Use expression bodies and conditional expressions
+- Write compact but readable code
+
+## What is an expression?
+An **expression** produces a value: `2 + 3`, `name.toUpperCase()`, `isReady ? 'Go' : 'Wait'`. A **statement** performs an action and does not itself produce a value: `if`, `for`, `while`, variable declarations, `return`.
+
+```dart
+void main() {
+  final total = 2 + 3;              // 2 + 3 is an expression
+  if (total > 4) {                  // if is a statement
+    print('Big total');             // a function call used as a statement
+  }
+  final label = total.isEven ? 'even' : 'odd'; // conditional expression
+  print(label);
+}
+```
+
+Knowing the difference matters because many places in Dart (and Flutter widget trees) accept **only expressions**. For example, you cannot put an `if` statement inside a list literal, but you can use a conditional expression or *collection if*.
+
+## Arrow syntax
+A function whose body is a single expression can use `=>`:
+
+```dart
+int twice(int x) => x * 2;
+bool isAdult(int age) => age >= 18;
+String greet(String name) => 'Hello, $name';
+```
+
+`=> expr` is shorthand for `{ return expr; }`. It only works with one expression, not with statements.
+
+## Expressions in string interpolation
+Any expression can appear inside `${...}`:
+
+```dart
+final items = ['a', 'b', 'c'];
+print('You have ${items.length} items, first is ${items.first.toUpperCase()}');
+print('Status: ${items.isEmpty ? 'empty' : 'ready'}');
+```
+
+## Switch expressions
+Dart 3 adds `switch` **expressions** that produce a value (covered in depth in Module 3):
+
+```dart
+String dayType(int weekday) => switch (weekday) {
+  6 || 7 => 'weekend',
+  _ => 'weekday',
+};
+```
+
+> TIP: Compact code is good only while it stays readable. If a conditional expression grows beyond one line, consider an `if` statement or a helper function.
+
+:::check Can you use `=>` with a body that contains an if statement?
+No. Arrow syntax requires a single expression; use a block body for statements.
+:::
+
+## Common mistakes
+- Nesting conditional expressions three levels deep. Prefer switch expressions or helper functions.
+- Writing `=> { ... }` thinking it is a block; it actually creates a set or map literal.
+
+## Summary
+- Expressions produce values; statements perform actions.
+- `=>` defines single-expression function bodies.
+- Conditional and switch expressions choose values inline.
+
+## Further learning
+- dart.dev ▸ Language ▸ Functions ▸ Arrow syntax
+@quiz
+? mcq: Which of these is an expression?
++ age >= 18 ? 'adult' : 'minor'
+- if (age >= 18) {}
+- for (var i = 0; i < 3; i++) {}
+- return;
+> A conditional expression evaluates to a value.
+? tf: `int twice(int x) => x * 2;` is equivalent to `int twice(int x) { return x * 2; }`.
+= true
+> Arrow syntax is shorthand for returning a single expression.
+? output: What does this print?
+```dart
+void main() {
+  final items = <String>[];
+  print('Cart: ${items.isEmpty ? 'empty' : 'full'}');
+}
+```
++ Cart: empty
+- Cart: full
+- Cart: ${items.isEmpty}
+- Cart: true
+> The conditional expression inside ${} evaluates to 'empty'.
+? fill: The symbol used to write a single-expression function body is ___.
+= =>
+> The arrow => introduces an expression body.
+? scenario: A conditional expression has grown to three nested `?:` levels. What is the best refactor?
++ Use a switch expression or extract a helper function
+- Add more parentheses
+- Put it on one very long line
+- Convert everything to dynamic
+> Switch expressions and helpers keep complex choices readable.
+
+@lesson dart-m02-l08 | Type conversion | 12
+## Learning objectives
+- Convert between numbers and strings
+- Parse input safely with `tryParse`
+- Convert between collection types
+
+## Numbers to strings
+```dart
+final n = 42;
+final s1 = n.toString();          // '42'
+final s2 = 3.14159.toStringAsFixed(2); // '3.14'
+final s3 = 255.toRadixString(16); // 'ff'
+final s4 = '$n';                  // '42' via interpolation
+```
+
+## Strings to numbers
+`int.parse` and `double.parse` throw a `FormatException` when the text is not a valid number. `tryParse` returns `null` instead, which is safer for user input:
+
+```dart
+void main() {
+  print(int.parse('42'));          // 42
+  print(double.parse('2.5'));      // 2.5
+  print(int.tryParse('abc'));      // null
+  print(int.tryParse('ff', radix: 16)); // 255
+  final age = int.tryParse(' 30 '.trim()) ?? 0;
+  print(age);                      // 30
+}
+```
+
+> WARNING: `int.parse('3.5')` throws. Parse as double and then convert if you need an int.
+
+## Between int and double
+```dart
+final i = 7;
+final d = i.toDouble();     // 7.0
+final r = 7.9.toInt();      // 7  (truncates)
+final rounded = 7.9.round(); // 8
+```
+
+There are no implicit conversions between `int` and `double` variables; you must convert explicitly (number *literals* are the exception, as in `double x = 3;`).
+
+## Booleans
+There is no `bool.parse` for arbitrary text in older SDKs; compare instead:
+
+```dart
+final input = 'TRUE';
+final flag = input.toLowerCase() == 'true';
+```
+
+Recent SDKs also provide `bool.parse('true')` and `bool.tryParse('yes')` (returns null).
+
+## Collections
+```dart
+final list = [3, 1, 3, 2];
+final unique = list.toSet();          // {3, 1, 2}
+final backToList = unique.toList();   // [3, 1, 2]
+final strings = list.map((e) => e.toString()).toList();
+final map = {for (final n in list) n: n * n}; // {3: 9, 1: 1, 2: 4}
+```
+
+:::check What does `int.tryParse('12a')` return?
+null, because "12a" is not a valid integer.
+:::
+
+## Common mistakes
+- Using `as` for conversion (`'5' as int` throws). Use `int.parse`.
+- Forgetting that `toInt()` truncates; use `round()` when you need rounding.
+
+## Exercise
+Write a function `int parseQuantity(String input)` that trims the input, returns 1 if it is empty or invalid, and never returns less than 1.
+:::solution Example solution
+```dart
+int parseQuantity(String input) {
+  final value = int.tryParse(input.trim());
+  if (value == null || value < 1) return 1;
+  return value;
+}
+
+void main() {
+  print(parseQuantity(' 3 ')); // 3
+  print(parseQuantity('abc')); // 1
+  print(parseQuantity('-2'));  // 1
+}
+```
+:::
+
+## Summary
+- `toString`, `toStringAsFixed` and interpolation turn numbers into strings.
+- `parse` throws on invalid input; `tryParse` returns null.
+- Convert explicitly between int and double with `toDouble`, `toInt`, `round`.
+- `toSet`, `toList` and `map` convert between collections.
+
+## Further learning
+- api.dart.dev ▸ int.tryParse
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  print(int.tryParse('hello'));
+}
+```
++ null
+- 0
+- A FormatException
+- hello
+> tryParse returns null for invalid input.
+? mcq: What does `int.parse('3.5')` do?
+- Returns 3
+- Returns 4
++ Throws a FormatException
+- Returns 3.5
+> '3.5' is not a valid integer string.
+? output: What does this print?
+```dart
+void main() {
+  print(9.7.toInt());
+}
+```
++ 9
+- 10
+- 9.7
+- 9.0
+> toInt truncates toward zero.
+? fill: To convert an int `i` to a double, call `i.to___()`.
+= Double
+> toDouble returns the same value as a double.
+? scenario: A user types their age into a text field. Which approach handles invalid input gracefully?
++ int.tryParse(text.trim()) ?? 0 and then validate the range
+- int.parse(text) without checks
+- text as int
+- double.parse(text).toInt() without try/catch
+> tryParse avoids exceptions and lets you handle invalid values.
+? tf: `[1, 1, 2].toSet().length` is 2.
+= true
+> Sets remove duplicates, leaving {1, 2}.
+
+@lesson dart-m02-l09 | String interpolation in depth | 8
+## Learning objectives
+- Use simple and expression interpolation correctly
+- Interpolate properties, method calls and conditionals
+- Know when to use other formatting tools
+
+## Two forms
+- `$identifier` for a simple variable name
+- `${expression}` for anything else
+
+```dart
+class User {
+  User(this.name, this.points);
+  final String name;
+  final int points;
+}
+
+void main() {
+  final user = User('Ada', 1200);
+  print('Hello $user.name');      // Hello Instance of 'User'.name  (bug!)
+  print('Hello ${user.name}');    // Hello Ada
+  print('Points: ${user.points}, level ${user.points ~/ 500 + 1}');
+  print('Status: ${user.points > 1000 ? 'gold' : 'silver'}');
+}
+```
+
+The first `print` is a classic bug: `$user` interpolates the whole object, then `.name` is printed as plain text. Property access always needs braces.
+
+## How interpolation converts values
+Interpolation calls `toString()` on the value. Override `toString` in your classes to control what is printed:
+
+```dart
+class Point {
+  const Point(this.x, this.y);
+  final int x, y;
+  @override
+  String toString() => 'Point($x, $y)';
+}
+
+void main() {
+  print('Origin is ${const Point(0, 0)}'); // Origin is Point(0, 0)
+}
+```
+
+## Escaping the dollar sign
+To print a literal `$`, escape it or use a raw string:
+
+```dart
+final price = 5;
+print('Cost: \$$price');   // Cost: $5
+print(r'Template: $name'); // Template: $name
+```
+
+## Beyond interpolation
+For locale-aware numbers, dates and currencies (for example `1,234.50` vs `1.234,50`), use the `intl` package's `NumberFormat` and `DateFormat`. Interpolation is for building strings, not for localisation.
+
+> TIP: The analyzer lint `unnecessary_brace_in_string_interps` tells you when `${name}` can be simplified to `$name`.
+
+:::check What does `'$list.length'` print for `list = [1, 2]`?
+"[1, 2].length" – the list is interpolated and ".length" is literal text. Use `${list.length}`.
+:::
+
+## Common mistakes
+- Omitting braces around property access or method calls.
+- Concatenating with `+` when interpolation is clearer: prefer `'Hi $name'` over `'Hi ' + name`.
+
+## Summary
+- `$name` for identifiers, `${expr}` for everything else.
+- Interpolation calls `toString()`; override it in your classes.
+- Escape `$` with `\$` or use raw strings.
+- Use `intl` for locale-aware formatting.
+
+## Further learning
+- dart.dev ▸ Effective Dart ▸ Usage ▸ Strings
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final items = [1, 2, 3];
+  print('Count: ${items.length}');
+}
+```
++ Count: 3
+- Count: [1, 2, 3].length
+- Count: items.length
+- Count: ${items.length}
+> Braces evaluate the expression items.length.
+? output: What does this print?
+```dart
+void main() {
+  final items = [1, 2, 3];
+  print('Count: $items.length');
+}
+```
+- Count: 3
++ Count: [1, 2, 3].length
+- Count: $items.length
+- A compile error
+> Without braces only `items` is interpolated; `.length` is literal text.
+? fill: To print a literal dollar sign in a normal string, escape it as ___.
+= \$
+> A backslash escapes the dollar sign.
+? tf: String interpolation calls `toString()` on the interpolated value.
+= true
+> Overriding toString controls how objects appear in interpolated strings.
+? mcq: Which package should you use for locale-aware currency formatting?
+- dart:math
++ intl
+- path
+- collection
+> The intl package provides NumberFormat and DateFormat.
+
+@lesson dart-m02-l10 | Null safety | 16
+## Learning objectives
+- Explain sound null safety and nullable types
+- Use `?`, `!`, `??`, `?.` and flow analysis correctly
+- Avoid the most common null-safety mistakes
+
+## Nullable and non-nullable types
+In Dart 3, types are **non-nullable by default**. Add `?` to allow `null`:
+
+```dart
+String name = 'Ada';   // can never be null
+String? middle;        // can be null (defaults to null)
+// name = null;        // compile-time error
+middle = null;         // fine
+```
+
+The compiler tracks this everywhere, so a `String` parameter is guaranteed to receive a real string. This removes "null pointer" crashes from code that the compiler can verify.
+
+## Working with nullable values
+You cannot call members that might not exist on `null`:
+
+```dart
+String? city;
+// print(city.length);       // Error: city might be null
+print(city?.length);         // null-aware access: prints null
+print(city?.length ?? 0);    // default value: prints 0
+```
+
+## Flow analysis and promotion
+After you check for null, Dart **promotes** a local variable to its non-nullable type:
+
+```dart
+int lengthOf(String? text) {
+  if (text == null) return 0;
+  return text.length; // text is promoted to String here
+}
+```
+
+Promotion works for **local variables and parameters**. It does not work for public fields of other objects, because another piece of code could change them between the check and the use. Copy the field into a local variable first:
+
+```dart
+class Profile {
+  String? bio;
+}
+
+int bioLength(Profile p) {
+  final bio = p.bio;         // copy to a local
+  if (bio == null) return 0;
+  return bio.length;         // promoted
+}
+```
+
+> NOTE: Since Dart 3.2, private `final` fields can also be promoted inside their own library.
+
+## The null assertion operator !
+`value!` tells the compiler "I know this is not null". If you are wrong, the app throws at runtime:
+
+```dart
+String? maybe = 'hi';
+print(maybe!.length); // 2
+maybe = null;
+// print(maybe!.length); // throws TypeError at runtime
+```
+
+Use `!` only when you can *prove* the value is non-null and the compiler can't see it. Prefer `if` checks, `??` defaults or `late`.
+
+## Required named parameters
+Named parameters that must be provided use `required`:
+
+```dart
+void createUser({required String email, String? nickname}) {
+  print('$email ${nickname ?? ''}');
+}
+```
+
+## Null-aware collection elements
+Inside collections you can spread a nullable list with `...?`:
+
+```dart
+List<String>? extras;
+final all = ['base', ...?extras]; // ['base']
+```
+
+:::check Why can't Dart promote `user.name` after `if (user.name != null)`?
+Because `name` is a field that another piece of code could change, or a getter that could return a different value; Dart only promotes locals, parameters and private final fields.
+:::
+
+## Common mistakes
+- Sprinkling `!` everywhere to silence the compiler. Each `!` is a potential crash.
+- Making everything nullable "just in case". Prefer non-nullable types and meaningful defaults.
+
+## Best practices
+- Model optionality honestly: nullable only when "no value" is a real state.
+- Handle null once, at the boundary (input parsing, JSON decoding), then work with non-nullable values.
+
+## Summary
+- Types are non-nullable by default; `Type?` allows null.
+- Use `?.`, `??`, `??=` and `...?` to handle null concisely.
+- Null checks promote local variables; copy fields to locals to benefit.
+- `!` asserts non-null and throws if wrong; use sparingly.
+
+## Further learning
+- dart.dev ▸ Null safety ▸ Understanding null safety
+@quiz
+? mcq: Which declaration allows the variable to hold null?
+- String name;
++ String? name;
+- String! name;
+- late String name;
+> The ? suffix makes a type nullable.
+? output: What does this print?
+```dart
+void main() {
+  String? city;
+  print(city?.length ?? -1);
+}
+```
++ -1
+- 0
+- null
+- A runtime error
+> city?.length is null, so ?? supplies -1.
+? tf: Dart promotes a public field of another object after a null check on that field.
+= false
+> Fields can change between the check and the use, so they are not promoted (copy to a local).
+? scenario: The analyzer complains that `widget.title` might be null even though you just checked it. What is the cleanest fix?
++ Copy it to a local variable, check the local, then use the local
+- Add ! everywhere it is used
+- Change its type to dynamic
+- Disable the analyzer
+> Local variables are promoted after a null check.
+? mcq: What happens when you apply `!` to a null value?
+- It returns an empty value
+- The compiler rejects the code
++ A runtime error is thrown
+- It is ignored
+> The null assertion operator throws if the value is null.
+? fill: To make a named parameter mandatory, mark it with the keyword ___.
+= required
+> required forces callers to pass the named argument.
+? output: What does this print?
+```dart
+void main() {
+  List<int>? extra;
+  final all = [1, ...?extra];
+  print(all);
+}
+```
++ [1]
+- [1, null]
+- A runtime error
+- []
+> ...? spreads nothing when the collection is null.

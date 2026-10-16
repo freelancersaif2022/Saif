@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bimo</string>
+    <string name="app_full_name">Bimo – Learn Flutter</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_courses">Courses</string>
+    <string name="nav_practice">Practice</string>
+    <string name="nav_achievements">Awards</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_next">Next</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_get_started">Get started</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_close">Close</string>
+    <string name="action_copy">Copy code</string>
+    <string name="action_copied">Copied</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_share">Share</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title_1">Learn Flutter and Dart from zero</string>
+    <string name="onboarding_body_1">Start with your very first line of Dart and grow, step by step, into building beautiful Flutter apps.</string>
+    <string name="onboarding_title_2">Master programming through practical lessons</string>
+    <string name="onboarding_body_2">Every lesson pairs clear explanations with real code you can copy, run and change. No fluff, just skills.</string>
+    <string name="onboarding_title_3">Practise with quizzes and real projects</string>
+    <string name="onboarding_body_3">Check your understanding after every lesson, then build 15 real-world apps from a counter to a production-style app.</string>
+    <string name="onboarding_title_4">Earn your course certificate</string>
+    <string name="onboarding_body_4">Finish the Dart, Flutter and project tracks, pass the final assessment and receive your Bimo certificate of completion.</string>
+
+    <!-- Lessons & quizzes -->
+    <string name="lesson_locked">Locked lesson</string>
+    <string name="lesson_completed">Completed</string>
+    <string name="quiz_pass_requirement">Score at least 70% to pass and unlock the next lesson.</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Learning reminders</string>
+    <string name="notification_channel_description">Daily study, streak and learning-goal reminders</string>
+
+    <!-- Ads & premium -->
+    <string name="ad_label">Advertisement</string>
+    <string name="demo_pricing_notice">Demonstration prices. Purchases in this build are simulated and no money is charged.</string>
+</resources>

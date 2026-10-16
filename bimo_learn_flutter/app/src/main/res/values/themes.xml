@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base window theme; Compose draws everything else. -->
+    <style name="Theme.Bimo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bimo_background_light</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- AndroidX SplashScreen theme (works on API 26+ and uses the native API on 31+). -->
+    <style name="Theme.Bimo.Splash" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/bimo_primary</item>
+        <item name="windowSplashScreenAnimationDuration">600</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bimo</item>
+    </style>
+</resources>

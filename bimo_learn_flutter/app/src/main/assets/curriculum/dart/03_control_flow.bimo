@@ -1,0 +1,1130 @@
+@module dart-m03 | Control Flow
+@summary Make decisions and repeat work with if, switch, loops and Dart 3 patterns.
+
+@lesson dart-m03-l01 | If and else | 12
+## Learning objectives
+- Write `if`, `else if` and `else` chains
+- Combine conditions clearly
+- Use guard clauses to reduce nesting
+
+## Making decisions
+`if` runs a block only when its condition is `true`. Add `else if` for more cases and `else` for everything else:
+
+```dart
+String grade(int score) {
+  if (score >= 90) {
+    return 'A';
+  } else if (score >= 80) {
+    return 'B';
+  } else if (score >= 70) {
+    return 'C';
+  } else {
+    return 'Keep practising';
+  }
+}
+
+void main() {
+  print(grade(95)); // A
+  print(grade(72)); // C
+  print(grade(40)); // Keep practising
+}
+```
+
+Conditions are checked **top to bottom** and only the first matching branch runs. That's why the order matters: checking `score >= 70` first would give a 95 a "C".
+
+## Braces
+For a single statement you may omit braces, but Effective Dart only recommends this when the whole `if` fits on one line with no `else`:
+
+```dart
+if (items.isEmpty) return;      // fine
+if (items.isEmpty)
+  return;                       // avoid: easy to break when adding lines
+```
+
+## Guard clauses
+Deeply nested `if` blocks are hard to read. Handle invalid cases early and return:
+
+```dart
+String checkout(List<String> cart, bool isLoggedIn) {
+  if (!isLoggedIn) return 'Please sign in';
+  if (cart.isEmpty) return 'Your cart is empty';
+  return 'Checking out ${cart.length} items';
+}
+```
+
+The "happy path" stays at the left edge of the function instead of hiding inside three levels of braces.
+
+## if-case (Dart 3)
+`if` can also match **patterns**, which you'll study in lesson 8:
+
+```dart
+void handle(Object json) {
+  if (json case {'name': String name, 'age': int age}) {
+    print('$name is $age');
+  } else {
+    print('Unexpected data');
+  }
+}
+```
+
+> TIP: When you compare one value against many constants, a `switch` is often clearer than a long `else if` chain.
+
+:::check What does `grade(80)` return?
+'B'. 80 is not >= 90, but it is >= 80, and the chain stops at the first match.
+:::
+
+## Common mistakes
+- Writing `if (x = 5)` instead of `if (x == 5)`; Dart rejects it because assignment does not produce a bool for a non-bool x, but the intent was a comparison.
+- Ordering overlapping conditions from least to most specific.
+
+## Summary
+- `if` / `else if` / `else` choose one branch, checked top to bottom.
+- Use braces for multi-line bodies; guard clauses reduce nesting.
+- `if (value case pattern)` matches patterns and binds variables.
+
+## Further learning
+- dart.dev ▸ Language ▸ Branches
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final t = 25;
+  if (t > 30) {
+    print('hot');
+  } else if (t > 20) {
+    print('warm');
+  } else {
+    print('cold');
+  }
+}
+```
++ warm
+- hot
+- cold
+- warm and cold
+> 25 is not > 30 but is > 20, so the second branch runs and the chain stops.
+? tf: In an else-if chain, more than one branch can run.
+= false
+> Only the first branch whose condition is true runs.
+? mcq: What is a guard clause?
++ An early return that handles an invalid case before the main logic
+- A try/catch around an if statement
+- A comment explaining an if statement
+- A loop that checks conditions
+> Guard clauses exit early, keeping the main path un-nested.
+? scenario: A function checks `score >= 50` before `score >= 90` and gives everyone a "Pass" instead of "Excellent". What is the fix?
++ Check the most specific condition (>= 90) first
+- Use else instead of else if
+- Swap if for while
+- Make score a double
+> Conditions are evaluated in order, so put the narrowest first.
+? fill: In Dart 3 you can match a pattern inside an if statement with `if (value ___ pattern)`.
+= case
+> if-case statements match a value against a pattern.
+
+@lesson dart-m03-l02 | Switch statements | 12
+## Learning objectives
+- Use `switch` statements with constant and pattern cases
+- Understand implicit `break` in Dart 3
+- Combine cases and use `default`
+
+## Choosing between many values
+A `switch` statement compares one value against several cases:
+
+```dart
+void describe(String command) {
+  switch (command) {
+    case 'start':
+      print('Starting...');
+    case 'stop':
+    case 'quit':
+      print('Stopping');
+    default:
+      print('Unknown command: $command');
+  }
+}
+
+void main() {
+  describe('start');
+  describe('quit');
+  describe('jump');
+}
+```
+
+In Dart 3, a non-empty case **does not fall through** to the next one, so you don't need `break` (you may still write it). Empty cases like `case 'stop':` share the body of the next case.
+
+## Logical-or patterns
+Instead of stacking empty cases, combine values with `||`:
+
+```dart
+switch (command) {
+  case 'stop' || 'quit':
+    print('Stopping');
+  default:
+    print('Other');
+}
+```
+
+## Guards with when
+Add a condition to a case with `when`:
+
+```dart
+void classify(int n) {
+  switch (n) {
+    case 0:
+      print('zero');
+    case int x when x < 0:
+      print('negative');
+    case int x when x.isEven:
+      print('positive even');
+    default:
+      print('positive odd');
+  }
+}
+```
+
+## Exhaustiveness with enums
+When switching on an enum (or a sealed class), Dart checks that every value is handled. If you add a new enum value later, the compiler points to every switch you forgot to update:
+
+```dart
+enum Level { beginner, intermediate, advanced }
+
+String label(Level level) {
+  switch (level) {
+    case Level.beginner:
+      return 'Start here';
+    case Level.intermediate:
+      return 'Keep going';
+    case Level.advanced:
+      return 'Expert mode';
+  }
+}
+```
+
+No `default` is needed, and adding one would hide future mistakes.
+
+> TIP: Avoid `default` when switching over enums or sealed types; let the compiler enforce exhaustiveness.
+
+:::check In Dart 3, does a non-empty case fall through to the next case?
+No. Each non-empty case ends implicitly; only empty cases share the next body.
+:::
+
+## Common mistakes
+- Adding `default` to enum switches, losing exhaustiveness checking.
+- Expecting C-style fall-through between non-empty cases.
+
+## Summary
+- `switch` compares a value with constant or pattern cases.
+- Dart 3 has no accidental fall-through; `break` is optional.
+- Combine values with `||`, add conditions with `when`.
+- Enum and sealed-type switches are checked for exhaustiveness.
+
+## Further learning
+- dart.dev ▸ Language ▸ Branches ▸ Switch statements
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  const day = 'sat';
+  switch (day) {
+    case 'sat' || 'sun':
+      print('weekend');
+    default:
+      print('weekday');
+  }
+}
+```
++ weekend
+- weekday
+- weekend and weekday
+- Nothing
+> The logical-or pattern matches 'sat'; cases do not fall through.
+? tf: In Dart 3 you must end every non-empty case with `break`.
+= false
+> Non-empty cases end implicitly; break is optional.
+? mcq: Which keyword adds an extra condition to a case?
+- if
++ when
+- where
+- guard
+> case int x when x < 0 adds a guard clause.
+? scenario: You add `Level.expert` to an enum used in 12 switch statements without default. What happens?
++ The compiler reports every switch that no longer handles all values
+- Nothing until runtime
+- Every switch silently ignores the new value
+- The app crashes on startup
+> Exhaustiveness checking flags non-exhaustive switches at compile time.
+? fill: The fallback case in a switch statement is written with the keyword ___.
+= default
+> default handles values not matched by other cases (you can also use the wildcard `_`).
+
+@lesson dart-m03-l03 | Switch expressions | 12
+## Learning objectives
+- Write Dart 3 switch expressions that produce values
+- Use wildcards, guards and multiple patterns
+- Choose between switch statements and expressions
+
+## Switch as an expression
+A **switch expression** evaluates to a value, so you can use it anywhere an expression is allowed: variable initialisers, return values, arguments and even widget trees.
+
+```dart
+String weatherIcon(String condition) => switch (condition) {
+  'sunny' => '☀️',
+  'cloudy' || 'overcast' => '☁️',
+  'rain' => '🌧️',
+  _ => '❓',
+};
+
+void main() {
+  print(weatherIcon('cloudy')); // ☁️
+  print(weatherIcon('snow'));   // ❓
+}
+```
+
+Syntax differences from the statement form:
+- No `case` keyword; each arm is `pattern => expression`.
+- Arms are separated by commas.
+- `_` is the wildcard that matches anything (like `default`).
+- The whole switch must be **exhaustive**: every possible value must be handled.
+
+## Guards and bindings
+```dart
+String bmiCategory(double bmi) => switch (bmi) {
+  < 18.5 => 'Underweight',
+  < 25 => 'Healthy',
+  < 30 => 'Overweight',
+  _ => 'Obese',
+};
+
+String describe(int n) => switch (n) {
+  0 => 'zero',
+  final x when x < 0 => 'negative ($x)',
+  _ => 'positive',
+};
+```
+
+Relational patterns like `< 18.5` compare the value directly, which reads beautifully for ranges.
+
+## Exhaustive enums
+```dart
+enum Plan { free, weekly, yearly }
+
+int priceInCents(Plan plan) => switch (plan) {
+  Plan.free => 0,
+  Plan.weekly => 299,
+  Plan.yearly => 4999,
+};
+```
+
+No wildcard is needed because every enum value is covered, and the compiler will warn you if you add a new plan.
+
+## Statement or expression?
+- Use a **switch expression** when every branch produces a value of the same kind.
+- Use a **switch statement** when branches perform different actions (printing, saving, navigating) or contain several statements.
+
+> NOTE: In Flutter you will often see `child: switch (state) { Loading() => const CircularProgressIndicator(), ... }` to choose a widget.
+
+:::check What happens if a switch expression over an int has no wildcard arm?
+It does not compile, because not every int is handled. Switch expressions must be exhaustive.
+:::
+
+## Common mistakes
+- Writing `case` inside a switch expression.
+- Forgetting the trailing commas between arms.
+- Putting statements (like `print`) in an arm that should return a value.
+
+## Summary
+- Switch expressions produce values with `pattern => value` arms.
+- `_` matches anything; `when` adds conditions; relational patterns handle ranges.
+- They must be exhaustive, which the compiler verifies.
+
+## Further learning
+- dart.dev ▸ Language ▸ Branches ▸ Switch expressions
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final n = 7;
+  final size = switch (n) {
+    < 5 => 'small',
+    < 10 => 'medium',
+    _ => 'large',
+  };
+  print(size);
+}
+```
++ medium
+- small
+- large
+- A compile error
+> 7 is not < 5 but is < 10, so the second arm matches.
+? mcq: Which symbol is the wildcard pattern in a switch expression?
+- *
++ _
+- default
+- ?
+> The underscore matches any value.
+? tf: A switch expression over a String must handle every possible value, usually with `_`.
+= true
+> Switch expressions must be exhaustive.
+? fill: Each arm of a switch expression is written as `pattern ___ expression`.
+= =>
+> Arms use the arrow syntax.
+? scenario: Each branch of your switch must save to a database, log a message and navigate. Which form fits best?
++ A switch statement
+- A switch expression
+- Nested ternaries
+- A map literal
+> Switch statements suit branches that perform several actions.
+
+@lesson dart-m03-l04 | For loops | 12
+## Learning objectives
+- Write classic `for` loops and `for-in` loops
+- Iterate with indexes when you need them
+- Use `forEach` appropriately
+
+## Classic for loop
+The classic loop has three parts: initialisation, condition and update.
+
+```dart
+void main() {
+  for (var i = 0; i < 5; i++) {
+    print('Lap $i');
+  }
+}
+```
+
+1. `var i = 0` runs once.
+2. Before each iteration, `i < 5` is checked; the loop stops when it is false.
+3. After each iteration, `i++` runs.
+
+This prints `Lap 0` through `Lap 4`. Each iteration gets its own `i`, which matters when closures capture the variable (unlike old JavaScript `var`).
+
+## for-in loops
+When you just need each element, `for-in` is cleaner and less error-prone:
+
+```dart
+void main() {
+  final fruits = ['apple', 'banana', 'cherry'];
+  for (final fruit in fruits) {
+    print(fruit.toUpperCase());
+  }
+}
+```
+
+Use `final` for the loop variable when you don't reassign it.
+
+## Index and value
+Need both? Loop over indexes, or use `indexed` (Dart 3) with a record pattern:
+
+```dart
+void main() {
+  final names = ['Ada', 'Grace', 'Linus'];
+  for (var i = 0; i < names.length; i++) {
+    print('${i + 1}. ${names[i]}');
+  }
+  for (final (index, name) in names.indexed) {
+    print('$index → $name');
+  }
+}
+```
+
+## Looping over maps
+```dart
+final stock = {'apples': 5, 'pears': 2};
+for (final entry in stock.entries) {
+  print('${entry.key}: ${entry.value}');
+}
+for (final MapEntry(:key, :value) in stock.entries) {
+  print('$key has $value');
+}
+```
+
+## forEach
+`list.forEach((x) => print(x));` works, but Effective Dart recommends `for-in` for side effects because you can use `break`, `continue`, `return` and `await` inside it. `forEach` is fine for passing an existing function: `names.forEach(print);`.
+
+> WARNING: Don't add or remove elements from a list while iterating it with `for-in`; Dart throws a `ConcurrentModificationError`.
+
+:::check How many times does `for (var i = 2; i < 6; i += 2)` run?
+Twice: i = 2 and i = 4.
+:::
+
+## Common mistakes
+- Off-by-one errors: `i <= list.length` reads past the end. Use `<`.
+- Modifying a collection during iteration.
+
+## Exercise
+Print the multiplication table for 7 from 7 × 1 to 7 × 10.
+:::solution Example solution
+```dart
+void main() {
+  for (var i = 1; i <= 10; i++) {
+    print('7 × $i = ${7 * i}');
+  }
+}
+```
+:::
+
+## Summary
+- Classic `for` gives full control over the counter.
+- `for-in` iterates elements; `.indexed` gives index and value together.
+- Iterate maps via `.entries`; prefer `for-in` over `forEach` for side effects.
+
+## Further learning
+- dart.dev ▸ Language ▸ Loops
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  var total = 0;
+  for (var i = 1; i <= 4; i++) {
+    total += i;
+  }
+  print(total);
+}
+```
++ 10
+- 4
+- 6
+- 15
+> 1 + 2 + 3 + 4 = 10.
+? mcq: Which loop is clearest when you only need each element of a list?
+- for (var i = 0; i < list.length; i++)
++ for (final item in list)
+- while (true)
+- do { } while (false)
+> for-in avoids index bookkeeping.
+? tf: Removing items from a list inside a for-in loop over the same list is safe.
+= false
+> Modifying a list during iteration throws ConcurrentModificationError.
+? fill: To get both index and element in a for-in loop, iterate over `list.___`.
+= indexed
+> The indexed getter yields (index, element) records.
+? output: What does this print?
+```dart
+void main() {
+  for (var i = 10; i > 4; i -= 3) {
+    print(i);
+  }
+}
+```
++ 10 then 7
+- 10, 7 and 4
+- 10 only
+- Nothing
+> i = 10 and 7 satisfy i > 4; at 4 the loop stops.
+? order: Arrange the lines to print each name in the list.
+~ final names = ['Ada', 'Grace'];
+~ for (final name in names) {
+~   print(name);
+~ }
+> Declare the list, open the loop, print inside it, close the brace.
+
+@lesson dart-m03-l05 | While loops | 10
+## Learning objectives
+- Repeat code while a condition holds
+- Avoid infinite loops
+- Choose between `for` and `while`
+
+## Repeating until a condition changes
+A `while` loop checks its condition **before** each iteration and runs as long as it is true. It's ideal when you don't know in advance how many iterations you need.
+
+```dart
+void main() {
+  var balance = 100.0;
+  var years = 0;
+  while (balance < 200) {
+    balance *= 1.07; // 7% growth
+    years++;
+  }
+  print('Doubled after $years years'); // Doubled after 11 years
+}
+```
+
+## Making sure it ends
+Every `while` loop must eventually make its condition false. Forgetting to update the variable creates an **infinite loop** that freezes your program (or your app's UI):
+
+```dart
+var attempts = 0;
+while (attempts < 3) {
+  print('Trying...');
+  attempts++; // without this line, the loop never ends
+}
+```
+
+## Processing a queue
+`while` shines when you consume items until none are left:
+
+```dart
+void main() {
+  final tasks = ['compile', 'test', 'deploy'];
+  while (tasks.isNotEmpty) {
+    final task = tasks.removeAt(0);
+    print('Running $task');
+  }
+}
+```
+
+## for vs while
+- Known number of iterations, or iterating a collection: use `for` / `for-in`.
+- Repeat until something happens (user input, a condition from a computation, a queue empties): use `while`.
+
+> WARNING: In Flutter, never run a long `while` loop on the UI thread waiting for something to happen. Use asynchronous code (Futures, Streams) instead, or the UI will freeze.
+
+:::check What happens if the condition of a while loop is false initially?
+The body never runs at all.
+:::
+
+## Common mistakes
+- Forgetting to update the loop variable.
+- Using `while (true)` without a reachable `break`.
+
+## Summary
+- `while (condition)` repeats while the condition is true, checking first.
+- Always ensure progress toward the condition becoming false.
+- Prefer `while` for "until something happens" loops.
+
+## Further learning
+- dart.dev ▸ Language ▸ Loops ▸ While and do-while
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  var n = 1;
+  while (n < 20) {
+    n *= 3;
+  }
+  print(n);
+}
+```
++ 27
+- 9
+- 20
+- 81
+> 1 → 3 → 9 → 27; at 27 the condition n < 20 is false.
+? tf: A while loop body always runs at least once.
+= false
+> The condition is checked first; if it starts false the body never runs.
+? mcq: What causes an infinite while loop?
++ The condition never becomes false
+- Using final variables
+- Printing inside the loop
+- Declaring the loop inside main
+> If nothing changes the condition, the loop never ends.
+? scenario: You need to keep asking a server for the next page of results until it says there are no more pages. Which loop fits best?
++ A while loop that checks a hasMore flag
+- A for loop from 0 to 10
+- A switch expression
+- A const list
+> The number of iterations isn't known in advance, which suits while.
+? fill: To keep looping while a list has elements, write `while (list.is___)`.
+= NotEmpty
+> isNotEmpty is true while the list contains elements.
+
+@lesson dart-m03-l06 | Do-while loops | 8
+## Learning objectives
+- Use `do-while` when the body must run at least once
+- Compare `do-while` with `while`
+- Recognise realistic use cases
+
+## Run first, check later
+A `do-while` loop runs its body **once before** checking the condition:
+
+```dart
+import 'dart:math';
+
+void main() {
+  final random = Random(7);
+  int roll;
+  do {
+    roll = random.nextInt(6) + 1;
+    print('Rolled $roll');
+  } while (roll != 6);
+  print('Finally a six!');
+}
+```
+
+We must roll at least once before we can know whether we rolled a six, so `do-while` expresses the intent perfectly. Note the semicolon after `while (...)`.
+
+## while vs do-while
+```dart
+var count = 10;
+while (count < 5) {
+  count++;          // never runs
+}
+
+var other = 10;
+do {
+  other++;          // runs once, other becomes 11
+} while (other < 5);
+```
+
+## Typical uses
+- Menus in command-line programs: show the menu, then ask whether to continue.
+- Retry logic: attempt an operation, then decide whether to retry.
+- Generating a random value until it satisfies a rule.
+
+```dart
+int attempt = 0;
+bool success;
+do {
+  attempt++;
+  success = attempt >= 3; // pretend the third try works
+  print('Attempt $attempt: ${success ? 'ok' : 'failed'}');
+} while (!success && attempt < 5);
+```
+
+> TIP: `do-while` is relatively rare in Flutter code, where most repetition is handled by collection methods and asynchronous streams. Knowing it still helps you read and write algorithms.
+
+:::check How many times does the body of `do { } while (false);` run?
+Exactly once.
+:::
+
+## Best practices
+- Make the exit condition obvious and keep it near the bottom of the body where readers expect it.
+- Always add a safety limit (like `attempt < 5`) to retry loops so a permanent failure cannot loop forever.
+- If the body grows long, move it into a well-named function such as `rollUntilSix()`.
+
+## Common mistakes
+- Forgetting the semicolon after `while (condition)`.
+- Using `do-while` when the body must not run for invalid input; use `while` instead.
+
+## Summary
+- `do { ... } while (condition);` runs the body at least once.
+- Use it when the condition depends on something the body produces.
+- Retry and "try until valid" logic are classic use cases.
+
+## Further learning
+- dart.dev ▸ Language ▸ Loops
+@quiz
+? tf: The body of a do-while loop always runs at least once.
+= true
+> The condition is checked after the body.
+? output: What does this print?
+```dart
+void main() {
+  var x = 10;
+  do {
+    x++;
+  } while (x < 5);
+  print(x);
+}
+```
++ 11
+- 10
+- 5
+- An infinite loop
+> The body runs once (x becomes 11) and then the condition is false.
+? fill: A do-while loop ends with `while (condition)` followed by a ___.
+= ; | semicolon
+> The do-while statement must be terminated with a semicolon.
+? scenario: A command-line game must show its menu, then ask whether to play again. Which loop matches this best?
++ do-while
+- for with a fixed count
+- for-in over the menu
+- A switch expression
+> The menu must be shown at least once before the condition is known.
+? mcq: Which difference between while and do-while is correct?
++ while checks before the body, do-while checks after
+- do-while cannot use break
+- while cannot change variables
+- do-while runs forever
+> The position of the condition is the key difference.
+
+@lesson dart-m03-l07 | Break and continue | 10
+## Learning objectives
+- Exit loops early with `break`
+- Skip iterations with `continue`
+- Use labels for nested loops
+
+## break
+`break` immediately exits the innermost loop:
+
+```dart
+void main() {
+  final numbers = [4, 8, 15, 16, 23, 42];
+  int? firstOdd;
+  for (final n in numbers) {
+    if (n.isOdd) {
+      firstOdd = n;
+      break; // stop searching
+    }
+  }
+  print(firstOdd); // 15
+}
+```
+
+Stopping early saves work, especially on large collections.
+
+## continue
+`continue` skips the rest of the current iteration and moves to the next one:
+
+```dart
+void main() {
+  final scores = [72, -1, 88, -1, 95];
+  var total = 0;
+  for (final s in scores) {
+    if (s < 0) continue; // ignore missing scores
+    total += s;
+  }
+  print(total); // 255
+}
+```
+
+## Labels for nested loops
+In nested loops, `break` only exits the inner loop. A **label** lets you break out of an outer loop:
+
+```dart
+void main() {
+  final grid = [
+    [1, 2, 3],
+    [4, 99, 6],
+    [7, 8, 9],
+  ];
+  search:
+  for (var row = 0; row < grid.length; row++) {
+    for (var col = 0; col < grid[row].length; col++) {
+      if (grid[row][col] == 99) {
+        print('Found at $row,$col');
+        break search;
+      }
+    }
+  }
+}
+```
+
+## Often there's a better tool
+Collection methods frequently replace manual loops with `break`/`continue`:
+
+```dart
+final firstOdd = [4, 8, 15, 16].firstWhere((n) => n.isOdd, orElse: () => -1); // 15
+final total = [72, -1, 88].where((s) => s >= 0).fold(0, (a, b) => a + b);       // 160
+```
+
+> TIP: Use loops with `break` when performance or readability benefits; use collection methods when they express intent more directly.
+
+:::check What is the difference between break and continue?
+break exits the loop entirely; continue skips to the next iteration.
+:::
+
+## Common mistakes
+- Expecting `break` inside a nested loop to exit both loops.
+- Using `continue` in a `while` loop before the update statement, causing an infinite loop.
+
+## Summary
+- `break` exits the innermost loop; `continue` skips to the next iteration.
+- Labels (`name:`) let you break or continue outer loops.
+- Collection methods like `firstWhere` and `where` often express the same idea more clearly.
+
+## Further learning
+- dart.dev ▸ Language ▸ Loops ▸ Break and continue
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  for (var i = 1; i <= 5; i++) {
+    if (i == 3) continue;
+    if (i == 5) break;
+    print(i);
+  }
+}
+```
++ 1, 2 and 4 on separate lines
+- 1, 2, 3 and 4
+- 1 and 2
+- 1, 2, 4 and 5
+> 3 is skipped by continue, and the loop stops at 5 before printing.
+? mcq: Inside nested loops, what does a plain `break` exit?
++ Only the innermost loop
+- All loops
+- The whole function
+- The outermost loop
+> Use a label to exit an outer loop.
+? fill: To exit an outer loop labelled `outer`, write `break ___;`.
+= outer
+> A labelled break exits the named loop.
+? scenario: A `while (i < 10)` loop has `if (skip) continue;` before `i++`. Why might it hang?
++ continue skips the increment, so i may never change
+- continue is not allowed in while loops
+- skip must be final
+- while loops cannot contain if statements
+> In while loops, make sure updates still happen before continue.
+? tf: `list.firstWhere(test)` can replace a for loop with break when searching for the first match.
+= true
+> firstWhere returns the first element that satisfies the test.
+
+@lesson dart-m03-l08 | Pattern matching | 16
+## Learning objectives
+- Understand Dart 3 patterns and where they can be used
+- Destructure records, lists, maps and objects
+- Validate data shapes with patterns
+
+## What are patterns?
+A **pattern** describes the *shape* of a value. Dart uses patterns to test whether a value matches that shape and, if it does, to **destructure** it into variables. Patterns work in `switch` statements and expressions, `if-case`, variable declarations and `for-in` loops.
+
+## Destructuring declarations
+```dart
+void main() {
+  final (name, age) = ('Ada', 36);           // record pattern
+  final [first, second, ...rest] = [1, 2, 3, 4]; // list pattern with rest
+  final {'id': id, 'role': role} = {'id': 7, 'role': 'admin'}; // map pattern
+  print('$name $age $first $second $rest $id $role');
+}
+```
+
+Swapping two variables becomes a one-liner: `(a, b) = (b, a);`
+
+## Matching in switch
+```dart
+String describe(Object shape) => switch (shape) {
+  (int x, int y) when x == y => 'square record $x×$y',
+  (int x, int y) => 'rectangle record $x×$y',
+  [] => 'empty list',
+  [final only] => 'one item: $only',
+  [_, _, ...] => 'list with two or more items',
+  String s when s.isEmpty => 'empty string',
+  String s => 'text: $s',
+  _ => 'something else',
+};
+
+void main() {
+  print(describe((3, 3)));
+  print(describe([42]));
+  print(describe('hi'));
+}
+```
+
+## Pattern kinds you'll use most
+- **Constant**: `0`, `'sunny'`, `null`
+- **Variable / typed**: `final x`, `int n`, `String s`
+- **Wildcard**: `_` (matches anything, binds nothing)
+- **Relational**: `< 10`, `>= 0`, `!= null`
+- **Logical**: `p1 || p2`, `p1 && p2`
+- **Null-check**: `final v?` matches non-null and binds it
+- **Record, List, Map, Object**: destructure structures
+- **Cast**: `final n as int` (throws if wrong)
+
+## Validating JSON safely
+Patterns shine when reading untyped data such as decoded JSON:
+
+```dart
+void printUser(Object? json) {
+  if (json case {'name': String name, 'tags': [String firstTag, ...]}) {
+    print('$name, first tag $firstTag');
+  } else {
+    print('Invalid user JSON');
+  }
+}
+
+void main() {
+  printUser({'name': 'Ada', 'tags': ['math', 'code']});
+  printUser({'name': 42});
+}
+```
+
+In one line, the pattern checks that `json` is a map, that `name` is a String and that `tags` is a non-empty list starting with a String, and it binds all the values. The equivalent manual checks would take a dozen lines.
+
+## Object patterns
+Match class instances by their getters:
+
+```dart
+class Point {
+  const Point(this.x, this.y);
+  final int x;
+  final int y;
+}
+
+String where(Point p) => switch (p) {
+  Point(x: 0, y: 0) => 'origin',
+  Point(x: 0) => 'on the y axis',
+  Point(:final x, :final y) when x == y => 'on the diagonal at $x',
+  _ => 'somewhere else',
+};
+```
+
+`:final x` is shorthand for `x: final x`, binding the getter to a variable with the same name.
+
+> NOTE: Map patterns match if the listed keys exist; extra keys are allowed. List patterns must match the exact length unless you include a rest element `...`.
+
+:::check Does the pattern `[a, b]` match the list `[1, 2, 3]`?
+No. Without a rest element, list patterns must match the exact length.
+:::
+
+## Common mistakes
+- Forgetting `...` in list patterns when the list may be longer.
+- Using cast patterns (`as`) for untrusted input; prefer typed patterns that simply fail to match.
+
+## Summary
+- Patterns test the shape of a value and destructure it into variables.
+- They work in switch, if-case, declarations and for-in loops.
+- Record, list, map and object patterns make data validation concise and safe.
+
+## Further learning
+- dart.dev ▸ Language ▸ Patterns
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final [a, b, ...rest] = [10, 20, 30, 40];
+  print(rest);
+}
+```
++ [30, 40]
+- [10, 20]
+- 30
+- A compile error
+> The rest element collects the remaining items into a list.
+? mcq: Which pattern matches any value without binding it?
+- final x
++ _
+- ...
+- null
+> The wildcard `_` matches anything and binds nothing.
+? tf: A map pattern `{'id': int id}` fails if the map contains additional keys.
+= false
+> Map patterns only require the listed keys; extra keys are allowed.
+? fill: In an object pattern, `Point(:final x)` is shorthand for `Point(x: ___ x)`.
+= final
+> The colon shorthand binds the getter to a variable with the same name.
+? output: What does this print?
+```dart
+void main() {
+  var a = 1;
+  var b = 2;
+  (a, b) = (b, a);
+  print('$a $b');
+}
+```
++ 2 1
+- 1 2
+- 2 2
+- A compile error
+> The record pattern assignment swaps the values.
+? scenario: You decode JSON and need to verify it has a String `email` and an int `age` before using them. What is the most concise safe approach?
++ if (json case {'email': String email, 'age': int age}) { ... }
+- final email = json['email'] as String; final age = json['age'] as int;
+- Assume the types are correct
+- Convert the JSON to a String and search it
+> A map pattern checks types and binds values without throwing.
+
+@lesson dart-m03-l09 | Conditional expressions | 8
+## Learning objectives
+- Use the ternary operator and `??` effectively
+- Choose values inline in collections and strings
+- Keep conditional expressions readable
+
+## The ternary operator
+`condition ? valueIfTrue : valueIfFalse` evaluates to one of two values:
+
+```dart
+void main() {
+  final hour = 14;
+  final greeting = hour < 12 ? 'Good morning' : 'Good afternoon';
+  final items = 1;
+  print('$greeting! You have $items ${items == 1 ? 'item' : 'items'}.');
+}
+```
+
+## Null coalescing as a conditional
+`a ?? b` is a conditional expression specialised for null: it is `a` if `a` is not null, else `b`.
+
+```dart
+String displayName(String? nickname, String fullName) => nickname ?? fullName;
+```
+
+## Conditional elements in collections
+Inside list, set and map literals you can use **collection if**, which is often clearer than a ternary:
+
+```dart
+void main() {
+  final isPremium = false;
+  final menu = [
+    'Home',
+    'Courses',
+    if (isPremium) 'Insights' else 'Upgrade',
+    if (!isPremium) 'Watch ad for XP',
+  ];
+  print(menu); // [Home, Courses, Upgrade, Watch ad for XP]
+}
+```
+
+Flutter uses this constantly to show or hide widgets: `if (error != null) Text(error)`.
+
+## Readability rules
+1. Keep ternaries short; one line is ideal.
+2. Avoid nesting ternaries; use a switch expression instead.
+3. Don't use a ternary to choose between *actions*; use `if` statements.
+
+```dart
+// Hard to read
+final label = score > 90 ? 'A' : score > 80 ? 'B' : score > 70 ? 'C' : 'F';
+
+// Clear
+final label2 = switch (score) {
+  > 90 => 'A',
+  > 80 => 'B',
+  > 70 => 'C',
+  _ => 'F',
+};
+```
+
+> TIP: For booleans, avoid `isValid ? true : false`; just write `isValid`.
+
+:::check Simplify `x != null ? x : 'default'`.
+`x ?? 'default'`
+:::
+
+## Best practices
+- Use a conditional expression when you are choosing a *value*; use an `if` statement when you are choosing an *action*.
+- Give the result a descriptive variable name (`final greeting = ...`) instead of inlining long ternaries into function calls.
+- In Flutter widget trees, prefer collection `if` to inserting placeholder widgets like `SizedBox.shrink()` in the false branch.
+
+## Common mistakes
+- Writing `cond ? true : false` instead of `cond`.
+- Nesting ternaries several levels deep.
+
+## Summary
+- `?:` chooses between two values; `??` chooses a fallback for null.
+- Collection `if` adds elements conditionally inside literals.
+- Prefer switch expressions over nested ternaries.
+
+## Further learning
+- dart.dev ▸ Language ▸ Operators ▸ Conditional expressions
+@quiz
+? output: What does this print?
+```dart
+void main() {
+  final count = 1;
+  print('$count ${count == 1 ? 'file' : 'files'}');
+}
+```
++ 1 file
+- 1 files
+- file
+- 1 count
+> count == 1, so the ternary chooses 'file'.
+? mcq: Which is the simplest equivalent of `name != null ? name : 'Guest'`?
++ name ?? 'Guest'
+- name ?: 'Guest'
+- name! ?? 'Guest'
+- name.or('Guest')
+> ?? returns the left value unless it is null.
+? output: What does this print?
+```dart
+void main() {
+  const loggedIn = true;
+  final items = ['Home', if (loggedIn) 'Profile' else 'Sign in'];
+  print(items);
+}
+```
++ [Home, Profile]
+- [Home, Sign in]
+- [Home, Profile, Sign in]
+- [Home]
+> Collection if adds 'Profile' because loggedIn is true.
+? tf: `isValid ? true : false` can be simplified to `isValid`.
+= true
+> The ternary just reproduces the boolean value.
+? fill: The conditional operator is written as `condition ___ a : b`.
+= ?
+> The ternary operator uses ? and :.

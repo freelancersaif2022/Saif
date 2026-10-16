@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Learning progress and settings are backed up; cached share files are not. -->
+<full-backup-content>
+    <include domain="database" path="bimo.db" />
+    <include domain="file" path="datastore/bimo_settings.preferences_pb" />
+    <exclude domain="file" path="shared" />
+</full-backup-content>

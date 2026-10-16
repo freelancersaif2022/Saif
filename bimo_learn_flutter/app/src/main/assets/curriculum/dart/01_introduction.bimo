@@ -1,0 +1,1082 @@
+@module dart-m01 | Introduction to Dart
+@summary Meet Dart, set up your tools and write, run and understand your first programs.
+
+@lesson dart-m01-l01 | What is Dart? | 10
+## Learning objectives
+- Explain what Dart is and who maintains it
+- Describe how Dart compiles for development and for production
+- Recognise why Flutter uses Dart
+
+## A language built for apps
+Dart is an open-source, general-purpose programming language created at Google and first released in 2011. Today it is best known as the language behind **Flutter**, Google's UI toolkit for building apps for mobile, web, desktop and embedded devices from one codebase. Dart is also used on its own for command-line tools, servers and scripts.
+
+Dart is a **statically typed**, **object-oriented** language with a familiar C-style syntax. If you have seen Java, C#, Kotlin, Swift or JavaScript, Dart code will look recognisable within minutes. Every value in Dart is an object, even numbers and functions, and every object is an instance of a class.
+
+## Two ways to compile
+Dart is unusual because it has two compilation strategies, and Flutter uses both:
+
+- **JIT (just-in-time)** compilation during development. The Dart VM compiles code as it runs, which enables Flutter's famous *hot reload*: you change code and see the result in under a second without losing app state.
+- **AOT (ahead-of-time)** compilation for release. Your code is compiled to fast native ARM or x64 machine code, so apps start quickly and run smoothly.
+
+Dart can also compile to **JavaScript** and to **WebAssembly** for the web.
+
+```dart
+void main() {
+  // Every Dart program starts at main().
+  var language = 'Dart';
+  print('Hello from $language!');
+}
+```
+
+This tiny program declares a variable and prints a message using *string interpolation* (`$language`). You will learn each piece in the next lessons.
+
+## Sound null safety
+Since Dart 3, the language is **100% sound null safe**. A variable of type `String` can never contain `null`; if you want to allow `null` you must write `String?`. The compiler checks this for you, which eliminates a whole class of crashes before your app ever runs.
+
+> NOTE: "Sound" means the type system gives a guarantee, not a hint. If the compiler says a value is non-nullable, it really is non-nullable at runtime.
+
+## Why Flutter chose Dart
+- Fast development cycles thanks to JIT and hot reload
+- Fast, predictable production performance thanks to AOT compilation
+- A garbage collector tuned for creating many short-lived objects, which is exactly what UI frameworks do
+- One language for UI and logic: no separate markup language
+
+:::check Which compilation mode makes hot reload possible?
+JIT (just-in-time) compilation in the Dart VM during development.
+:::
+
+## Common mistakes
+- Thinking Dart is "just for Flutter". It is a complete language with its own server, CLI and web ecosystem.
+- Confusing Dart with JavaScript. Dart can compile *to* JavaScript, but it is a separate, statically typed language.
+
+## Summary
+- Dart is an open-source, statically typed, object-oriented language from Google.
+- It uses JIT for fast development and AOT for fast production code.
+- Dart 3 is fully sound null safe.
+- Flutter uses Dart for hot reload, performance and a single-language workflow.
+
+## Further learning
+- dart.dev ▸ Overview
+- dart.dev ▸ Language tour
+@quiz
+? mcq: Which company created and maintains the Dart language?
+- Microsoft
++ Google
+- Apple
+- JetBrains
+> Dart was created at Google and is developed as an open-source project.
+? mcq: Which compilation strategy produces fast native code for release builds?
+- JIT compilation
++ AOT compilation
+- Interpretation only
+- Transpiling to Java bytecode
+> Ahead-of-time (AOT) compilation turns Dart into native machine code for production.
+? tf: In Dart 3, a variable of type `String` can hold `null`.
+= false
+> Dart 3 is fully sound null safe; only `String?` can hold null.
+? scenario: A teammate asks why Flutter developers can see UI changes in under a second while coding. What is the best answer?
+- Dart is interpreted line by line in production
++ The Dart VM's JIT compiler supports hot reload during development
+- Flutter re-downloads the app from the store
+- Android Studio caches screenshots
+> Hot reload relies on JIT compilation in the Dart VM, which injects updated code into the running app.
+? fill: Dart can compile to native code, JavaScript and Web___.
+= Assembly | assembly
+> Dart can also target WebAssembly (dart2wasm) for the web.
+? mcq: Which statement about Dart values is true?
+- Only class instances are objects; numbers are primitives
++ Every value is an object, including numbers and functions
+- Functions cannot be stored in variables
+- Dart has no classes
+> In Dart everything you can place in a variable is an object.
+
+@lesson dart-m01-l02 | The Dart ecosystem | 10
+## Learning objectives
+- Identify the main tools that ship with the Dart SDK
+- Understand what pub and pub.dev are
+- Know where Dart runs: mobile, web, desktop, server and CLI
+
+## More than a compiler
+When you install Dart (or Flutter, which bundles Dart) you get a complete toolkit driven by a single command: `dart`. Knowing these tools early saves hours later.
+
+```bash
+dart create my_app        # create a new project from a template
+dart run                  # run the project
+dart format .             # format code in the official style
+dart analyze              # static analysis: errors, warnings, lints
+dart test                 # run tests (with package:test)
+dart fix --apply          # automatically apply suggested fixes
+dart compile exe bin/my_app.dart   # build a native executable
+dart pub get              # download dependencies
+```
+
+Each command does one job well. `dart format` ends style debates because everyone uses the same formatter. `dart analyze` catches bugs before you run anything, and `dart fix` can migrate code when APIs change.
+
+## Packages, pub and pub.dev
+Dart's package manager is called **pub**. Your project lists its dependencies in a file called `pubspec.yaml`, and `dart pub get` downloads them. Public packages are published on **pub.dev**, which hosts tens of thousands of packages such as `http`, `path`, `intl` and `collection`.
+
+```yaml
+name: my_app
+environment:
+  sdk: ^3.5.0
+dependencies:
+  http: ^1.2.0
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0
+```
+
+The `^` (caret) means "compatible with": `^1.2.0` accepts any `1.x.y` version from 1.2.0 upwards but not 2.0.0.
+
+## Core libraries
+Dart comes with core libraries you can import without adding dependencies:
+- `dart:core` (imported automatically): `String`, `int`, `List`, `Map`, `print` and more
+- `dart:async`: `Future`, `Stream`, timers
+- `dart:math`: random numbers, `max`, `min`, `pi`
+- `dart:convert`: JSON and UTF-8 encoding
+- `dart:io`: files, sockets, HTTP servers (not available on the web)
+
+## Where Dart runs
+- **Mobile, desktop and embedded** through Flutter, compiled AOT to native code
+- **Web** through Flutter web or plain Dart compiled to JavaScript/WebAssembly
+- **Servers and CLIs** through the Dart VM or native executables
+
+> TIP: Run `dart --help` and `dart <command> --help` whenever you forget an option. The built-in help is excellent.
+
+:::check What file lists a Dart project's dependencies?
+`pubspec.yaml`
+:::
+
+## Common mistakes
+- Editing the generated `pubspec.lock` by hand. Let pub manage it.
+- Using `dart:io` in code meant for the web; it is not supported there.
+
+## Summary
+- The `dart` command bundles create, run, format, analyze, test, fix and compile.
+- pub manages dependencies declared in `pubspec.yaml`; packages live on pub.dev.
+- Core libraries like `dart:async`, `dart:math` and `dart:convert` need no installation.
+
+## Further learning
+- dart.dev ▸ Tools ▸ dart command-line tool
+- pub.dev ▸ Most popular packages
+@quiz
+? mcq: Which command formats Dart code using the official style?
+- dart lint
++ dart format
+- dart style
+- dart pretty
+> `dart format` applies the official Dart formatting rules.
+? mcq: What is pub.dev?
+- The Dart compiler
++ The public repository of Dart and Flutter packages
+- An online Dart IDE
+- A testing framework
+> pub.dev hosts packages that pub can download into your project.
+? fill: Dependencies are declared in a file named ___.
+= pubspec.yaml
+> The pubspec.yaml file describes a package and its dependencies.
+? tf: The `dart:io` library is available in web apps.
+= false
+> `dart:io` relies on operating-system features and is not available on the web.
+? mcq: What does the version constraint `^1.2.0` allow?
+- Exactly 1.2.0 only
+- Any version at all
++ Versions from 1.2.0 up to, but not including, 2.0.0
+- Versions below 1.2.0
+> The caret syntax accepts compatible versions within the same major version.
+? scenario: You inherit a project with many style inconsistencies and a few deprecated API calls. Which pair of commands helps most?
++ `dart format .` and `dart fix --apply`
+- `dart run` and `dart compile exe`
+- `dart pub get` and `dart create`
+- `dart test` and `dart run`
+> Formatting fixes style; dart fix applies automated migrations and lint fixes.
+
+@lesson dart-m01-l03 | Installing the Dart SDK | 12
+## Learning objectives
+- Install the Dart SDK on Windows, macOS or Linux
+- Verify the installation from the terminal
+- Understand the relationship between the Flutter SDK and the Dart SDK
+
+## Option 1: Install Flutter (recommended for this course)
+The Flutter SDK includes a matching Dart SDK, so if you plan to build Flutter apps you only need one installation. After installing Flutter, the `dart` command is available from `flutter/bin`. We cover Flutter installation in the Flutter course; this lesson focuses on standalone Dart.
+
+## Option 2: Install Dart on its own
+Use your platform's package manager so updates are easy:
+
+```bash
+# macOS (Homebrew)
+brew tap dart-lang/dart
+brew install dart
+
+# Windows (Chocolatey, run in an administrator terminal)
+choco install dart-sdk
+
+# Debian / Ubuntu (after adding Google's apt repository as described on dart.dev)
+sudo apt-get update
+sudo apt-get install dart
+```
+
+You can also download a zip archive from dart.dev and add its `bin` folder to your `PATH` environment variable manually.
+
+## Verify the installation
+Open a **new** terminal window (so it reloads `PATH`) and run:
+
+```bash
+dart --version
+# Dart SDK version: 3.x.y (stable) ...
+```
+
+If you see a version number, you are ready. If the terminal says the command is not found, the SDK's `bin` directory is not on your `PATH`.
+
+## Choosing an editor
+- **VS Code** with the official *Dart* extension: lightweight and popular
+- **Android Studio** or **IntelliJ IDEA** with the *Dart* plugin: powerful refactoring
+Both give you code completion, inline errors from the analyzer, formatting on save and a debugger.
+
+> TIP: Enable "format on save" in your editor. You will never think about indentation again.
+
+## Release channels
+Dart has a **stable** channel (use this), a **beta** channel for previews and a **dev** channel with the very latest changes. Stay on stable for learning and production.
+
+:::check You installed Dart but `dart --version` says "command not found". What is the most likely cause?
+The SDK's `bin` folder is not on your PATH, or the terminal was opened before installation and has not reloaded PATH.
+:::
+
+## Common mistakes
+- Installing two different Dart SDKs (standalone and Flutter's) and getting confused about which one runs. Run `which dart` (macOS/Linux) or `where dart` (Windows) to check.
+- Forgetting to open a new terminal after changing `PATH`.
+
+## Exercise
+Install Dart (or Flutter), then run `dart --version` and `dart --help`. Write down the SDK version you installed.
+:::solution What you should see
+```bash
+$ dart --version
+Dart SDK version: 3.5.4 (stable) on "macos_arm64"
+```
+Your exact version and platform will differ; any 3.x stable version works for this course.
+:::
+
+## Summary
+- Flutter bundles Dart, so Flutter developers usually need only the Flutter SDK.
+- Standalone Dart installs easily with Homebrew, Chocolatey or apt.
+- `dart --version` verifies the installation; PATH issues are the usual problem.
+- Use the stable channel and an editor with the official Dart plugin.
+
+## Further learning
+- dart.dev ▸ Get the Dart SDK
+- dart.dev ▸ Tools ▸ IDEs and editors
+@quiz
+? mcq: Which installation gives you both Flutter and a matching Dart SDK?
++ Installing the Flutter SDK
+- Installing Android Studio only
+- Installing Node.js
+- Installing the JDK
+> The Flutter SDK ships with its own compatible Dart SDK.
+? mcq: Which command verifies that Dart is installed?
+- dart install
++ dart --version
+- dart check
+- dart doctor
+> `dart --version` prints the SDK version if Dart is on your PATH.
+? tf: The beta channel is the recommended Dart channel for production apps.
+= false
+> Use the stable channel for learning and production.
+? fill: If the terminal cannot find `dart`, the SDK's bin folder is probably missing from the ___ environment variable.
+= PATH
+> The PATH variable tells the shell where to look for executables.
+? scenario: After installing Dart with Homebrew you keep using the same terminal window and `dart` is still not found. What should you try first?
+- Reinstall the operating system
++ Open a new terminal window so PATH is reloaded
+- Delete pubspec.yaml
+- Switch to the dev channel
+> Many shells only read PATH when they start, so open a new terminal.
+
+@lesson dart-m01-l04 | DartPad: Dart in your browser | 8
+## Learning objectives
+- Use DartPad to write and run Dart without installing anything
+- Know DartPad's strengths and limitations
+- Share code snippets for learning and debugging
+
+## What is DartPad?
+DartPad (dartpad.dev) is an official, free, browser-based editor for Dart and Flutter. You type code on the left, press **Run**, and see console output or a live Flutter UI on the right. It is perfect for practising the examples in this course on any device, including a tablet or a school computer where you cannot install software.
+
+```dart
+void main() {
+  for (var i = 1; i <= 3; i++) {
+    print('DartPad run #$i');
+  }
+}
+```
+
+Paste this into DartPad and press Run. The console shows three lines. Change `3` to `5` and run again: that is the fastest feedback loop you will ever have while learning.
+
+## Features worth knowing
+- **Analysis as you type**: errors and warnings appear inline, exactly like in a desktop IDE.
+- **Format** button: applies `dart format` to your code.
+- **Flutter support**: create a Flutter snippet and the right panel renders your widgets.
+- **Sharing**: you can share a snippet through a GitHub Gist link so others can open and run exactly what you wrote.
+- **Samples**: built-in examples to explore.
+
+## Limitations
+DartPad runs your code in the browser, so some things are not possible:
+- No `dart:io` (no files, no processes)
+- Only a curated set of popular packages can be imported
+- Not suitable for full projects with multiple files and assets
+
+> TIP: Use DartPad to test a small idea in isolation. If it works there but not in your app, the difference is usually your app's setup, not the language.
+
+:::check Can you read a local file with `dart:io` inside DartPad?
+No. DartPad runs in the browser, where `dart:io` is not available.
+:::
+
+## Common mistakes
+- Expecting DartPad to import any package from pub.dev. Only a selection is supported.
+- Forgetting to press Run after editing: analysis updates automatically, but output does not.
+
+## Exercise
+In DartPad, write a program that prints your name and the current year on two lines.
+:::solution Example solution
+```dart
+void main() {
+  print('Ada');
+  print(DateTime.now().year);
+}
+```
+`DateTime.now()` returns the current date and time; `.year` extracts the year as an `int`.
+:::
+
+## Summary
+- DartPad is an official, browser-based playground for Dart and Flutter.
+- It offers live analysis, formatting, Flutter previews and sharing.
+- It cannot use `dart:io` and supports only a curated set of packages.
+
+## Further learning
+- dartpad.dev
+- dart.dev ▸ Tools ▸ DartPad
+@quiz
+? mcq: What is DartPad?
+- A Dart package manager
++ An official browser-based editor for running Dart and Flutter code
+- A paid cloud IDE
+- A command-line formatter
+> DartPad lets you write and run Dart in the browser.
+? tf: DartPad can render Flutter widgets.
+= true
+> DartPad supports Flutter snippets and shows the UI in the output panel.
+? mcq: Which library is NOT available in DartPad?
+- dart:core
+- dart:math
++ dart:io
+- dart:convert
+> `dart:io` needs operating-system access, which the browser does not provide.
+? output: What does this program print in DartPad?
+```dart
+void main() {
+  for (var i = 1; i <= 2; i++) {
+    print('Run $i');
+  }
+}
+```
++ Run 1 and Run 2 on separate lines
+- Run 2 only
+- Run 0, Run 1 and Run 2
+- Nothing, DartPad cannot run loops
+> The loop runs for i = 1 and i = 2, printing one line each time.
+? scenario: You want a classmate to see and run the exact snippet you are stuck on. What is the most convenient approach?
++ Share the snippet from DartPad as a link
+- Email a screenshot of the code
+- Ask them to install your whole project
+- Read the code aloud over the phone
+> DartPad sharing gives others a runnable copy of your exact code.
+
+@lesson dart-m01-l05 | Your first Dart program | 12
+## Learning objectives
+- Create, run and modify a Dart console project
+- Read the structure of the generated files
+- Use `print` and string interpolation
+
+## Create a project
+In a terminal, run:
+
+```bash
+dart create hello_dart
+cd hello_dart
+dart run
+```
+
+`dart create` generates a console application. `dart run` compiles and runs it. You should see something like `Hello world: 42!`.
+
+## The generated files
+```diagram
+hello_dart/
+├── bin/hello_dart.dart      ← entry point with main()
+├── lib/hello_dart.dart      ← reusable library code
+├── test/hello_dart_test.dart← tests
+├── pubspec.yaml             ← name, SDK version, dependencies
+└── analysis_options.yaml    ← lint rules
+```
+
+Code in `bin/` is meant to be executed; code in `lib/` is meant to be imported and reused. Keeping logic in `lib/` makes it easy to test.
+
+## Write your own program
+Replace the contents of `bin/hello_dart.dart` with:
+
+```dart
+void main() {
+  final name = 'Bimo';
+  final lessons = 3;
+  print('Hello, $name!');
+  print('You have finished $lessons lessons today.');
+  print('Next goal: ${lessons + 1} lessons.');
+}
+```
+
+Run `dart run` again. Notice two forms of **string interpolation**:
+- `$name` inserts the value of a simple variable
+- `${lessons + 1}` evaluates an *expression* inside the braces
+
+## How the program runs
+1. The Dart VM looks for a top-level function called `main`.
+2. Statements inside `main` run from top to bottom.
+3. When `main` finishes (and no asynchronous work is pending), the program exits.
+
+> IMPORTANT: Every statement ends with a semicolon `;`. Forgetting one is the most common beginner error, and the analyzer will point to the exact line.
+
+:::check What is the difference between `$x` and `${x}` in a string?
+Both insert x, but braces are required for anything more complex than a simple identifier, such as `${x + 1}` or `${user.name}`.
+:::
+
+## Common mistakes
+- Writing `'$lessons + 1'`, which prints `3 + 1` instead of 4. Use `${lessons + 1}`.
+- Putting executable code in `lib/` and wondering why `dart run` does not find it.
+
+## Exercise
+Modify the program to store your favourite programming language in a variable and print: `I am learning Dart after <language>!`
+:::solution Example solution
+```dart
+void main() {
+  final previous = 'Python';
+  print('I am learning Dart after $previous!');
+}
+```
+:::
+
+## Summary
+- `dart create` scaffolds a project; `dart run` runs it.
+- `bin/` holds executables, `lib/` holds reusable code, `test/` holds tests.
+- `print` writes a line to the console; `$var` and `${expr}` interpolate values.
+
+## Further learning
+- dart.dev ▸ Tutorials ▸ Get started with Dart
+@quiz
+? mcq: Which command creates a new Dart console project?
++ dart create hello_dart
+- dart new hello_dart
+- dart init hello_dart
+- dart make hello_dart
+> `dart create` scaffolds a new project from a template.
+? output: What does this print?
+```dart
+void main() {
+  final n = 2;
+  print('Total: ${n * 5}');
+}
+```
++ Total: 10
+- Total: n * 5
+- Total: ${n * 5}
+- Total: 25
+> Expressions inside `${}` are evaluated and inserted into the string.
+? output: What does this print?
+```dart
+void main() {
+  final n = 2;
+  print('$n + 1');
+}
+```
+- 3
++ 2 + 1
+- $n + 1
+- n + 1
+> Only `$n` is interpolated; the text `+ 1` is printed literally.
+? mcq: Which folder should contain reusable code that tests can import?
+- bin/
++ lib/
+- build/
+- .dart_tool/
+> `lib/` is for library code; `bin/` is for entry points.
+? fill: Every Dart statement must end with a ___.
+= ; | semicolon
+> Dart statements are terminated by semicolons.
+? order: Put the commands in the order you would use them to start a new project.
+~ dart create hello_dart
+~ cd hello_dart
+~ dart run
+> Create the project, move into its folder, then run it.
+
+@lesson dart-m01-l06 | Program structure | 12
+## Learning objectives
+- Recognise imports, top-level declarations and the entry point
+- Understand libraries and the `import` directive
+- Split code between files using `lib/`
+
+## Anatomy of a Dart file
+A Dart file is a **library**. It can contain, in this order:
+1. `import` directives
+2. Top-level declarations: variables, functions, classes, enums, typedefs and more
+
+```dart
+import 'dart:math';
+
+const appName = 'Dice Roller';
+
+int rollDie(Random random) => random.nextInt(6) + 1;
+
+class Player {
+  Player(this.name);
+  final String name;
+}
+
+void main() {
+  final random = Random();
+  final player = Player('Ada');
+  print('${player.name} rolled ${rollDie(random)} in $appName');
+}
+```
+
+Here `appName`, `rollDie`, `Player` and `main` are all **top-level** declarations: they live directly in the file, not inside a class. Unlike Java, Dart does not force you to put functions inside classes.
+
+## Imports
+- `import 'dart:math';` imports a **core library**.
+- `import 'package:http/http.dart';` imports a **package** dependency.
+- `import 'src/utils.dart';` imports a **relative file** in your own project.
+
+You can add a prefix to avoid name clashes, and import only specific names:
+
+```dart
+import 'dart:math' as math;
+import 'package:collection/collection.dart' show IterableExtension;
+
+void main() {
+  print(math.max(3, 7)); // 7
+}
+```
+
+## Privacy with underscores
+Dart has no `public` or `private` keywords. Instead, any identifier starting with an underscore (`_`) is **private to its library** (its file). Everything else is public.
+
+```dart
+// lib/counter.dart
+int _count = 0;          // private to this file
+int increment() => ++_count; // public function
+```
+
+> NOTE: Privacy is per *library* (file), not per class. Two classes in the same file can see each other's private members.
+
+:::check How do you make a function private in Dart?
+Start its name with an underscore, for example `_helper()`. It is then visible only inside its own file.
+:::
+
+## Common mistakes
+- Looking for a `private` keyword. Use `_name` instead.
+- Creating circular imports between many files; keep dependencies flowing in one direction.
+
+## Best practices
+- Keep `main` small and move logic into functions and classes in `lib/`.
+- Prefer `package:` imports for files inside your own `lib/` folder when importing from `bin/` or `test/`.
+
+## Summary
+- A Dart file is a library containing imports and top-level declarations.
+- Functions and variables can live at the top level, outside classes.
+- Imports come from `dart:`, `package:` or relative paths; use `as`, `show` and `hide` to control names.
+- A leading underscore makes a name private to its library.
+
+## Further learning
+- dart.dev ▸ Language ▸ Libraries and imports
+@quiz
+? mcq: How do you make an identifier private in Dart?
+- Use the `private` keyword
++ Start its name with an underscore
+- Declare it inside main()
+- Mark it with @private
+> A leading underscore makes the name private to its library.
+? tf: In Dart, every function must belong to a class.
+= false
+> Dart supports top-level functions declared directly in a file.
+? fill: To avoid name clashes, import a library with a prefix: `import 'dart:math' ___ math;`
+= as
+> `as` gives the imported library a prefix.
+? mcq: Which import refers to a third-party package?
+- import 'dart:math';
++ import 'package:http/http.dart';
+- import 'utils.dart';
+- import math;
+> Package imports start with `package:`.
+? scenario: Two classes in the same file access each other's `_secret` field. Will it compile?
++ Yes, privacy in Dart is per library (file)
+- No, `_` makes members private to their class
+- Only if both classes are abstract
+- Only with the `friend` keyword
+> Underscore privacy is library-level, so code in the same file can access it.
+? mcq: Which keyword imports only selected names from a library?
+- only
++ show
+- pick
+- expose
+> `show` limits the import to the listed names; `hide` excludes names.
+
+@lesson dart-m01-l07 | The main function | 10
+## Learning objectives
+- Write the different valid forms of `main`
+- Read command-line arguments
+- Understand asynchronous `main` and exit codes
+
+## The entry point
+Every Dart program that can be executed needs a top-level function named `main`. The runtime calls it automatically. There are two common forms:
+
+```dart
+// 1. No parameters
+void main() {
+  print('Started');
+}
+```
+
+```dart
+// 2. With command-line arguments
+void main(List<String> arguments) {
+  if (arguments.isEmpty) {
+    print('Usage: dart run greet <name>');
+    return;
+  }
+  print('Hello, ${arguments.first}!');
+}
+```
+
+Run the second version with `dart run bin/greet.dart Alice` and it prints `Hello, Alice!`. Each word after the script name becomes one element of the `arguments` list.
+
+## Asynchronous main
+`main` can be marked `async` and return a `Future<void>`. This lets you use `await` at the top level of your program, for example to wait for a delay or a network request:
+
+```dart
+Future<void> main() async {
+  print('Loading...');
+  await Future.delayed(const Duration(seconds: 1));
+  print('Done!');
+}
+```
+
+The program stays alive until the future returned by `main` completes.
+
+## Exit codes
+Command-line tools signal success or failure with an **exit code**: `0` means success, any other number means an error. Set it with `exitCode` from `dart:io`:
+
+```dart
+import 'dart:io';
+
+void main(List<String> args) {
+  if (args.length != 2) {
+    stderr.writeln('Expected two numbers');
+    exitCode = 64; // usage error
+    return;
+  }
+  final sum = int.parse(args[0]) + int.parse(args[1]);
+  print(sum);
+}
+```
+
+> TIP: In Flutter apps you rarely use command-line arguments, but `main` is still where everything starts: Flutter's `main` calls `runApp(MyApp())`.
+
+:::check What is printed by `dart run app.dart one two` if main prints `arguments.length`?
+2. Each word after the script becomes one list element.
+:::
+
+## Common mistakes
+- Naming the entry point `Main` or `start`. It must be exactly `main`.
+- Using `await` inside a non-async `main`. Mark it `async` and return `Future<void>`.
+
+## Summary
+- `main` is the mandatory entry point of an executable Dart program.
+- `main(List<String> arguments)` receives command-line arguments.
+- `Future<void> main() async` allows top-level `await`.
+- Exit codes communicate success (0) or failure to the shell.
+
+## Further learning
+- dart.dev ▸ Tutorials ▸ Command-line apps
+@quiz
+? mcq: Which signature correctly receives command-line arguments?
+- void main(String args)
++ void main(List<String> arguments)
+- void main(int argc, String argv)
+- void main(Map args)
+> Arguments arrive as a list of strings.
+? tf: The entry point of a Dart program can be named `Main` with a capital M.
+= false
+> Dart is case-sensitive and the runtime looks for `main`.
+? output: What does this print when run as `dart run app.dart red green`?
+```dart
+void main(List<String> args) {
+  print(args.last);
+}
+```
+- red
++ green
+- 2
+- [red, green]
+> `args.last` is the final argument, "green".
+? fill: To use await at the top level, declare `Future<void> main() ___ { ... }`.
+= async
+> The async keyword enables await inside a function body.
+? mcq: Which exit code conventionally means success?
++ 0
+- 1
+- -1
+- 64
+> Zero signals success; non-zero values signal errors.
+? scenario: Your tool must wait one second before printing "Ready". Which main is correct?
++ `Future<void> main() async { await Future.delayed(const Duration(seconds: 1)); print('Ready'); }`
+- `void main() { await Future.delayed(const Duration(seconds: 1)); print('Ready'); }`
+- `void main() async => print('Ready');`
+- `main() sleep(1); print('Ready');`
+> Using await requires an async function; main may return Future<void>.
+
+@lesson dart-m01-l08 | Comments and documentation | 8
+## Learning objectives
+- Write single-line, multi-line and documentation comments
+- Document APIs so editors show helpful tooltips
+- Decide when a comment adds value
+
+## Three kinds of comments
+```dart
+// A single-line comment explains the next line or block.
+
+/* A multi-line comment
+   can span several lines.
+   Rarely used in modern Dart. */
+
+/// A documentation comment describes a public API.
+/// It supports **Markdown** and is shown in IDE tooltips.
+/// [radius] must be positive.
+double circleArea(double radius) => 3.14159 * radius * radius;
+```
+
+- `//` comments are ignored by the compiler and are for readers of the code.
+- `/* ... */` comments can span lines; Effective Dart prefers `//` even for long comments.
+- `///` **doc comments** are special: the `dart doc` tool turns them into HTML documentation, and your editor shows them when you hover over a name.
+
+## Writing good doc comments
+Effective Dart recommends:
+1. Start with a single-sentence summary ending with a period.
+2. Separate the summary from details with a blank line.
+3. Refer to parameters and other declarations in square brackets, for example `[radius]`, so tools can link them.
+
+```dart
+/// Returns the greeting shown on the home screen.
+///
+/// Uses [name] when it is not empty, otherwise falls back to "there".
+String greeting(String name) => 'Hi, ${name.isEmpty ? 'there' : name}!';
+```
+
+## When to comment
+Good code explains **what** it does through clear names. Comments should explain **why**: business rules, surprising decisions, workarounds and links to issues.
+
+```dart
+// Bad: says what the code already says
+i = i + 1; // add one to i
+
+// Good: explains why
+// The API counts pages from 1, but our list index starts at 0.
+final page = index + 1;
+```
+
+> TIP: Before writing a comment, try renaming a variable or extracting a function. If the code becomes self-explanatory, you don't need the comment.
+
+:::check Which comment style appears in IDE hover tooltips and generated API docs?
+Documentation comments that start with three slashes: `///`.
+:::
+
+## Common mistakes
+- Leaving commented-out code in the project. Delete it; version control remembers it.
+- Writing doc comments that just repeat the function name ("Gets the name" on `getName`).
+
+## Summary
+- `//` for regular comments, `///` for documentation, `/* */` rarely.
+- Doc comments support Markdown and `[references]`, and power IDE tooltips and `dart doc`.
+- Comment the *why*, let good names explain the *what*.
+
+## Further learning
+- dart.dev ▸ Effective Dart ▸ Documentation
+@quiz
+? mcq: Which syntax starts a documentation comment?
+- //
++ ///
+- /**
+- #
+> Triple-slash comments are documentation comments in Dart.
+? tf: The compiler executes code written inside `//` comments.
+= false
+> Comments are ignored by the compiler.
+? mcq: How should a doc comment refer to a parameter named `radius` so tools can link it?
+- {radius}
++ [radius]
+- @radius
+- <radius>
+> Square brackets create references in Dart doc comments.
+? scenario: A function has a confusing `+ 1` because a server API counts from 1. What is the most useful comment?
++ One that explains the API counts from 1 while our index starts at 0
+- `// add one`
+- A comment repeating the function name
+- No comment, and also rename nothing
+> Comments are most valuable when they explain intent and context.
+? fill: The tool that turns doc comments into HTML documentation is `dart ___`.
+= doc
+> `dart doc` generates API documentation from `///` comments.
+
+@lesson dart-m01-l09 | Variables | 14
+## Learning objectives
+- Declare variables with `var`, explicit types, `final` and `late`
+- Understand type inference and default values
+- Choose the right declaration style
+
+## Declaring variables
+A variable is a named reference to a value. Dart offers several ways to declare one:
+
+```dart
+void main() {
+  var city = 'Lisbon';      // type inferred as String
+  String country = 'Portugal'; // explicit type
+  int population = 545000;
+  double rating = 4.8;
+  bool visited = false;
+
+  city = 'Porto';            // OK: var can be reassigned
+  // city = 42;              // Error: a String variable cannot hold an int
+  print('$city, $country');
+}
+```
+
+With `var`, Dart **infers** the type from the initial value and then fixes it. `city` is a `String` forever; assigning a number is a compile-time error. This is static typing with less typing.
+
+## final: assign once
+Most variables in good Dart code never change after they are set. Declare them with `final`:
+
+```dart
+final createdAt = DateTime.now();
+// createdAt = DateTime.now(); // Error: final can only be set once
+```
+
+`final` makes intent clear and prevents accidental reassignment. Effective Dart recommends preferring `final` for local variables that don't change.
+
+## Uninitialised variables and null safety
+Non-nullable variables must be assigned before they are read:
+
+```dart
+int score;          // declared, not yet assigned
+// print(score);    // Error: must be assigned before use
+score = 10;
+print(score);       // OK
+
+String? nickname;   // nullable: defaults to null
+print(nickname);    // null
+```
+
+## late: initialise later
+`late` tells Dart "I promise to assign this before reading it". It is useful for fields that cannot be set in a constructor and for **lazy initialisation**:
+
+```dart
+late final String config = loadConfig(); // runs only when first read
+
+String loadConfig() {
+  print('Loading config...');
+  return 'dark-mode';
+}
+```
+
+If you read a `late` variable before assigning it, Dart throws a `LateInitializationError` at runtime, so use it sparingly.
+
+## dynamic and Object
+`dynamic` turns off static checking for a variable. Avoid it unless you are dealing with truly unknown data such as decoded JSON. If you need "any value", prefer `Object?`, which still keeps type safety.
+
+> WARNING: `dynamic` hides bugs until runtime. `var x = 1;` infers `int`, but `dynamic x = 1;` lets you later write `x.foo()` and crash.
+
+:::check Is `var count = 0; count = 'zero';` valid Dart?
+No. `count` is inferred as `int`, so assigning a String is a compile-time error.
+:::
+
+## Best practices
+- Use `final` by default, `var` when the value must change.
+- Let Dart infer local variable types; write explicit types for public APIs and fields.
+- Avoid `dynamic`; use `Object?` or a proper type.
+
+## Exercise
+Declare variables for a book: title (never changes), page count, current page (changes), and an optional subtitle. Print "Reading <title>: page X of Y".
+:::solution Example solution
+```dart
+void main() {
+  final title = 'Dart Apprentice';
+  final pages = 320;
+  var currentPage = 1;
+  String? subtitle;
+  currentPage = 42;
+  print('Reading $title: page $currentPage of $pages');
+  print(subtitle ?? 'No subtitle');
+}
+```
+:::
+
+## Summary
+- `var` infers a fixed type; explicit types document intent.
+- `final` variables are assigned exactly once; prefer them.
+- Non-nullable variables must be assigned before use; `Type?` allows null.
+- `late` delays initialisation; `dynamic` disables checks and should be rare.
+
+## Further learning
+- dart.dev ▸ Language ▸ Variables
+@quiz
+? mcq: What is the type of `x` in `var x = 3.5;`?
+- dynamic
+- num
++ double
+- Object
+> The type is inferred from the initial value: 3.5 is a double.
+? tf: A `final` variable can be reassigned later in the same function.
+= false
+> final variables can be assigned only once.
+? output: What does this print?
+```dart
+void main() {
+  String? nickname;
+  print(nickname);
+}
+```
++ null
+- An empty line
+- A compile error
+- nickname
+> Nullable variables default to null.
+? fill: The keyword that lets you declare a non-nullable variable and assign it later (or lazily) is ___.
+= late
+> late defers initialisation and checks it at runtime.
+? scenario: You store decoded JSON whose structure you don't know yet. Which type keeps the most safety?
++ Object?
+- dynamic
+- var with no value
+- void
+> Object? accepts any value but still requires checks before using specific members.
+? mcq: What happens if you read a `late` variable before assigning it?
+- It returns null
+- It returns 0
++ A LateInitializationError is thrown at runtime
+- The compiler silently assigns a default
+> late variables are checked at runtime when read.
+
+@lesson dart-m01-l10 | Constants: final vs const | 12
+## Learning objectives
+- Distinguish runtime constants (`final`) from compile-time constants (`const`)
+- Create constant collections and constant objects
+- Understand why Flutter uses `const` so often
+
+## Two kinds of "unchangeable"
+Both `final` and `const` prevent reassignment, but they mean different things:
+
+- `final`: the value is set **once at runtime** and can be computed from anything.
+- `const`: the value must be known **at compile time** and is deeply immutable.
+
+```dart
+final now = DateTime.now();        // OK: computed at runtime
+// const later = DateTime.now();   // Error: not a compile-time constant
+
+const maxLives = 3;                // OK: literal
+const secondsPerDay = 24 * 60 * 60; // OK: computed from constants
+```
+
+## Constant collections
+A `const` list, set or map is **deeply immutable**: you cannot add, remove or replace elements.
+
+```dart
+const weekend = ['Saturday', 'Sunday'];
+// weekend.add('Friday');  // Runtime error: Unsupported operation
+
+final scores = [10, 20];
+scores.add(30);            // OK: the variable is final, the list is not
+print(scores);             // [10, 20, 30]
+```
+
+This surprises many beginners: `final` stops you from pointing the variable at another list, but the list itself can still change. `const` freezes the contents too.
+
+## Canonicalisation
+Identical `const` values are created only once and shared. Two `const` expressions with the same value are the *same object*:
+
+```dart
+void main() {
+  const a = [1, 2];
+  const b = [1, 2];
+  print(identical(a, b)); // true – one shared instance
+  final c = [1, 2];
+  final d = [1, 2];
+  print(identical(c, d)); // false – two separate lists
+}
+```
+
+## Why Flutter loves const
+Flutter widgets with `const` constructors, such as `const Text('Hi')` or `const SizedBox(height: 16)`, are created at compile time and reused. When a parent rebuilds, Flutter can skip rebuilding `const` subtrees because they cannot have changed. The analyzer even has lints that suggest adding `const`.
+
+> TIP: Naming: Effective Dart recommends lowerCamelCase for constants (`maxLives`), not SCREAMING_CAPS.
+
+:::check Can you call `add` on a list declared with `final list = [1];`?
+Yes. final only prevents reassigning the variable; the list itself is mutable.
+:::
+
+## Common mistakes
+- Assuming `final` makes a collection immutable.
+- Using `const` with values only known at runtime such as `DateTime.now()` or user input.
+
+## Best practices
+- Use `const` for literal values, configuration and widget constructors when possible.
+- Use `final` for values computed at runtime.
+
+## Summary
+- `final`: assigned once at runtime. `const`: known at compile time and deeply immutable.
+- Const collections cannot be modified; final collections can.
+- Equal const values are canonicalised into a single instance.
+- Flutter performance benefits from const widgets.
+
+## Further learning
+- dart.dev ▸ Language ▸ Variables ▸ Final and const
+@quiz
+? mcq: Which declaration is valid?
+- const now = DateTime.now();
++ final now = DateTime.now();
+- const now = final DateTime.now();
+- static now = DateTime.now();
+> DateTime.now() is only known at runtime, so it must be final, not const.
+? output: What does this print?
+```dart
+void main() {
+  final items = [1, 2];
+  items.add(3);
+  print(items.length);
+}
+```
++ 3
+- 2
+- A compile error
+- A runtime error
+> final prevents reassignment, not modification of the list.
+? tf: `identical(const [1], const [1])` evaluates to true.
+= true
+> Equal const values are canonicalised into one instance.
+? fill: A value that must be known at compile time is declared with the keyword ___.
+= const
+> const creates compile-time constants.
+? scenario: Your widget tree contains `SizedBox(height: 16)` in many places. What simple change can help Flutter skip unnecessary work?
++ Make it `const SizedBox(height: 16)`
+- Wrap it in a StatefulWidget
+- Replace it with a Container
+- Mark it late
+> const widgets are canonicalised and do not need to be rebuilt.
+? mcq: What happens when you call `add` on a const list at runtime?
+- The item is added
+- It is silently ignored
++ An UnsupportedError is thrown
+- The list becomes final
+> Const collections are unmodifiable; mutating them throws.

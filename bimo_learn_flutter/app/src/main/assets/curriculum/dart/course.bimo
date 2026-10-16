@@ -1,0 +1,8 @@
+id: dart
+title: Complete Dart Programming
+subtitle: From your first variable to isolates and Effective Dart
+level: Beginner to Advanced
+accent: #03B6D4
+icon: dart
+order: 1
+description: Learn the Dart language that powers Flutter. Start with variables and types, master null safety, functions, collections and object-oriented programming, then go deep into records, patterns, sealed classes, async programming, streams, isolates, testing and Effective Dart.

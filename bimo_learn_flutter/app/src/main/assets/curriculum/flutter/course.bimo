@@ -1,0 +1,8 @@
+id: flutter
+title: Complete Flutter Development
+subtitle: Build beautiful, fast apps for every screen
+level: Beginner to Advanced
+accent: #6750F5
+icon: flutter
+order: 2
+description: Go from installing the Flutter SDK to shipping production apps. Widgets, layout, Material 3, navigation, state management, forms, networking, storage, Firebase, animations, advanced UI, device features, architecture, testing, performance, security and publishing.
