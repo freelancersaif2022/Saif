@@ -59,6 +59,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Ghost City uses the camera to show historical photos over the street in front of you.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ghost City uses your location to find street photos and satellite images of the place you are standing in.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ghost City uses the microphone so you can record voice memories about places.</string>
 	<key>UIStatusBarStyle</key>

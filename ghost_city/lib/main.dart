@@ -6,6 +6,8 @@ import 'app/theme.dart';
 import 'data/app_state.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/connectivity.dart';
+import 'widgets/feedback.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +35,7 @@ class GhostCityApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Ghost City',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: messengerKey,
         theme: GC.theme(),
         builder: (context, child) {
           // Keep layouts intact on phones with very large accessibility text.
@@ -48,8 +51,53 @@ class GhostCityApp extends StatelessWidget {
   }
 }
 
-class _Root extends StatelessWidget {
+class _Root extends StatefulWidget {
   const _Root();
+
+  @override
+  State<_Root> createState() => _RootState();
+}
+
+class _RootState extends State<_Root> {
+  final _net = ConnectivityService.instance;
+  bool? _wasOnline;
+
+  @override
+  void initState() {
+    super.initState();
+    _net.addListener(_onNetwork);
+    _net.start();
+  }
+
+  @override
+  void dispose() {
+    _net.removeListener(_onNetwork);
+    super.dispose();
+  }
+
+  /// One calm notice when the connection drops, and one when it comes back.
+  void _onNetwork() {
+    final online = _net.online;
+    if (_wasOnline == online) return;
+    final first = _wasOnline == null;
+    _wasOnline = online;
+    if (!online) {
+      showToast(
+        'No internet connection',
+        kind: ToastKind.offline,
+        message: 'Photos and maps need a connection. Saved places and memories still work.',
+        actionLabel: 'Retry',
+        onAction: () async {
+          if (!await _net.refresh()) {
+            showToast('Still offline', kind: ToastKind.offline, message: 'Check Wi-Fi or mobile data.');
+          }
+        },
+        duration: const Duration(seconds: 6),
+      );
+    } else if (!first) {
+      showToast('Back online', kind: ToastKind.success, message: 'Photos and maps are loading again.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

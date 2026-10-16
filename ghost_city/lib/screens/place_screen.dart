@@ -4,6 +4,7 @@ import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
 import '../widgets/common.dart';
+import '../widgets/feedback.dart';
 import 'lens_screen.dart';
 import 'memories_screen.dart';
 import 'paywall_screen.dart';
@@ -69,9 +70,8 @@ class PlaceScreen extends StatelessWidget {
                 tooltip: saved ? 'Remove from saved' : 'Save place',
                 onPressed: () {
                   state.toggleSaved(place.id);
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(saved ? 'Removed from saved' : 'Saved to your places')));
+                  showToast(saved ? 'Removed from saved' : 'Saved to your places',
+                      context: context, kind: saved ? ToastKind.info : ToastKind.success);
                 },
               ),
               const SizedBox(width: 16),

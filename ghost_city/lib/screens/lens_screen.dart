@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
+import '../services/archive_api.dart';
+import '../widgets/feedback.dart';
 import '../widgets/common.dart';
 import 'paywall_screen.dart';
 import 'place_screen.dart';
@@ -15,8 +17,13 @@ enum LensMode { split, ghost }
 /// Live camera with the archive photo laid over it. Drag the divider to reveal
 /// the past; pinch or drag the photo to line it up with the real street.
 class LensScreen extends StatefulWidget {
-  const LensScreen({super.key, required this.place});
-  final Place place;
+  const LensScreen({super.key, this.place, this.photo}) : assert(place != null || photo != null);
+
+  /// A curated place with its bundled archive photo and stories.
+  final Place? place;
+
+  /// Or any dated photo found near the user (street photos, Wikimedia).
+  final PastPhoto? photo;
 
   @override
   State<LensScreen> createState() => _LensScreenState();
@@ -105,7 +112,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
       setState(() => _torch = !_torch);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This camera has no torch.')));
+        showToast('No torch on this camera', context: context, kind: ToastKind.error);
       }
     }
   }
@@ -130,6 +137,11 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final place = widget.place;
+    final net = widget.photo;
+    final title = place?.name ?? net!.title ?? (net!.source == PhotoSource.mapillary ? 'Street photo' : 'Archive photo');
+    final subtitle = place != null ? '${place.city} · ${place.dateLabel}' : '${net!.source.label} · ${net.year}';
+    final year = place?.year ?? net!.year;
+    final yearsAgo = place?.yearsAgo ?? net!.yearsAgo;
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
     final premium = AppScope.of(context).premium;
@@ -137,7 +149,24 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
 
     final photo = Transform.translate(
       offset: _offset,
-      child: Transform.scale(scale: _scale, child: ArchivePhoto(place.image)),
+      child: Transform.scale(
+        scale: _scale,
+        child: place != null
+            ? ArchivePhoto(place.image)
+            : Image.network(
+                net!.imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                gaplessPlayback: true,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const Center(child: CircularProgressIndicator(strokeWidth: 2.5, color: GC.amber)),
+                errorBuilder: (context, error, stack) => const Center(
+                  child: Icon(Icons.broken_image_outlined, color: GC.muted, size: 40),
+                ),
+              ),
+      ),
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -238,7 +267,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
               Positioned(
                 top: pad.top + 74,
                 right: 16,
-                child: IgnorePointer(child: _CornerTag(text: '${place.year}', dark: false, visible: _split < 0.82)),
+                child: IgnorePointer(child: _CornerTag(text: '$year', dark: false, visible: _split < 0.82)),
               ),
             ],
 
@@ -286,9 +315,9 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(place.name, style: GC.display(20, height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(title, style: GC.display(20, height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 3),
-                              Text('${place.city} · ${place.dateLabel}', style: GC.body(13, color: GC.muted, height: 1.2)),
+                              Text(subtitle, style: GC.body(13, color: GC.muted, height: 1.2), maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
                           ),
                         ),
@@ -296,7 +325,7 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${place.yearsAgo}', style: GC.display(28, color: GC.amber, height: 1)),
+                            Text('$yearsAgo', style: GC.display(28, color: GC.amber, height: 1)),
                             Text('YEARS AGO', style: GC.label(size: 10)),
                           ],
                         ),
@@ -314,11 +343,39 @@ class _LensScreenState extends State<LensScreen> with WidgetsBindingObserver {
                               semanticFormatterCallback: (v) => '${(v * 100).round()} percent past',
                             ),
                           ),
-                          Text('${place.year}', style: GC.body(12, color: GC.amber, weight: FontWeight.w700)),
+                          Text('$year', style: GC.body(12, color: GC.amber, weight: FontWeight.w700)),
                         ],
                       ),
                     ] else
                       const SizedBox(height: 14),
+                    if (place == null)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PanelButton(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Credit',
+                              onTap: () => showToast(
+                                net!.credit,
+                                context: context,
+                                message: [net.license, net.dateIsUpload ? 'Date is the upload date' : null].whereType<String>().join(' · '),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: PrimaryButton(
+                              label: 'Re-align photo',
+                              icon: Icons.filter_center_focus_rounded,
+                              height: 50,
+                              onPressed: _resetAlignment,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
                     Row(
                       children: [
                         Expanded(

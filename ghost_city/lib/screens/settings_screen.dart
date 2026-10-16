@@ -4,6 +4,7 @@ import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
 import '../widgets/common.dart';
+import '../widgets/feedback.dart';
 import 'paywall_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -96,20 +97,14 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.restart_alt_rounded,
             onPressed: () async {
               final nav = Navigator.of(context);
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: Text('Erase everything?', style: GC.display(22)),
-                  content: Text('Your memories, saved places and settings will be deleted from this phone.', style: GC.body(15)),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: TextButton.styleFrom(foregroundColor: GC.coral),
-                      child: const Text('Erase'),
-                    ),
-                  ],
-                ),
+              final ok = await showGhostDialog(
+                context,
+                title: 'Erase everything?',
+                message: 'Your memories, saved places and settings will be deleted from this phone.',
+                icon: Icons.restart_alt_rounded,
+                confirmLabel: 'Erase',
+                cancelLabel: 'Cancel',
+                destructive: true,
               );
               if (ok == true) {
                 nav.popUntil((r) => r.isFirst);

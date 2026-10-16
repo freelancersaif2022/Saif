@@ -8,7 +8,9 @@ import 'package:latlong2/latlong.dart';
 import '../app/theme.dart';
 import '../data/content.dart';
 import '../widgets/common.dart';
+import '../services/connectivity.dart';
 import 'lens_screen.dart';
+import 'nearby_screen.dart';
 import 'place_screen.dart';
 import 'settings_screen.dart';
 
@@ -95,6 +97,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     ));
   }
 
+  /// Long-press anywhere: see that spot in street photos, archive photos and satellite years.
+  Future<void> _openSpot(LatLng point) async {
+    HapticFeedback.mediumImpact();
+    final go = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: GC.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('DROPPED PIN', style: GC.label(color: GC.amber)),
+              const SizedBox(height: 6),
+              Text('See this spot years ago', style: GC.display(24)),
+              const SizedBox(height: 6),
+              Text('${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}',
+                  style: GC.body(13, color: GC.faint)),
+              const SizedBox(height: 8),
+              Text('Street photos, archive pictures and satellite images from 5 to 20 years ago.',
+                  style: GC.body(14.5, color: GC.muted)),
+              const SizedBox(height: 18),
+              PrimaryButton(label: 'Show the past here', icon: Icons.history_rounded, onPressed: () => Navigator.pop(ctx, true)),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (go == true && mounted) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => NearbyScreen(initialPoint: point)));
+    }
+  }
+
   void _setEra(int e) {
     setState(() {
       _era = e;
@@ -134,6 +171,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _showAll());
               },
               onTap: (_, _) => _searchFocus.unfocus(),
+              onLongPress: (_, point) => _openSpot(point),
               onPositionChanged: (camera, _) {
                 final z = camera.zoom;
                 if ((z < 6) != (_zoom < 6)) {
@@ -289,6 +327,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ],
+            ),
+          ),
+
+          Positioned(
+            left: 16,
+            right: 16,
+            top: pad.top + 120,
+            child: ListenableBuilder(
+              listenable: ConnectivityService.instance,
+              builder: (context, _) => ConnectivityService.instance.online
+                ? const SizedBox.shrink()
+                : IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xF223201A),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: const Color(0x59F08A6E)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.wifi_off_rounded, size: 16, color: GC.coral),
+                          const SizedBox(width: 8),
+                          Text('Offline · the map can’t load', style: GC.body(13, color: GC.text, weight: FontWeight.w600, height: 1)),
+                        ]),
+                      ),
+                    ),
+                  ),
             ),
           ),
 

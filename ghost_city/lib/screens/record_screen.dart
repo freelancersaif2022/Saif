@@ -11,6 +11,7 @@ import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
 import '../widgets/common.dart';
+import '../widgets/feedback.dart';
 import 'paywall_screen.dart';
 
 /// Opens the recorder, or the upgrade screen when the free limit is reached.
@@ -72,9 +73,8 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _start() async {
     if (!await _recorder.hasPermission()) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Microphone access is off. Allow it in your phone’s Settings to record.')),
-      );
+      showToast('Microphone access is off', context: context, kind: ToastKind.error,
+          message: 'Allow it in your phone’s Settings to record a memory.');
       return;
     }
     final dir = await getApplicationDocumentsDirectory();
@@ -114,7 +114,7 @@ class _RecordScreenState extends State<RecordScreen> {
     if (!mounted) return;
     if (_elapsed.inSeconds < 1) {
       _discard(silent: true);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('That was too short. Hold on a little longer.')));
+      showToast('That was too short', context: context, kind: ToastKind.info, message: 'Record for at least a second.');
       return;
     }
     setState(() {
@@ -170,25 +170,19 @@ class _RecordScreenState extends State<RecordScreen> {
     ));
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Memory pinned. Thank you for remembering.')));
+    showToast('Memory pinned', context: context, kind: ToastKind.success, message: 'Thank you for remembering.');
   }
 
   Future<bool> _confirmLeave() async {
     if (_phase == _Phase.ready) return true;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Discard this recording?', style: GC.display(22)),
-        content: Text('Your memory hasn’t been saved yet.', style: GC.body(15)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep recording')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: GC.coral),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
+    final ok = await showGhostDialog(
+      context,
+      title: 'Discard this recording?',
+      message: 'Your memory hasn’t been saved yet.',
+      icon: Icons.delete_outline_rounded,
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep recording',
+      destructive: true,
     );
     if (ok == true) {
       if (_phase == _Phase.recording) {

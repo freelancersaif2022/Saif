@@ -67,11 +67,24 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Unit tests
+        run: flutter test
+
+      # Calls Mapillary, Wikimedia, Esri Wayback and Nominatim for real and prints
+      # what they return, so a change in any archive shows up in the build log.
+      - name: Live archive check
+        continue-on-error: true
+        run: dart run tool/api_smoke.dart
+
       - name: Build APKs
+        env:
+          MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
         run: |
-          flutter build apk --release
+          DEFINES=""
+          if [ -n "$MAPILLARY_TOKEN" ]; then DEFINES="--dart-define=MAPILLARY_TOKEN=$MAPILLARY_TOKEN"; fi
+          flutter build apk --release $DEFINES
           cp build/app/outputs/flutter-apk/app-release.apk ../GhostCity.apk
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi $DEFINES
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../GhostCity-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../GhostCity-armv7.apk
 

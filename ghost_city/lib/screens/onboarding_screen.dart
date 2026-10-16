@@ -26,9 +26,9 @@ const _slides = [
   _Slide(
     'assets/photos/detroit_1915.jpg',
     'Detroit · c. 1915',
-    'Line up the past',
-    'with the present.',
-    'The Time Lens lays history over your live camera. Drag the divider and watch a century disappear.',
+    'Your street,',
+    'years ago.',
+    'Ghost City finds street photos, archive pictures and satellite images of wherever you stand, from 5 to 20 years back.',
     Alignment(-0.1, 0),
   ),
   _Slide(

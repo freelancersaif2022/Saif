@@ -1,7 +1,7 @@
 name: ghost_city
 description: "Ghost City: see any street as it was, through real archive photos over your live camera."
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.1.0+3
 
 environment:
   sdk: ^3.13.5
@@ -21,6 +21,9 @@ dependencies:
   audioplayers: ^6.8.1
   path_provider: ^2.1.6
   shared_preferences: ^2.5.6
+  http: ^1.6.0
+  connectivity_plus: ^7.3.2
+  geolocator: ^14.0.1
 
 dev_dependencies:
   flutter_test:

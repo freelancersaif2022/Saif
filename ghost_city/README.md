@@ -16,6 +16,19 @@ flutter build ipa      # iOS (needs Xcode and a signing team)
 
 Use a real phone. The Time Lens needs a camera and memories need a microphone.
 
+## Near me (automatic, any place)
+
+Open the **Near me** tab (or long-press anywhere on the Map) and Ghost City finds the past of that exact spot by itself:
+
+- **Street**: street-level photos from 5 to 25 years ago by Mapillary contributors.
+- **Photos**: dated photos taken nearby, from Wikimedia Commons.
+- **Satellite**: Esri World Imagery Wayback, one image per year from 2014, compared with today using a drag divider.
+- Filter by 5–10, 10–15 or 15–20 years ago, open any photo full screen, and compare it with your live camera.
+- Search any city, street or landmark (OpenStreetMap Nominatim).
+- Without internet, the app shows a "No internet connection" notice and an offline screen instead of loading.
+
+The Mapillary client token is built into the app. To use a different one, add a `MAPILLARY_TOKEN` repository secret; the build passes it with `--dart-define`.
+
 ## Screens
 
 | Screen | What it does |

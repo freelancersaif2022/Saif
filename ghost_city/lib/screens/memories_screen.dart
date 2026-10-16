@@ -8,6 +8,7 @@ import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../data/content.dart';
 import '../widgets/common.dart';
+import '../widgets/feedback.dart';
 import 'record_screen.dart';
 
 class MemoriesScreen extends StatelessWidget {
@@ -102,7 +103,7 @@ class _MemoryTileState extends State<MemoryTile> {
 
   Future<void> _toggle() async {
     if (!File(m.audioPath).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This recording is no longer on the phone.')));
+      showToast('Recording not found', context: context, kind: ToastKind.error, message: 'It is no longer on this phone.');
       return;
     }
     var p = _player;
@@ -130,25 +131,20 @@ class _MemoryTileState extends State<MemoryTile> {
   }
 
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete this memory?', style: GC.display(22)),
-        content: Text('“${m.title}” will be removed from this phone.', style: GC.body(15)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: GC.coral),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final ok = await showGhostDialog(
+      context,
+      title: 'Delete this memory?',
+      message: '“${m.title}” will be removed from this phone.',
+      icon: Icons.delete_outline_rounded,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
     );
     if (ok == true && mounted) {
       await _player?.stop();
       if (!mounted) return;
       await AppScope.read(context).deleteMemory(m);
+      showToast('Memory deleted', kind: ToastKind.success);
     }
   }
 

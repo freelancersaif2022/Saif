@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../data/app_state.dart';
 import '../widgets/common.dart';
+import '../widgets/feedback.dart';
 
 class _Plan {
   const _Plan(this.id, this.name, this.price, this.period, this.note);
@@ -48,20 +49,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
     await AppScope.read(context).setPremium(true);
     if (!mounted) return;
     setState(() => _busy = false);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.auto_awesome, color: GC.amber, size: 36),
-        title: Text('Welcome to Plus', style: GC.display(24), textAlign: TextAlign.center),
-        content: Text('Every story, walk and lens mode is now open. Enjoy the trip back in time.',
-            textAlign: TextAlign.center, style: GC.body(15)),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(label: 'Start exploring', height: 50, onPressed: () => Navigator.pop(ctx)),
-          ),
-        ],
-      ),
+    await showGhostDialog(
+      context,
+      title: 'Welcome to Plus',
+      message: 'Every story, walk and lens mode is now open. Enjoy the trip back in time.',
+      icon: Icons.auto_awesome,
+      confirmLabel: 'Start exploring',
     );
     if (mounted) Navigator.of(context).pop();
   }
