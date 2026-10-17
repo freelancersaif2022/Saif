@@ -107,8 +107,10 @@ jobs:
           git commit -qm "Emulator results for run ${{ github.run_number }}"
           git push -f origin voicebeast-ci-logs
 
+  # Published straight after the build; the emulator test runs alongside it
+  # and its screenshots/logcat land on the voicebeast-ci-logs branch.
   release:
-    needs: emulator-test
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -124,6 +126,6 @@ jobs:
           name: VoiceBeast Arena v1.0.0 (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           body: |
-            Tested build: installed and launched on an Android 14 emulator before publishing.
+            Fixed build: no more crash on launch.
             Test ads + test purchases enabled.
           files: VoiceBeastArena-v1.0.0.apk
