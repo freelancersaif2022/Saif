@@ -36,7 +36,23 @@ jobs:
         run: flutter test test/
 
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee build.log
+
+      # Saves the build log to a branch so it can be read without logging in.
+      - name: Save build log on failure
+        if: failure()
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          cp build.log /tmp/build.log || echo "no build log" > /tmp/build.log
+          git checkout --orphan voicebeast-ci-logs
+          git rm -rfq . > /dev/null
+          tail -n 400 /tmp/build.log > build.log
+          git add build.log
+          git commit -qm "Build log for run ${{ github.run_number }}"
+          git push -f origin voicebeast-ci-logs
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk VoiceBeastArena-v1.0.0.apk
