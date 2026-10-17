@@ -39,37 +39,87 @@ jobs:
         run: |
           set -o pipefail
           flutter build apk --release 2>&1 | tee build.log
+          cp build/app/outputs/flutter-apk/app-release.apk VoiceBeastArena.apk
 
-      # Saves the build log to a branch so it can be read without logging in.
       - name: Save build log on failure
         if: failure()
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          cp build.log /tmp/build.log || echo "no build log" > /tmp/build.log
+          tail -n 400 build.log > /tmp/build.log 2>/dev/null || echo "no build log" > /tmp/build.log
           git checkout --orphan voicebeast-ci-logs
           git rm -rfq . > /dev/null
-          tail -n 400 /tmp/build.log > build.log
+          cp /tmp/build.log build.log
           git add build.log
           git commit -qm "Build log for run ${{ github.run_number }}"
           git push -f origin voicebeast-ci-logs
 
-      - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk VoiceBeastArena-v1.0.0.apk
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: VoiceBeastArena-apk
-          path: VoiceBeastArena-v1.0.0.apk
+          path: VoiceBeastArena.apk
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+  # Installs and launches the APK on a real Android emulator. The release is
+  # only published if the app starts and keeps running.
+  emulator-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: VoiceBeastArena-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run app on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash ci/smoke_test.sh
+
+      - name: Save emulator logs and screenshots
+        if: always()
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          mkdir -p /tmp/out && cp -r ci_out/. /tmp/out/ 2>/dev/null || echo "no output" > /tmp/out/result.txt
+          git fetch -q origin voicebeast-ci-logs || true
+          git checkout --orphan voicebeast-ci-logs
+          git rm -rfq . > /dev/null
+          cp -r /tmp/out/. .
+          rm -f logcat_full.txt.gz; gzip -k logcat_full.txt 2>/dev/null; rm -f logcat_full.txt
+          git add -A
+          git commit -qm "Emulator results for run ${{ github.run_number }}"
+          git push -f origin voicebeast-ci-logs
+
+  release:
+    needs: emulator-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: VoiceBeastArena-apk
+
+      - name: Rename APK
+        run: mv VoiceBeastArena.apk VoiceBeastArena-v1.0.0.apk
+
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: voicebeast-v1.0.0-build${{ github.run_number }}
           name: VoiceBeast Arena v1.0.0 (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           body: |
-            Test build of VoiceBeast Arena (test ads + test purchases enabled).
-            Download the APK below and install it on your Android phone.
+            Tested build: installed and launched on an Android 14 emulator before publishing.
+            Test ads + test purchases enabled.
           files: VoiceBeastArena-v1.0.0.apk
