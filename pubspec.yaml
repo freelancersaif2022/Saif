@@ -1,0 +1,49 @@
+name: voicebeast_arena
+description: "VoiceBeast Arena - your voice creates your monster."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  audioplayers: ^6.8.1
+  google_mobile_ads: ^9.1.0
+  in_app_purchase: ^3.3.1
+  mobile_scanner: ^7.4.2
+  path_provider: ^2.1.6
+  permission_handler: ^13.0.2
+  qr_flutter: ^4.1.0
+  record: ^7.1.2
+  share_plus: ^13.3.1
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/sfx/
+    - assets/images/
+
+  fonts:
+    - family: Lilita
+      fonts:
+        - asset: assets/fonts/LilitaOne-Regular.ttf
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-500.ttf
+          weight: 500
+        - asset: assets/fonts/Nunito-700.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-800.ttf
+          weight: 800
+        - asset: assets/fonts/Nunito-900.ttf
+          weight: 900

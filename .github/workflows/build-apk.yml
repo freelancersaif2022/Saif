@@ -1,0 +1,59 @@
+name: Build APK
+
+on:
+  push:
+    branches: [voicebeast-arena]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test test/
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk VoiceBeastArena-v1.0.0.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoiceBeastArena-apk
+          path: VoiceBeastArena-v1.0.0.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: voicebeast-v1.0.0-build${{ github.run_number }}
+          name: VoiceBeast Arena v1.0.0 (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          body: |
+            Test build of VoiceBeast Arena (test ads + test purchases enabled).
+            Download the APK below and install it on your Android phone.
+          files: VoiceBeastArena-v1.0.0.apk
