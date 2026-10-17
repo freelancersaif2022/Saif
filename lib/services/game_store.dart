@@ -37,6 +37,7 @@ class GameStore extends ChangeNotifier {
   bool removeAds = false;
   bool starterPackOwned = false;
   bool soundOn = true;
+  bool musicOn = true;
   bool hapticsOn = true;
   DateTime? lastDailyClaim;
   String _gemAdDay = '';
@@ -210,6 +211,11 @@ class GameStore extends ChangeNotifier {
     _save();
   }
 
+  void setMusic(bool v) {
+    musicOn = v;
+    _save();
+  }
+
   void setHaptics(bool v) {
     hapticsOn = v;
     _save();
@@ -275,6 +281,7 @@ class GameStore extends ChangeNotifier {
       'noAds': removeAds,
       'starter': starterPackOwned,
       'snd': soundOn,
+      'mus': musicOn,
       'hap': hapticsOn,
       'daily': lastDailyClaim?.millisecondsSinceEpoch,
       'gaD': _gemAdDay,
@@ -303,6 +310,7 @@ class GameStore extends ChangeNotifier {
       removeAds = d['noAds'] as bool? ?? false;
       starterPackOwned = d['starter'] as bool? ?? false;
       soundOn = d['snd'] as bool? ?? true;
+      musicOn = d['mus'] as bool? ?? true;
       hapticsOn = d['hap'] as bool? ?? true;
       final daily = d['daily'] as int?;
       lastDailyClaim = daily == null ? null : DateTime.fromMillisecondsSinceEpoch(daily);

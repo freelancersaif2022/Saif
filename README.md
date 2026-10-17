@@ -1,6 +1,6 @@
 # VoiceBeast Arena 🎤👹
 
-**Your voice creates your monster.** Roar into the phone and the app turns your voice into a one-of-a-kind beast. Your pitch, power and rasp decide its element, stats and look. Battle through a 30-stage arena, evolve your beasts, and challenge friends with a QR code.
+**Your voice creates your monster.** Roar into the phone and the app turns your voice into a one-of-a-kind beast. Your pitch, power and rasp decide its element, stats and look. Battle through a 60-stage arena, evolve your beasts, challenge friends with a QR code, or fight them **live** phone-to-phone.
 
 - Flutter (Android first)
 - 100% offline gameplay, no backend
@@ -49,7 +49,15 @@ That means every ad reward and every purchase can be tested with no internet.
 5. Package name is `com.voicebeast.arena`. Change `applicationId` if you want a different one, and update `_storeLink` in `lib/widgets/share_card.dart`.
 6. Play Console **Data safety**: the microphone is used on-device only (nothing is uploaded). Declare AdMob's advertising ID usage. A privacy policy URL is required because the app uses the microphone and ads.
 
-## 4. Monetization design
+## 4. Live multiplayer (no server)
+
+- **Arena → Live Battle → Host** shows a room QR. The friend taps **Join** and scans it (or pastes the room code).
+- Both phones must be on the **same Wi-Fi** or one phone connects to the other's **hotspot**. No internet needed.
+- The host phone runs the battle engine and streams each round to the guest, so both screens always show the same result.
+- Both players pick a move at the same time (20 s turn timer; idle players auto-attack). Leaving mid-battle gives the other player a win by forfeit.
+- Some public/office Wi-Fi networks block phone-to-phone traffic. Use a hotspot in that case.
+
+## 5. Monetization design
 
 | Placement | Type | Where |
 |---|---|---|
@@ -63,7 +71,7 @@ That means every ad reward and every purchase can be tested with no internet.
 
 Gems are spent on monster slots (60), evolution stones (40) and energy refills (15).
 
-## 5. Project layout
+## 6. Project layout
 
 ```
 lib/
@@ -79,11 +87,11 @@ store_assets/   Play Store icon 512, feature graphic, 10 screenshots
 
 Monsters are drawn in code (`monster_painter.dart`) from a seed, so millions of different beasts exist without any image files. The same painter produced the launcher icon.
 
-## 6. Tests
+## 7. Tests
 
 ```bash
 flutter analyze   # no issues
-flutter test      # 26 tests: voice analysis, battle engine, QR codes, save system, UI flows
+flutter test      # 30 tests: voice analysis, battle engine, live multiplayer over real sockets, QR codes, save system, UI flows
 ```
 
 Fonts: Lilita One & Nunito (SIL Open Font License, see `assets/fonts/`).

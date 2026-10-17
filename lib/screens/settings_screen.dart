@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../config/monetization_config.dart';
+import '../game/monster_factory.dart';
 import '../services/game_store.dart';
 import '../services/iap/iap_service.dart';
+import '../services/sfx.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feedback.dart';
 import '../widgets/ui.dart';
@@ -49,6 +51,15 @@ class SettingsScreen extends StatelessWidget {
                       secondary: const Icon(Icons.volume_up_rounded, color: AppColors.cyan),
                     ),
                     SwitchListTile(
+                      value: store.musicOn,
+                      onChanged: (v) {
+                        store.setMusic(v);
+                        Sfx.refreshMusic();
+                      },
+                      title: Text('Music', style: AppText.h3),
+                      secondary: const Icon(Icons.music_note_rounded, color: AppColors.cyan),
+                    ),
+                    SwitchListTile(
                       value: store.hapticsOn,
                       onChanged: store.setHaptics,
                       title: Text('Vibration', style: AppText.h3),
@@ -78,7 +89,12 @@ class SettingsScreen extends StatelessWidget {
               const SectionTitle('Stats'),
               Panel(
                 child: Row(
-                  children: [_Stat('Battles', '${store.totalBattles}'), _Stat('Wins', '${store.totalWins}'), _Stat('Beasts', '${store.monsters.length}'), _Stat('Stage', '${store.ladderProgress}/30')],
+                  children: [
+                    _Stat('Battles', '${store.totalBattles}'),
+                    _Stat('Wins', '${store.totalWins}'),
+                    _Stat('Beasts', '${store.monsters.length}'),
+                    _Stat('Stage', '${store.ladderProgress}/${MonsterFactory.totalStages}'),
+                  ],
                 ),
               ),
               const SectionTitle('Privacy'),

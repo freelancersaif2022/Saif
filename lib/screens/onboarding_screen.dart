@@ -6,6 +6,7 @@ import '../app.dart';
 import '../game/monster_factory.dart';
 import '../models/element.dart';
 import '../services/game_store.dart';
+import '../services/sfx.dart';
 import '../theme/app_theme.dart';
 import '../widgets/monster_view.dart';
 import '../widgets/ui.dart';
@@ -22,6 +23,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pc = PageController();
   int _page = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    Sfx.music(MusicTrack.menu);
+  }
+
   static final _pages = <_PageData>[
     _PageData(
       title: 'Your Voice.\nYour Beast.',
@@ -35,7 +42,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       tint: BeastElement.tide.color,
       art: (_) => const _VoiceArt(),
     ),
-    _PageData(title: 'Battle &\nEvolve', text: 'Climb 30 arena stages, level up, and evolve your beast into its ultimate form.', tint: BeastElement.shadow.color, art: (_) => const _VersusArt()),
+    _PageData(
+      title: 'Battle &\nEvolve',
+      text: 'Climb 60 arena stages, battle friends live, level up, and evolve your beast into its ultimate form.',
+      tint: BeastElement.shadow.color,
+      art: (_) => const _VersusArt(),
+    ),
     _PageData(
       title: 'Challenge\nYour Friends',
       text: 'Share your beast as a QR card. Friends scan it and fight it. Works fully offline.',

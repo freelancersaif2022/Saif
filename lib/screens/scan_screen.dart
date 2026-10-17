@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/monster.dart';
+import '../net/live_link.dart';
 import '../services/sfx.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feedback.dart';
@@ -30,12 +31,12 @@ class _ScanScreenState extends State<ScanScreen> {
     for (final b in capture.barcodes) {
       final raw = b.rawValue;
       if (raw == null) continue;
-      final m = Monster.fromChallengeCode(raw);
-      if (m != null) {
+      // Returns the raw code: a live-room invite or a beast challenge.
+      if (LiveInvite.decode(raw) != null || Monster.fromChallengeCode(raw) != null) {
         _handled = true;
         Sfx.play(Fx.coin);
         Sfx.haptic();
-        Navigator.of(context).pop(m);
+        Navigator.of(context).pop(raw);
         return;
       }
     }

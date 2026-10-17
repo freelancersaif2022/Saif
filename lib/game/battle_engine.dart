@@ -34,6 +34,24 @@ class Fighter {
 
   int get maxHp => monster.maxHp;
   double get hpRatio => hp / maxHp;
+
+  Move moveOf(MoveKind k) => moves.firstWhere((m) => m.kind == k);
+
+  /// Battle state shared with the other phone in live battles.
+  Map<String, dynamic> snapshot() => {
+    'hp': hp,
+    'b': buffTurns,
+    'cd': {for (final e in cooldowns.entries) '${e.key.index}': e.value},
+  };
+
+  void applySnapshot(Map<String, dynamic> s) {
+    hp = (s['hp'] as num).toInt();
+    buffTurns = (s['b'] as num).toInt();
+    cooldowns
+      ..clear()
+      ..addAll({for (final e in (s['cd'] as Map).entries) MoveKind.values[int.parse(e.key as String)]: (e.value as num).toInt()});
+  }
+
   bool get fainted => hp <= 0;
   bool isReady(Move m) => (cooldowns[m.kind] ?? 0) <= 0;
   int cooldownOf(Move m) => cooldowns[m.kind] ?? 0;
@@ -52,8 +70,29 @@ class BattleEvent {
   final bool crit;
   final double effectiveness;
 
-  String get text {
-    final who = byPlayer ? 'Your beast' : 'Enemy';
+  /// The same event seen from the other player's side.
+  BattleEvent flipped() => BattleEvent(type: type, byPlayer: !byPlayer, move: move, damage: damage, heal: heal, crit: crit, effectiveness: effectiveness);
+
+  Map<String, dynamic> toJson() => {'t': type.index, 'p': byPlayer, 'k': move.kind.index, 'd': damage, 'h': heal, 'c': crit, 'e': effectiveness};
+
+  /// [player]/[enemy] supply the move details from the receiver's own fighters.
+  factory BattleEvent.fromJson(Map<String, dynamic> j, Fighter player, Fighter enemy) {
+    final byPlayer = j['p'] as bool;
+    final kind = MoveKind.values[(j['k'] as num).toInt()];
+    return BattleEvent(
+      type: EventType.values[(j['t'] as num).toInt()],
+      byPlayer: byPlayer,
+      move: (byPlayer ? player : enemy).moveOf(kind),
+      damage: (j['d'] as num).toInt(),
+      heal: (j['h'] as num).toInt(),
+      crit: j['c'] as bool,
+      effectiveness: (j['e'] as num).toDouble(),
+    );
+  }
+
+  /// Battle log line. [me] is the player's beast, [foe] the opponent's.
+  String describe(String me, String foe) {
+    final who = byPlayer ? me : foe;
     return switch (type) {
       EventType.attack =>
         '$who used ${move.name}!${crit ? ' Critical hit!' : ''}${effectiveness > 1
@@ -64,7 +103,7 @@ class BattleEvent {
       EventType.miss => '$who used ${move.name}… but missed!',
       EventType.roar => '$who let out a Battle Roar! ATK up!',
       EventType.guard => '$who is guarding${heal > 0 ? ' (+$heal HP)' : ''}.',
-      EventType.faint => byPlayer ? 'Enemy fainted!' : 'Your beast fainted!',
+      EventType.faint => byPlayer ? '$foe fainted!' : '$me fainted!',
     };
   }
 }
@@ -94,9 +133,10 @@ class BattleEngine {
   }
 
   /// Plays one full round. Returns the ordered events for the UI to animate.
-  List<BattleEvent> playRound(Move playerMove) {
+  /// [enemyMove] comes from the other phone in live battles; otherwise the AI picks.
+  List<BattleEvent> playRound(Move playerMove, {Move? enemyMove}) {
     turn++;
-    final aiMove = chooseAiMove();
+    final aiMove = enemyMove != null && enemy.isReady(enemyMove) ? enemyMove : (enemyMove != null ? enemy.moveOf(MoveKind.claw) : chooseAiMove());
     final playerFirst = player.monster.spd == enemy.monster.spd ? _r.nextBool() : player.monster.spd > enemy.monster.spd;
 
     // Guards activate before any attack this round.

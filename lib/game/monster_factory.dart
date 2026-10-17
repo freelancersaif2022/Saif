@@ -69,25 +69,26 @@ class MonsterFactory {
   // ---------------------------------------------------------------------------
   // Arena ladder opponents (deterministic per stage).
   // ---------------------------------------------------------------------------
-  static const tiers = ['Mud Pit', 'Bone Yard', 'Lava Rim', 'Storm Peak', 'The Abyss', 'Titan Throne'];
-  static const stagesPerTier = 5;
+  static const tiers = ['Mud Pit', 'Bone Yard', 'Lava Rim', 'Frost Hollow', 'Storm Peak', 'Toxic Marsh', 'Crystal Caves', 'The Abyss', 'Sky Citadel', 'Titan Throne'];
+  static const stagesPerTier = 6;
   static int get totalStages => tiers.length * stagesPerTier;
 
   static bool isBoss(int stage) => stage % stagesPerTier == stagesPerTier - 1;
 
   static Monster opponentForStage(int stage) {
     final r = Random(stage * 7919 + 17);
-    final level = (1 + stage * 0.95).round().clamp(1, Monster.maxLevel);
+    // 60 stages climb smoothly from Lv 1 to the Lv 30 final boss.
+    final level = (1 + stage * 0.49).round().clamp(1, Monster.maxLevel);
     final boss = isBoss(stage);
-    int stat() => (34 + r.nextInt(30) + stage * 0.9 + (boss ? 8 : 0)).round().clamp(10, 100);
-    final evo = boss ? (stage >= 19 ? 3 : 2) : (stage >= 22 ? 3 : (stage >= 10 ? 2 : 1));
+    int stat() => (34 + r.nextInt(30) + stage * 0.45 + (boss ? 8 : 0)).round().clamp(10, 100);
+    final evo = boss ? (stage >= 35 ? 3 : 2) : (stage >= 40 ? 3 : (stage >= 18 ? 2 : 1));
     final seed = stage * 104729 + 7;
     return Monster(
       id: 'ai_$stage',
       name: nameFor(seed),
       seed: seed,
       element: BeastElement.values[r.nextInt(BeastElement.values.length)],
-      rarity: boss ? Rarity.epic : (stage > 20 ? Rarity.rare : Rarity.common),
+      rarity: stage == totalStages - 1 ? Rarity.legendary : (boss ? Rarity.epic : (stage > 36 ? Rarity.rare : Rarity.common)),
       stats: BaseStats(stat(), stat(), stat(), stat()),
       level: level,
       stage: evo,

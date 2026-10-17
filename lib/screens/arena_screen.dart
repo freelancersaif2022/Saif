@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 
 import '../app.dart';
 import '../game/monster_factory.dart';
+import '../game/battle_session.dart';
 import '../models/monster.dart';
+import '../net/live_link.dart';
+import '../services/sfx.dart';
 import '../services/ads/ad_service.dart';
 import '../services/game_store.dart';
 import '../theme/app_theme.dart';
@@ -13,6 +16,7 @@ import '../widgets/feedback.dart';
 import '../widgets/monster_view.dart';
 import '../widgets/ui.dart';
 import 'battle_screen.dart';
+import 'live_host_screen.dart';
 import 'home_shell.dart';
 import 'scan_screen.dart';
 
@@ -38,6 +42,8 @@ class ArenaScreen extends StatelessWidget {
                   sliver: SliverList.list(
                     children: [
                       const _EnergyPanel(),
+                      const SizedBox(height: 12),
+                      const _LivePanel(),
                       const SizedBox(height: 12),
                       const _FriendChallengePanel(),
                       SectionTitle(
@@ -83,23 +89,37 @@ class ArenaScreen extends StatelessWidget {
     );
   }
 
-  static Color _tierColor(int tier) => const [Color(0xFFB08D57), Color(0xFFE0E0E0), Color(0xFFFF7043), Color(0xFFFFEB3B), Color(0xFFB388FF), Color(0xFFFFC93C)][tier];
+  static Color _tierColor(int tier) => const [
+    Color(0xFFB08D57),
+    Color(0xFFE0E0E0),
+    Color(0xFFFF7043),
+    Color(0xFF8EE8FF),
+    Color(0xFFFFEB3B),
+    Color(0xFF9CCC65),
+    Color(0xFF64FFDA),
+    Color(0xFFB388FF),
+    Color(0xFF82B1FF),
+    Color(0xFFFFC93C),
+  ][tier % 10];
 
-  /// Shared entry point for all battles (ladder + friends).
+  static bool _needsBeast(BuildContext context) {
+    if (GameScope.read(context).monsters.isNotEmpty) return false;
+    AppToast.show(
+      'Summon a beast before entering the arena.',
+      type: ToastType.info,
+      title: 'No beast yet',
+      actionLabel: 'Summon',
+      onAction: () {
+        if (context.mounted) HomeShell.switchTab(context, 1);
+      },
+    );
+    return true;
+  }
+
+  /// Shared entry point for AI battles (ladder + friend QR "ghost" battles).
   static Future<void> startBattle(BuildContext context, {required Monster enemy, int? ladderStage}) async {
     final store = GameScope.read(context);
-    if (store.monsters.isEmpty) {
-      AppToast.show(
-        'Summon a beast before entering the arena.',
-        type: ToastType.info,
-        title: 'No beast yet',
-        actionLabel: 'Summon',
-        onAction: () {
-          if (context.mounted) HomeShell.switchTab(context, 1);
-        },
-      );
-      return;
-    }
+    if (_needsBeast(context)) return;
     final fighter = await showModalBottomSheet<Monster>(
       context: context,
       isScrollControlled: true,
@@ -110,7 +130,75 @@ class ArenaScreen extends StatelessWidget {
     if (!context.mounted) return;
     store.spendEnergy();
     store.select(fighter);
-    await Navigator.of(context).push(gameRoute(BattleScreen(player: fighter, enemy: enemy, ladderStage: ladderStage)));
+    await Navigator.of(context).push(
+      gameRoute(BattleScreen(session: LocalSession(fighter, enemy), player: fighter, enemy: enemy, ladderStage: ladderStage, mode: ladderStage == null ? BattleMode.friendGhost : BattleMode.ladder)),
+    );
+  }
+
+  /// Opens a live room: shows a QR the friend scans to join.
+  static Future<void> hostLive(BuildContext context) async {
+    if (_needsBeast(context)) return;
+    if (!LiveNet.supported) {
+      AppToast.show('Live battles need the Android app.', type: ToastType.error);
+      return;
+    }
+    final fighter = await showModalBottomSheet<Monster>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _PreBattleSheet(enemy: null, title: 'Host a Live Battle', buttonLabel: 'CREATE ROOM', costsEnergy: false),
+    );
+    if (fighter == null || !context.mounted) return;
+    GameScope.read(context).select(fighter);
+    await Navigator.of(context).push(gameRoute(LiveHostScreen(fighter: fighter)));
+  }
+
+  /// Joins a friend's live room from their QR / code.
+  static Future<void> joinLive(BuildContext context, LiveInvite invite) async {
+    if (_needsBeast(context)) return;
+    final friend = Monster.fromChallengeCode(invite.monsterCode);
+    if (friend == null) {
+      AppToast.show('That live code is not valid.', type: ToastType.error);
+      return;
+    }
+    final fighter = await showModalBottomSheet<Monster>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PreBattleSheet(enemy: friend, title: 'Live Battle', buttonLabel: 'JOIN BATTLE', costsEnergy: false),
+    );
+    if (fighter == null || !context.mounted) return;
+    GameScope.read(context).select(fighter);
+    final nav = Navigator.of(context);
+    // Connecting popup while the phones find each other.
+    unawaited(
+      AppDialog.show(
+        context: context,
+        title: 'Connecting…',
+        message: 'Joining ${friend.name}. Both phones must be on the same Wi-Fi or hotspot.',
+        accent: AppColors.cyan,
+        hero: const SizedBox(width: 56, height: 56, child: CircularProgressIndicator(color: AppColors.cyan, strokeWidth: 5)),
+        dismissible: false,
+      ),
+    );
+    LiveSession? session;
+    Object? error;
+    try {
+      session = await LiveSession.asGuest(invite, fighter);
+    } catch (e) {
+      error = e;
+    }
+    nav.pop(); // close "Connecting…"
+    if (session == null) {
+      AppToast.show(
+        error is FormatException
+            ? 'That live code is not valid.'
+            : 'Could not reach your friend. Make sure both phones are on the same Wi-Fi (or one uses the other\'s hotspot) and the host is still waiting.',
+        type: ToastType.error,
+        title: 'Connection failed',
+      );
+      return;
+    }
+    Sfx.play(Fx.levelup);
+    await nav.push(gameRoute(BattleScreen(session: session, player: fighter, enemy: friend, mode: BattleMode.live)));
   }
 
   static Future<bool> ensureEnergy(BuildContext context) async {
@@ -226,9 +314,11 @@ class _FriendChallengePanel extends StatelessWidget {
   Future<void> _enterCode(BuildContext context) async {
     final ctrl = TextEditingController();
     final clip = await Clipboard.getData(Clipboard.kTextPlain);
-    if (clip?.text?.contains('VBA1.') ?? false) ctrl.text = clip!.text!;
+    final clipText = clip?.text ?? '';
+    if (clipText.contains('VBA1.') || LiveInvite.looksLike(clipText)) ctrl.text = clipText;
     if (!context.mounted) return;
     Monster? enemy;
+    LiveInvite? invite;
     await AppDialog.show(
       context: context,
       title: 'Enter challenge code',
@@ -244,6 +334,11 @@ class _FriendChallengePanel extends StatelessWidget {
       ),
       primaryLabel: 'Find beast',
       onPrimary: () {
+        invite = LiveInvite.decode(ctrl.text);
+        if (invite != null) {
+          Navigator.of(context).pop();
+          return;
+        }
         final m = Monster.fromChallengeCode(ctrl.text);
         if (m == null) {
           AppToast.show('That code is not valid. Check it and try again.', type: ToastType.error, title: 'Invalid code');
@@ -254,13 +349,15 @@ class _FriendChallengePanel extends StatelessWidget {
       },
       secondaryLabel: 'Cancel',
     );
-    if (enemy != null && context.mounted) await ArenaScreen.startBattle(context, enemy: enemy!);
+    if (!context.mounted) return;
+    if (invite != null) {
+      await ArenaScreen.joinLive(context, invite!);
+    } else if (enemy != null) {
+      await ArenaScreen.startBattle(context, enemy: enemy!);
+    }
   }
 
-  Future<void> _scan(BuildContext context) async {
-    final m = await Navigator.of(context).push<Monster>(gameRoute(const ScanScreen()));
-    if (m != null && context.mounted) await ArenaScreen.startBattle(context, enemy: m);
-  }
+  Future<void> _scan(BuildContext context) => scanAndBattle(context);
 
   @override
   Widget build(BuildContext context) {
@@ -288,6 +385,52 @@ class _FriendChallengePanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: GameButton(label: 'Enter Code', icon: Icons.keyboard_rounded, color: AppColors.surfaceHi, small: true, onTap: () => _enterCode(context)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivePanel extends StatelessWidget {
+  const _LivePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      gradient: LinearGradient(colors: [AppColors.danger.withValues(alpha: 0.32), AppColors.surface]),
+      borderColor: AppColors.danger.withValues(alpha: 0.55),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.wifi_tethering_rounded, color: Color(0xFFFF8A80), size: 28),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Live Battle', style: AppText.h2)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(6)),
+                child: Text(
+                  '2 PLAYERS',
+                  style: AppText.small.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Fight a friend in real time. Both pick moves at the same time. Same Wi-Fi or phone hotspot, no internet needed.', style: AppText.small),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GameButton(label: 'Host', icon: Icons.qr_code_2_rounded, color: AppColors.danger, small: true, onTap: () => ArenaScreen.hostLive(context)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GameButton(label: 'Join', icon: Icons.qr_code_scanner_rounded, color: AppColors.surfaceHi, small: true, onTap: () => scanAndBattle(context)),
               ),
             ],
           ),
@@ -390,9 +533,12 @@ class _StageTile extends StatelessWidget {
 }
 
 class _PreBattleSheet extends StatefulWidget {
-  const _PreBattleSheet({required this.enemy, this.ladderStage});
-  final Monster enemy;
+  const _PreBattleSheet({required this.enemy, this.ladderStage, this.title, this.buttonLabel = 'FIGHT', this.costsEnergy = true});
+  final Monster? enemy; // null when hosting a live room (friend not known yet)
   final int? ladderStage;
+  final String? title;
+  final String buttonLabel;
+  final bool costsEnergy;
 
   @override
   State<_PreBattleSheet> createState() => _PreBattleSheetState();
@@ -405,7 +551,7 @@ class _PreBattleSheetState extends State<_PreBattleSheet> {
   Widget build(BuildContext context) {
     final store = GameScope.of(context);
     final enemy = widget.enemy;
-    final adv = _pick.element.against(enemy.element);
+    final adv = enemy == null ? 1.0 : _pick.element.against(enemy.element);
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(10),
@@ -424,7 +570,7 @@ class _PreBattleSheetState extends State<_PreBattleSheet> {
               decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 10),
-            Text(widget.ladderStage != null ? 'Stage ${widget.ladderStage! + 1}' : 'Friend Challenge', style: AppText.h2),
+            Text(widget.title ?? (widget.ladderStage != null ? 'Stage ${widget.ladderStage! + 1}' : 'Friend Challenge'), style: AppText.h2),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -433,7 +579,7 @@ class _PreBattleSheetState extends State<_PreBattleSheet> {
                 ),
                 Text('VS', style: AppText.display.copyWith(color: AppColors.gold)),
                 Expanded(
-                  child: _Side(monster: enemy, label: 'ENEMY', facingLeft: true),
+                  child: enemy != null ? _Side(monster: enemy, label: widget.costsEnergy ? 'ENEMY' : 'FRIEND', facingLeft: true) : const _MysterySide(),
                 ),
               ],
             ),
@@ -486,16 +632,18 @@ class _PreBattleSheetState extends State<_PreBattleSheet> {
             ),
             const SizedBox(height: 14),
             GameButton(
-              label: 'FIGHT',
-              icon: Icons.sports_mma_rounded,
+              label: widget.buttonLabel,
+              icon: widget.costsEnergy ? Icons.sports_mma_rounded : Icons.wifi_tethering_rounded,
               expand: true,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.bolt_rounded, color: Colors.white, size: 18),
-                  Text('1', style: AppText.h3.copyWith(color: Colors.white)),
-                ],
-              ),
+              trailing: widget.costsEnergy
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bolt_rounded, color: Colors.white, size: 18),
+                        Text('1', style: AppText.h3.copyWith(color: Colors.white)),
+                      ],
+                    )
+                  : null,
               onTap: () => Navigator.of(context).pop(_pick),
             ),
           ],
@@ -503,6 +651,22 @@ class _PreBattleSheetState extends State<_PreBattleSheet> {
       ),
     );
   }
+}
+
+class _MysterySide extends StatelessWidget {
+  const _MysterySide();
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Text('FRIEND', style: AppText.small.copyWith(letterSpacing: 2, fontWeight: FontWeight.w900)),
+      const SizedBox(
+        height: 120,
+        child: Center(child: Icon(Icons.help_outline_rounded, size: 64, color: AppColors.textMute)),
+      ),
+      Text('Waiting…', style: AppText.h3),
+      Text('Joins with your QR', style: AppText.small),
+    ],
+  );
 }
 
 class _Side extends StatelessWidget {
@@ -520,4 +684,18 @@ class _Side extends StatelessWidget {
       Text('Lv ${monster.level} • ${monster.element.emoji} • PWR ${monster.power}', style: AppText.small),
     ],
   );
+}
+
+/// Scans any VoiceBeast QR: a live room invite joins the live battle,
+/// a beast QR starts a battle against that beast.
+Future<void> scanAndBattle(BuildContext context) async {
+  final raw = await Navigator.of(context).push<String>(gameRoute(const ScanScreen()));
+  if (raw == null || !context.mounted) return;
+  final invite = LiveInvite.decode(raw);
+  if (invite != null) {
+    await ArenaScreen.joinLive(context, invite);
+    return;
+  }
+  final m = Monster.fromChallengeCode(raw);
+  if (m != null) await ArenaScreen.startBattle(context, enemy: m);
 }

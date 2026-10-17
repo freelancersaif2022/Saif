@@ -91,13 +91,16 @@ void main() {
       expect(a.element, b.element);
     });
 
-    test('ladder has 30 stages with growing levels and bosses', () {
-      expect(MonsterFactory.totalStages, 30);
+    test('ladder has 60 stages with growing levels and bosses', () {
+      expect(MonsterFactory.totalStages, 60);
       final first = MonsterFactory.opponentForStage(0);
-      final last = MonsterFactory.opponentForStage(29);
+      final last = MonsterFactory.opponentForStage(59);
+      expect(last.level, Monster.maxLevel);
       expect(last.level, greaterThan(first.level));
-      expect(MonsterFactory.isBoss(4), isTrue);
-      expect(MonsterFactory.isBoss(3), isFalse);
+      expect(MonsterFactory.isBoss(5), isTrue);
+      expect(MonsterFactory.isBoss(4), isFalse);
+      final names = {for (var i = 0; i < 60; i++) MonsterFactory.opponentForStage(i).seed};
+      expect(names.length, 60);
     });
   });
 
@@ -144,8 +147,8 @@ void main() {
   group('BattleEngine', () {
     test('every battle ends and has exactly one winner', () {
       for (var s = 0; s < 40; s++) {
-        final a = MonsterFactory.opponentForStage(s % 30);
-        final b = MonsterFactory.opponentForStage((s * 7) % 30);
+        final a = MonsterFactory.opponentForStage(s % 60);
+        final b = MonsterFactory.opponentForStage((s * 7) % 60);
         final e = BattleEngine(a, b, random: Random(s));
         var rounds = 0;
         while (!e.over && rounds < 200) {

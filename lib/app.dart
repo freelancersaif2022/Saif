@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/game_store.dart';
+import 'services/sfx.dart';
 import 'theme/app_theme.dart';
 import 'widgets/feedback.dart';
 
@@ -31,6 +32,9 @@ class _VoiceBeastAppState extends State<VoiceBeastApp> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       widget.store.flush();
+      Sfx.pauseMusic();
+    } else if (state == AppLifecycleState.resumed) {
+      Sfx.resumeMusic();
     }
   }
 

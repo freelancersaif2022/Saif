@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../services/game_store.dart';
+import '../services/sfx.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
 import 'arena_screen.dart';
@@ -24,6 +25,12 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late int _tab = widget.initialTab;
+
+  @override
+  void initState() {
+    super.initState();
+    Sfx.music(MusicTrack.menu);
+  }
 
   static const _items = [(Icons.catching_pokemon_rounded, 'Lair'), (Icons.mic_rounded, 'Summon'), (Icons.sports_mma_rounded, 'Arena'), (Icons.storefront_rounded, 'Shop')];
 
