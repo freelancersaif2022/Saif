@@ -33,6 +33,12 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 code shrinking removed Room's generated WorkDatabase_Impl (used by
+            // WorkManager inside the AdMob SDK), crashing the app on launch. Keep
+            // the full code; proguard-rules.pro protects it if shrinking is re-enabled.
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
